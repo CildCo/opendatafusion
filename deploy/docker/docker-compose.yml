@@ -1,0 +1,140 @@
+x-common: &common
+  image: ${ODF_IMAGE:-odf:local}
+  build:
+    context: ../..
+    dockerfile: deploy/docker/Dockerfile
+  environment: &env
+    ODF_DATABASE_URL: postgresql+psycopg://odf:${POSTGRES_PASSWORD:-odf}@postgres:5432/odf
+    ODF_JWT_SECRET: ${ODF_JWT_SECRET:?set ODF_JWT_SECRET}
+    ODF_FERNET_KEY: ${ODF_FERNET_KEY:?set ODF_FERNET_KEY}
+    ODF_PASSWORD_MIN_LENGTH: ${ODF_PASSWORD_MIN_LENGTH:-10}
+    ODF_FILE_DIR: /data/odf/files
+    ODF_FILE_SOURCE_ROOTS: /data/odf/files
+    ODF_HTTP_ALLOW_PRIVATE: ${ODF_HTTP_ALLOW_PRIVATE:-false}
+    ODF_AKSK_ALLOW_SHA1: ${ODF_AKSK_ALLOW_SHA1:-true}
+    ODF_LOG_JSON: ${ODF_LOG_JSON:-true}
+    ODF_OTEL_ENABLED: ${ODF_OTEL_ENABLED:-false}
+    ODF_OTEL_ENDPOINT: ${ODF_OTEL_ENDPOINT:-http://otel-collector:4317}
+  restart: unless-stopped
+  init: true
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: ["ALL"]
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: odf
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-odf}
+      POSTGRES_DB: odf
+    volumes:
+      - odf_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odf -d odf"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  migrate:
+    <<: *common
+    environment:
+      <<: *env
+      ODF_ROLE: migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *common
+    environment:
+      <<: *env
+      ODF_ROLE: api
+      ODF_WEB_CONCURRENCY: ${ODF_WEB_CONCURRENCY:-2}
+    ports:
+      - "${ODF_API_PORT:-18080}:18080"
+    volumes:
+      - odf_files:/data/odf/files
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18080/readyz', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  mcp:
+    <<: *common
+    environment:
+      <<: *env
+      ODF_ROLE: mcp
+    ports:
+      - "${ODF_MCP_PORT:-18082}:18082"
+    volumes:
+      - odf_files:/data/odf/files
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *common
+    environment:
+      <<: *env
+      ODF_ROLE: worker
+    volumes:
+      - odf_files:/data/odf/files
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  scheduler:
+    <<: *common
+    environment:
+      <<: *env
+      ODF_ROLE: scheduler
+    volumes:
+      - odf_files:/data/odf/files
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  backup:
+    image: postgres:16-alpine
+    profiles: ["ops"]
+    environment:
+      ODF_DATABASE_URL: postgresql+psycopg://odf:${POSTGRES_PASSWORD:-odf}@postgres:5432/odf
+      ODF_FILE_DIR: /data/odf/files
+      ODF_BACKUP_KEEP: ${ODF_BACKUP_KEEP:-14}
+    volumes:
+      - ../../scripts/backup.sh:/scripts/backup.sh:ro
+      - odf_files:/data/odf/files:ro
+      - odf_backups:/backups
+    command: ["/bin/bash", "/scripts/backup.sh", "/backups"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  audit-prune:
+    <<: *common
+    profiles: ["ops"]
+    environment:
+      <<: *env
+      ODF_ROLE: prune
+      ODF_BACKUP_DIR: /backups
+      ODF_AUDIT_RETENTION_DAYS: ${ODF_AUDIT_RETENTION_DAYS:-180}
+    volumes:
+      - odf_backups:/backups
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+volumes:
+  odf_pg:
+  odf_files:
+  odf_backups:

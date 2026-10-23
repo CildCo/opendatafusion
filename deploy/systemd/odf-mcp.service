@@ -1,0 +1,18 @@
+[Unit]
+Description=ODF MCP server
+After=network.target postgresql.service
+[Service]
+User=odf
+WorkingDirectory=/opt/odf/impl
+EnvironmentFile=/opt/odf/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/odf/venv/bin/python -m odf.mcp.http
+MemoryMax=512M
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/data/odf
+[Install]
+WantedBy=multi-user.target

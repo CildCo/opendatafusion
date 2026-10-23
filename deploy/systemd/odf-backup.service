@@ -1,0 +1,9 @@
+[Unit]
+Description=ODF database and file backup
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=/opt/odf/.env
+ExecStart=/bin/bash /opt/odf/scripts/backup.sh /backups/odf

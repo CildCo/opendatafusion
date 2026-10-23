@@ -1,0 +1,19 @@
+OpenDataFusion is installed.
+
+API service:
+  {{ include "odf.fullname" . }}-api:18080
+MCP service:
+  {{ include "odf.fullname" . }}-mcp:18082
+
+The migration Job ran as a Helm pre-install/pre-upgrade hook.
+{{- if .Values.ingress.enabled }}
+Ingress host: {{ .Values.ingress.host }}
+{{- end }}
+{{- if .Values.persistence.enabled }}
+File storage claim: {{ include "odf.filesClaim" . }} ({{ .Values.persistence.accessMode }})
+API, MCP, workers and the scheduler all mount this claim; use an RWX class
+or disable persistence and configure the S3 backend.
+{{- end }}
+{{- if .Values.backup.enabled }}
+Backups: CronJob {{ include "odf.fullname" . }}-backup, claim {{ include "odf.backupClaim" . }}
+{{- end }}

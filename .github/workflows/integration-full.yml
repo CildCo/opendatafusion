@@ -1,0 +1,77 @@
+name: integration-full
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 3 * * 1"
+
+jobs:
+  full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ODF_DATABASE_URL: sqlite:///./ci.db
+      ODF_IT_POSTGRES_URL: postgresql+psycopg://odf:odf@127.0.0.1:55432/odf_it
+      ODF_IT_CLICKHOUSE_URL: clickhouse://default:@127.0.0.1:58123/default
+      ODF_IT_S3_ENDPOINT: http://127.0.0.1:59010
+      ODF_IT_S3_BUCKET: odf-it
+      ODF_IT_S3_ACCESS_KEY: odfminio
+      ODF_IT_S3_SECRET_KEY: odfminio123
+      ODF_IT_MSSQL_URL: "mssql+pymssql://sa:Odf_Strong_Passw0rd!@127.0.0.1:51433/master"
+      ODF_IT_ORACLE_URL: "oracle+oracledb://odf:Odf_Oracle_123@127.0.0.1:51521/?service_name=FREEPDB1"
+      ODF_IT_OIDC_ISSUER: http://127.0.0.1:58080/realms/odf
+      ODF_IT_OIDC_CLIENT_ID: odf
+      ODF_IT_OIDC_CLIENT_SECRET: odf-secret
+      ODF_IT_LDAP_URL: ldap://127.0.0.1:51389
+      ODF_IT_LDAP_USER_DN_TEMPLATE: "cn={username},ou=users,dc=example,dc=org"
+      ODF_IT_LDAP_PASSWORD: alicepass
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Generate test secrets
+        run: |
+          echo "ODF_JWT_SECRET=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" >> "$GITHUB_ENV"
+          echo "ODF_FERNET_KEY=$(python -c 'import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')" >> "$GITHUB_ENV"
+      - name: Install
+        working-directory: impl
+        run: |
+          python -m pip install -U pip
+          python -m pip install -e ".[dev,ldap,files-s3]"
+      - name: Start services
+        run: docker compose -f deploy/integration/docker-compose.yml --profile full up -d
+      - name: Wait for services
+        run: |
+          python - <<'PY'
+          import socket, time, urllib.request
+          ports = [55432, 58123, 59010, 51433, 51521, 58080, 51389]
+          deadline = time.time() + 300
+          for port in ports:
+              while True:
+                  try:
+                      with socket.create_connection(("127.0.0.1", port), 2):
+                          break
+                  except OSError:
+                      if time.time() > deadline:
+                          raise SystemExit("port %s did not open" % port)
+                      time.sleep(3)
+          while True:
+              try:
+                  urllib.request.urlopen(
+                      "http://127.0.0.1:58080/realms/odf", timeout=3)
+                  break
+              except Exception:
+                  if time.time() > deadline:
+                      raise SystemExit("keycloak not ready")
+                  time.sleep(3)
+          PY
+      - name: Integration tests
+        working-directory: impl
+        run: pytest tests/integration -m integration -q
+      - name: Service logs
+        if: failure()
+        run: docker compose -f deploy/integration/docker-compose.yml --profile full logs --tail 300
+      - name: Stop services
+        if: always()
+        run: docker compose -f deploy/integration/docker-compose.yml --profile full down -v

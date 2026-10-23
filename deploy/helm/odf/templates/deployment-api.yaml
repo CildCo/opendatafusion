@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "odf.fullname" . }}-api
+  labels:
+    {{- include "odf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicas }}
+  strategy:
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  selector:
+    matchLabels:
+      {{- include "odf.selector" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "odf.selector" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      serviceAccountName: {{ include "odf.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext: {{ toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: api
+          image: {{ include "odf.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext: {{ toYaml .Values.securityContext | nindent 12 }}
+          envFrom:
+            - configMapRef: {name: {{ include "odf.fullname" . }}-config}
+            - secretRef: {name: {{ include "odf.secretName" . }}}
+          env:
+            - {name: ODF_ROLE, value: api}
+            - {name: ODF_WEB_CONCURRENCY, value: {{ .Values.api.webConcurrency | quote }}}
+          ports:
+            - {name: http, containerPort: 18080}
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: {path: /livez, port: http}
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources: {{ toYaml .Values.api.resources | nindent 12 }}
+          volumeMounts:
+            - {name: files, mountPath: /data/odf/files}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: files
+        {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "odf.filesClaim" . }}
+        {{- else }}
+          emptyDir: {}
+        {{- end }}
+        - name: tmp
+          emptyDir: {}

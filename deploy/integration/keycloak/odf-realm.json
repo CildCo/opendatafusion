@@ -1,0 +1,33 @@
+{
+  "realm": "odf",
+  "enabled": true,
+  "registrationAllowed": false,
+  "clients": [
+    {
+      "clientId": "odf",
+      "secret": "odf-secret",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:18081/api/v1/auth/oidc/callback",
+        "http://127.0.0.1:18081/api/v1/auth/oidc/callback"
+      ],
+      "webOrigins": ["*"]
+    }
+  ],
+  "users": [
+    {
+      "username": "alice",
+      "enabled": true,
+      "email": "alice@example.com",
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Tester",
+      "credentials": [
+        {"type": "password", "value": "alicepass", "temporary": false}
+      ]
+    }
+  ]
+}

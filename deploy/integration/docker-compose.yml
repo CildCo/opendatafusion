@@ -1,0 +1,98 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["core", "full"]
+    environment:
+      POSTGRES_USER: odf
+      POSTGRES_PASSWORD: odf
+      POSTGRES_DB: odf_it
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odf -d odf_it"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    profiles: ["core", "full"]
+    environment:
+      CLICKHOUSE_SKIP_USER_SETUP: "1"
+    ports:
+      - "58123:8123"
+      - "59000:9000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8123/ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
+  minio:
+    image: minio/minio:latest
+    profiles: ["core", "full"]
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: odfminio
+      MINIO_ROOT_PASSWORD: odfminio123
+    ports:
+      - "59010:9000"
+      - "59011:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    profiles: ["full"]
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Odf_Strong_Passw0rd!"
+    ports:
+      - "51433:1433"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Odf_Strong_Passw0rd!' -Q 'SELECT 1' || /opt/mssql-tools/bin/sqlcmd -C -S localhost -U sa -P 'Odf_Strong_Passw0rd!' -Q 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
+  oracle:
+    image: gvenzl/oracle-free:23-slim
+    profiles: ["full"]
+    environment:
+      ORACLE_PASSWORD: "Odf_Oracle_123"
+      APP_USER: odf
+      APP_USER_PASSWORD: "Odf_Oracle_123"
+    ports:
+      - "51521:1521"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 10s
+      retries: 60
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    profiles: ["idp", "full"]
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+    ports:
+      - "58080:8080"
+
+  openldap:
+    image: bitnami/openldap:latest
+    profiles: ["idp", "full"]
+    environment:
+      LDAP_ROOT: dc=example,dc=org
+      LDAP_ADMIN_USERNAME: admin
+      LDAP_ADMIN_PASSWORD: adminpass
+      LDAP_USERS: alice,bob
+      LDAP_PASSWORDS: alicepass,bobpass
+    ports:
+      - "51389:1389"

@@ -1,0 +1,101 @@
+image:
+  repository: ghcr.io/example/odf
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+secrets:
+  # Create a Secret from the values below, or point to an existing one.
+  create: false
+  existingSecret: ""
+  databaseUrl: ""
+  jwtSecret: ""
+  fernetKey: ""
+
+env:
+  ODF_LOG_JSON: "true"
+  ODF_HTTP_ALLOW_PRIVATE: "false"
+  ODF_AKSK_ALLOW_SHA1: "false"
+  ODF_METRICS_ENABLED: "true"
+  ODF_OTEL_ENABLED: "false"
+  ODF_OTEL_ENDPOINT: "http://otel-collector:4317"
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+api:
+  replicas: 2
+  port: 18080
+  webConcurrency: 2
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "2", memory: 2Gi}
+
+mcp:
+  replicas: 1
+  port: 18082
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+
+worker:
+  replicas: 2
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "2", memory: 2Gi}
+
+scheduler:
+  replicas: 1
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+
+persistence:
+  enabled: true
+  existingClaim: ""
+  accessMode: ReadWriteMany
+  size: 10Gi
+  storageClass: ""
+
+service:
+  type: ClusterIP
+
+ingress:
+  enabled: false
+  className: nginx
+  host: odf.example.com
+  tlsSecret: ""
+
+podSecurityContext:
+  fsGroup: 10001
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+backup:
+  enabled: false
+  schedule: "17 2 * * *"
+  image: postgres:16-alpine
+  retentionDays: 14
+  size: 20Gi
+  storageClass: ""
+  existingClaim: ""
+
+auditPrune:
+  enabled: false
+  schedule: "17 3 * * 0"
+  retentionDays: 180
+  archiveKeepDays: 365
+
+migration:
+  backoffLimit: 3
+  activeDeadlineSeconds: 600

@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily ODF backup
+
+[Timer]
+OnCalendar=*-*-* 02:17:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

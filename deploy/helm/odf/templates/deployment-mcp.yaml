@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "odf.fullname" . }}-mcp
+  labels:
+    {{- include "odf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp
+spec:
+  replicas: {{ .Values.mcp.replicas }}
+  selector:
+    matchLabels:
+      {{- include "odf.selector" . | nindent 6 }}
+      app.kubernetes.io/component: mcp
+  template:
+    metadata:
+      labels:
+        {{- include "odf.selector" . | nindent 8 }}
+        app.kubernetes.io/component: mcp
+    spec:
+      serviceAccountName: {{ include "odf.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext: {{ toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: mcp
+          image: {{ include "odf.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext: {{ toYaml .Values.securityContext | nindent 12 }}
+          envFrom:
+            - configMapRef: {name: {{ include "odf.fullname" . }}-config}
+            - secretRef: {name: {{ include "odf.secretName" . }}}
+          env:
+            - {name: ODF_ROLE, value: mcp}
+            - {name: ODF_MCP_PORT, value: "18082"}
+          ports:
+            - {name: mcp, containerPort: 18082}
+          readinessProbe:
+            tcpSocket: {port: mcp}
+            periodSeconds: 10
+            failureThreshold: 6
+          resources: {{ toYaml .Values.mcp.resources | nindent 12 }}
+          volumeMounts:
+            - {name: files, mountPath: /data/odf/files}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: files
+        {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "odf.filesClaim" . }}
+        {{- else }}
+          emptyDir: {}
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
