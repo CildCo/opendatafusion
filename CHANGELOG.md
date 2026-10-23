@@ -21,4 +21,14 @@ All notable changes are documented here. The format follows
 - Reproducible 30GB benchmark harness and published capacity baseline.
 - English and Simplified Chinese documentation.
 
+### Fixed
+
+- Restore editable-install metadata so clean environments can install the
+  backend package.
+- Install the optional observability and metrics dependencies in CI.
+- Use a maintained S3 mock and a reliable ClickHouse readiness check in the
+  integration test environment.
+- Enforce TLS 1.2 for outbound HTTP and webhook connections, contain local
+  storage paths and avoid exposing readiness exception details.
+
 [1.0.0]: https://github.com/CildCo/opendatafusion/releases/tag/v1.0.0
