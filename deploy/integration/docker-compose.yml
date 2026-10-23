@@ -28,18 +28,13 @@ services:
       timeout: 3s
       retries: 40
 
-  minio:
-    image: minio/minio:latest
+  s3mock:
+    image: motoserver/moto:5.1.16
     profiles: ["core", "full"]
-    command: ["server", "/data", "--console-address", ":9001"]
-    environment:
-      MINIO_ROOT_USER: odfminio
-      MINIO_ROOT_PASSWORD: odfminio123
     ports:
-      - "59010:9000"
-      - "59011:9001"
+      - "59010:5000"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/moto-api/')"]
       interval: 3s
       timeout: 3s
       retries: 30

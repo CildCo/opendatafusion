@@ -20,7 +20,7 @@ by the skip, not by a separate test path.
 
 | Profile | Services | Used for |
 | --- | --- | --- |
-| `core` | PostgreSQL, ClickHouse, MinIO | every push |
+| `core` | PostgreSQL, ClickHouse, S3 mock (Moto) | every push |
 | `full` | core + SQL Server, Oracle Free, Keycloak, OpenLDAP | weekly / manual |
 | `idp` | Keycloak, OpenLDAP | identity-only runs |
 
@@ -37,8 +37,8 @@ ODF_IT_POSTGRES_URL=postgresql+psycopg://odf:odf@127.0.0.1:55432/odf_it
 ODF_IT_CLICKHOUSE_URL=clickhouse://default:@127.0.0.1:58123/default
 ODF_IT_S3_ENDPOINT=http://127.0.0.1:59010
 ODF_IT_S3_BUCKET=odf-it
-ODF_IT_S3_ACCESS_KEY=odfminio
-ODF_IT_S3_SECRET_KEY=odfminio123
+ODF_IT_S3_ACCESS_KEY=odf-test
+ODF_IT_S3_SECRET_KEY=odf-test-secret
 ```
 
 Full profile additionally uses:

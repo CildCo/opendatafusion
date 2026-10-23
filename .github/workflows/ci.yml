@@ -47,8 +47,8 @@ jobs:
       ODF_IT_CLICKHOUSE_URL: clickhouse://default:@127.0.0.1:58123/default
       ODF_IT_S3_ENDPOINT: http://127.0.0.1:59010
       ODF_IT_S3_BUCKET: odf-it
-      ODF_IT_S3_ACCESS_KEY: odfminio
-      ODF_IT_S3_SECRET_KEY: odfminio123
+      ODF_IT_S3_ACCESS_KEY: odf-test
+      ODF_IT_S3_SECRET_KEY: odf-test-secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
