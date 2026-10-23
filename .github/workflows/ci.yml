@@ -54,6 +54,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Generate test secrets
+        run: |
+          echo "ODF_JWT_SECRET=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" >> "$GITHUB_ENV"
+          echo "ODF_FERNET_KEY=$(python -c 'import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')" >> "$GITHUB_ENV"
       - name: Install
         working-directory: impl
         run: |
