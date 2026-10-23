@@ -23,10 +23,11 @@ services:
       - "58123:8123"
       - "59000:9000"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8123/ping"]
+      test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1'"]
       interval: 3s
       timeout: 3s
       retries: 40
+      start_period: 30s
 
   s3mock:
     image: motoserver/moto:5.1.16
