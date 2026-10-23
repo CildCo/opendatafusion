@@ -38,7 +38,7 @@ jobs:
         working-directory: impl
         run: |
           python -m pip install -U pip
-          python -m pip install -e ".[dev,ldap,files-s3]"
+          python -m pip install -e ".[dev,ldap,files-s3,metrics,otel]"
       - name: Start services
         run: docker compose -f deploy/integration/docker-compose.yml --profile full up -d
       - name: Wait for services
