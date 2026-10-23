@@ -82,6 +82,7 @@ def _run(session, asset, content, params, limit=None, include_sql=False,
             with engine.connect() as c:
                 prepare_connection(c, engine.dialect.name,
                                    s.query_timeout_s * 1000)
+                # SQL is compiled/guarded; all values are bound.
                 result = c.execute(text(sql), binds)
                 columns = list(result.keys())
                 rows = [dict(r) for r in

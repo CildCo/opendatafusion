@@ -70,6 +70,7 @@ def run_query(session, project_id, datasource_id, sql, limit=1000,
                                        settings.query_timeout_s * 1000)
                     if engine.dialect.name in ("mysql", "mariadb"):
                         c.execute(text("START TRANSACTION READ ONLY"))
+                    # wrapped was validated by the read-only SQL guard.
                     result = c.execute(text(wrapped))
                     columns = list(result.keys())
                     rows = [dict(r) for r in
