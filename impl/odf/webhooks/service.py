@@ -3,7 +3,6 @@ import hmac
 import json
 import secrets
 import socket
-import ssl
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
@@ -41,7 +40,8 @@ def _send(url, body, headers, allow_private=False):
     sock = socket.create_connection((ip, port), timeout=5)
     try:
         if parts.scheme == "https":
-            sock = ssl.create_default_context().wrap_socket(
+            from odf.services.net import tls_context
+            sock = tls_context().wrap_socket(
                 sock, server_hostname=parts.hostname)
         path = parts.path or "/"
         if parts.query:

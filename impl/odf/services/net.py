@@ -6,6 +6,12 @@ from urllib.parse import urlsplit
 DEFAULT_MAX_BYTES = 10 * 1024 * 1024
 
 
+def tls_context():
+    context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    return context
+
+
 def _host_allowed(host: str, allowed_hosts) -> bool:
     if not allowed_hosts:
         return True
@@ -72,7 +78,7 @@ def request(url, method="GET", body=None, headers=None, allow_private=False,
     sock = socket.create_connection((ip, port), timeout=timeout)
     try:
         if parts.scheme == "https":
-            sock = ssl.create_default_context().wrap_socket(
+            sock = tls_context().wrap_socket(
                 sock, server_hostname=parts.hostname)
         sock.sendall(raw)
         data = b""

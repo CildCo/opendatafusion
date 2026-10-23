@@ -1,8 +1,11 @@
+import logging
+
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/livez")
@@ -16,10 +19,11 @@ def readyz():
     try:
         with engine.connect() as c:
             c.execute(text("select 1"))
-    except Exception as e:
+    except Exception:
+        logger.exception("database readiness check failed")
         return JSONResponse(status_code=503,
                             content={"status": "degraded",
-                                     "database": str(e)[:200]})
+                                     "database": "unavailable"})
     return {"status": "ok", "database": "ok"}
 
 

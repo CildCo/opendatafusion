@@ -8,8 +8,13 @@ class LocalStorage:
         self.base = Path(base)
 
     def _path(self, key):
-        p = (self.base / key).resolve()
-        if self.base.resolve() not in p.parents and p != self.base.resolve():
+        base = self.base.resolve()
+        p = (base / key).resolve()
+        if p == base:
+            raise ValueError("invalid storage key")
+        try:
+            p.relative_to(base)
+        except ValueError:
             raise ValueError("invalid storage key")
         return p
 
