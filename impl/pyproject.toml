@@ -38,7 +38,7 @@ dependencies = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "sqlalchemy>=2.0",
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
-ldap = ["ldap3>=2.9"]
+ldap = ["ldap3>=2.9.1"]
 files-s3 = ["boto3>=1.34"]
 metrics = ["prometheus-client>=0.20"]
 otel = ["opentelemetry-sdk>=1.24", "opentelemetry-exporter-otlp>=1.24",
