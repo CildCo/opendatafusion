@@ -1,7 +1,9 @@
 from collections import defaultdict, deque
 
 NODE_TYPES = {"source", "filter", "select", "rename", "cast", "join",
-              "aggregate", "union", "dedupe", "quality", "sink"}
+              "aggregate", "union", "dedupe", "quality", "sink",
+              "spark", "flink_sql"}
+ENGINE_TYPES = {"spark", "flink_sql"}
 TWO_INPUT = {"join", "union"}
 
 
@@ -14,6 +16,8 @@ def _expected_inputs(typ):
         return 0
     if typ in TWO_INPUT:
         return 2
+    if typ in ENGINE_TYPES:
+        return None
     return 1
 
 
@@ -96,10 +100,18 @@ def validate_dag(content, for_preview=False):
         if n.get("type") not in NODE_TYPES:
             errs.append(_err(n.get("id"), "type",
                              "未知节点类型 %s" % n.get("type")))
-    if not any(n.get("type") == "source" for n in nodes):
-        errs.append(_err(None, "source", "缺少 source 节点"))
-    if not for_preview and not any(n.get("type") == "sink" for n in nodes):
-        errs.append(_err(None, "sink", "缺少 sink 节点"))
+    has_engine = any(n.get("type") in ENGINE_TYPES for n in nodes)
+    has_source = any(n.get("type") == "source" for n in nodes)
+    has_sink = any(n.get("type") == "sink" for n in nodes)
+    if has_engine:
+        if any(n.get("type") not in ENGINE_TYPES for n in nodes) \
+                and not has_source:
+            errs.append(_err(None, "source", "缺少 source 节点"))
+    else:
+        if not has_source:
+            errs.append(_err(None, "source", "缺少 source 节点"))
+        if not for_preview and not has_sink:
+            errs.append(_err(None, "sink", "缺少 sink 节点"))
 
     incoming = defaultdict(list)
     outdeg = defaultdict(int)
@@ -113,9 +125,11 @@ def validate_dag(content, for_preview=False):
         ins = incoming.get(nid, [])
         if typ == "source" and ins:
             errs.append(_err(nid, "connectivity", "source 不应有输入"))
-        if typ != "source" and len(ins) != expected:
+        if typ != "source" and expected is not None and len(ins) != expected:
             errs.append(_err(nid, "connectivity",
                              "需要 %d 个输入，实际 %d" % (expected, len(ins))))
+        if typ in ENGINE_TYPES and outdeg[nid]:
+            errs.append(_err(nid, "output", "engine 节点不能有输出"))
         if typ in TWO_INPUT:
             raw_ports = [e.get("to_port") for e in ins]
             if any(p is not None and p not in ("left", "right")
@@ -126,7 +140,8 @@ def validate_dag(content, for_preview=False):
                               for e in input_edges(content, nid)]
                 if sorted(normalized) != ["left", "right"]:
                     errs.append(_err(nid, "to_port", "left/right 端口重复"))
-        if not for_preview and typ not in ("sink", None) and not outdeg[nid]:
+        if (not for_preview and typ not in ("sink", None)
+                and typ not in ENGINE_TYPES and not outdeg[nid]):
             errs.append(_err(nid, "output", "输出未连接"))
 
     sources = [nid for nid, n in by_id.items() if n.get("type") == "source"]
@@ -139,8 +154,11 @@ def validate_dag(content, for_preview=False):
                     seen.add(e["to"])
                     q.append(e["to"])
         for nid in by_id:
-            if nid not in seen:
-                errs.append(_err(nid, "connectivity", "无法从 source 到达"))
+            if nid in seen:
+                continue
+            if by_id[nid].get("type") in ENGINE_TYPES:
+                continue
+            errs.append(_err(nid, "connectivity", "无法从 source 到达"))
 
     if nodes and not duplicate:
         try:

@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nessie
+  namespace: catalog
+  labels:
+    app: nessie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nessie
+  template:
+    metadata:
+      labels:
+        app: nessie
+      annotations:
+        checksum/config: "${NESSIE_CONFIG_SUM}"
+    spec:
+      containers:
+        - name: nessie
+          image: ${IMAGE_NESSIE}
+          ports:
+            - name: http
+              containerPort: 19120
+            - name: management
+              containerPort: 9000
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: management
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: management
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          volumeMounts:
+            - name: config
+              mountPath: /deployments/config
+              readOnly: true
+      volumes:
+        - name: config
+          secret:
+            secretName: nessie-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nessie
+  namespace: catalog
+spec:
+  selector:
+    app: nessie
+  ports:
+    - name: http
+      port: 19120
+      targetPort: http

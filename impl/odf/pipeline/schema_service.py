@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from odf.apistudio.catalog import table_column_info
 from odf.models import Asset, AssetVersion, Datasource
+from odf.pipeline.nodes import engine as _engine  # noqa: F401
 from odf.pipeline.nodes import sink as _sink  # noqa: F401
 from odf.pipeline.nodes import source as _source  # noqa: F401
 from odf.pipeline.nodes import transform as _transform  # noqa: F401

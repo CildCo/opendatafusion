@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: debezium
+  namespace: stream
+  labels:
+    app: debezium
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: debezium
+  template:
+    metadata:
+      labels:
+        app: debezium
+    spec:
+      containers:
+        - name: connect
+          image: ${IMAGE_DEBEZIUM}
+          env:
+            - name: BOOTSTRAP_SERVERS
+              value: kafka.stream.svc.cluster.local:9092
+            - name: GROUP_ID
+              value: odf-connect
+            - name: CONFIG_STORAGE_TOPIC
+              value: connect-configs
+            - name: OFFSET_STORAGE_TOPIC
+              value: connect-offsets
+            - name: STATUS_STORAGE_TOPIC
+              value: connect-status
+            - name: CONFIG_STORAGE_REPLICATION_FACTOR
+              value: "1"
+            - name: OFFSET_STORAGE_REPLICATION_FACTOR
+              value: "1"
+            - name: STATUS_STORAGE_REPLICATION_FACTOR
+              value: "1"
+            - name: KEY_CONVERTER
+              value: org.apache.kafka.connect.json.JsonConverter
+            - name: VALUE_CONVERTER
+              value: org.apache.kafka.connect.json.JsonConverter
+            - name: REST_ADVERTISED_HOST_NAME
+              value: debezium.stream.svc.cluster.local
+          ports:
+            - name: rest
+              containerPort: 8083
+          readinessProbe:
+            httpGet:
+              path: /
+              port: rest
+            initialDelaySeconds: 25
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: debezium
+  namespace: stream
+spec:
+  selector:
+    app: debezium
+  ports:
+    - name: rest
+      port: 8083
+      targetPort: rest

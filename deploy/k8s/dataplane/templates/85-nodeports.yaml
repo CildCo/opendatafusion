@@ -1,0 +1,77 @@
+# Stable entry points for the control plane and for operators. The selectors
+# match the Deployments in this directory.
+apiVersion: v1
+kind: Service
+metadata:
+  name: trino-node
+  namespace: trino
+spec:
+  type: NodePort
+  selector:
+    app: trino
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      nodePort: ${TRINO_NODEPORT}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flink-rest-node
+  namespace: stream
+spec:
+  type: NodePort
+  selector:
+    app: flink
+    component: jobmanager
+  ports:
+    - name: webui
+      port: 8081
+      targetPort: webui
+      nodePort: ${FLINK_REST_NODEPORT}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nessie-node
+  namespace: catalog
+spec:
+  type: NodePort
+  selector:
+    app: nessie
+  ports:
+    - name: http
+      port: 19120
+      targetPort: http
+      nodePort: ${NESSIE_NODEPORT}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: s3-node
+  namespace: storage
+spec:
+  type: NodePort
+  selector:
+    app: seaweedfs
+  ports:
+    - name: s3
+      port: 8333
+      targetPort: s3
+      nodePort: ${S3_NODEPORT}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: debezium-node
+  namespace: stream
+spec:
+  type: NodePort
+  selector:
+    app: debezium
+  ports:
+    - name: rest
+      port: 8083
+      targetPort: rest
+      nodePort: ${DEBEZIUM_NODEPORT}

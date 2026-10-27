@@ -46,3 +46,8 @@ class RunContext:
     until_cursor: str | None = None
     persist_cursor: bool = True
     exhausted_nodes: set = field(default_factory=set)
+    project_id: int | None = None
+    asset_id: int | None = None
+    job_id: int | None = None
+    actor: str = "system"
+    dispatched: set = field(default_factory=set)
