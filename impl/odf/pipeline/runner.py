@@ -4,12 +4,13 @@ import pyarrow as pa
 
 from odf.assets.service import get_asset
 from odf.models import AssetVersion, Datasource, PipelineNodeRun
+from odf.pipeline.nodes import engine as _engine_nodes  # noqa: F401
 from odf.pipeline.nodes import sink as _sink  # noqa: F401  register nodes
 from odf.pipeline.nodes import source as _source  # noqa: F401
 from odf.pipeline.nodes import transform as _transform  # noqa: F401
 from odf.pipeline.nodes.base import RunContext, get_node
-from odf.pipeline.schema import (input_edges, topo_order, upstream_nodes,
-                                 validate_dag)
+from odf.pipeline.schema import (ENGINE_TYPES, input_edges, topo_order,
+                                 upstream_nodes, validate_dag)
 
 PREVIEW_BATCH = 1000
 PREVIEW_TIMEOUT_S = 30
@@ -58,6 +59,12 @@ def execute_pipeline(session, asset_id, job_id=None, actor="system",
     nodes = {n["id"]: n for n in content["nodes"]}
     if target_node and target_node not in nodes:
         raise ValueError("node not found: %s" % target_node)
+    if preview:
+        engine_ids = [nid for nid, n in nodes.items()
+                      if n.get("type") in ENGINE_TYPES]
+        if engine_ids:
+            raise PipelineRunError(
+                engine_ids[0], "engine nodes cannot run in preview")
 
     settings = content.get("settings") or {}
     batch = max(1, int(batch_override or settings.get("batch", 1000)))
@@ -71,7 +78,9 @@ def execute_pipeline(session, asset_id, job_id=None, actor="system",
                      timeout_s=PREVIEW_TIMEOUT_S if preview else None,
                      cursor_override=cursor_override or {},
                      until_cursor=until_cursor,
-                     persist_cursor=persist_cursor)
+                     persist_cursor=persist_cursor,
+                     project_id=asset.project_id, asset_id=asset.id,
+                     job_id=job_id, actor=actor)
     order = topo_order(content)
     if target_node:
         allowed = {target_node} | upstream_nodes(content, target_node)
@@ -94,12 +103,13 @@ def execute_pipeline(session, asset_id, job_id=None, actor="system",
                 inputs, node.get("config") or {}, ctx)
             ms = int((time.time() - started) * 1000)
             tables[nid] = table
+            node_status = "dispatched" if nid in ctx.dispatched else "success"
             stats[nid] = {"rows": table.num_rows, "ms": ms,
-                          "status": "success"}
+                          "status": node_status}
             if not preview and job_id:
                 session.add(PipelineNodeRun(
                     job_id=job_id, asset_id=asset_id, node_id=nid,
-                    status="success",
+                    status=node_status,
                     in_num=sum(t.num_rows for t in inputs),
                     out_num=table.num_rows, ms=ms))
         except Exception as e:

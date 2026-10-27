@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cdc-postgres-data
+  namespace: stream
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: ${CDC_PG_SIZE}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cdc-postgres
+  namespace: stream
+  labels:
+    app: cdc-postgres
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: cdc-postgres
+  template:
+    metadata:
+      labels:
+        app: cdc-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: ${IMAGE_POSTGRES}
+          args:
+            - -c
+            - wal_level=logical
+            - -c
+            - max_replication_slots=10
+            - -c
+            - max_wal_senders=10
+          env:
+            - name: POSTGRES_DB
+              value: ${CDC_DB}
+            - name: POSTGRES_USER
+              value: ${CDC_USER}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cdc-postgres
+                  key: password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - name: postgres
+              containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "${CDC_USER}", "-d", "${CDC_DB}"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: cdc-postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cdc-postgres
+  namespace: stream
+spec:
+  selector:
+    app: cdc-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres

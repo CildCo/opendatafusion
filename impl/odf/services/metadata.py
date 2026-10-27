@@ -1,7 +1,12 @@
+import re
+
 from sqlalchemy import create_engine, inspect
 
 from odf.models import Column, Dataset, Datasource
 from odf.services.datasource import connect_args_for, get_dsn
+from odf.trino.client import client_for_datasource
+
+_CATALOG = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
 
 
 def normalize_table(schema: str, table: str) -> str:
@@ -136,6 +141,39 @@ def _sync_sql(session, ds) -> int:
     return count
 
 
+def _sync_trino(session, ds) -> int:
+    client = client_for_datasource(ds)
+    catalog = getattr(client, "catalog", "") or ""
+    if not _CATALOG.match(catalog):
+        raise ValueError("trino datasource needs a catalog in the dsn")
+    result = client.query(
+        "select table_schema, table_name, column_name, data_type "
+        "from %s.information_schema.columns "
+        "where table_schema not in ('information_schema') "
+        "order by table_schema, table_name, ordinal_position" % catalog,
+        max_rows=200000)
+    grouped = {}
+    for row in result["rows"]:
+        grouped.setdefault(
+            (row["table_schema"], row["table_name"]), []).append(
+            {"name": row["column_name"], "type": row["data_type"]})
+    before = _existing_columns(session, ds.id)
+    _clear(session, ds.id)
+    session.flush()
+    for (schema, table), columns in grouped.items():
+        d = Dataset(datasource_id=ds.id, schema_name=schema, table_name=table)
+        session.add(d)
+        session.flush()
+        for col in columns:
+            session.add(Column(dataset_id=d.id, name=col["name"],
+                               data_type=col["type"]))
+    session.commit()
+    after = {key: {c["name"]: c["type"] for c in columns}
+             for key, columns in grouped.items()}
+    _detect_drift(session, ds, before, after)
+    return len(grouped)
+
+
 def sync_datasource(session, datasource_id: int) -> int:
     ds = session.get(Datasource, datasource_id)
     if not ds:
@@ -144,4 +182,6 @@ def sync_datasource(session, datasource_id: int) -> int:
         return _sync_file(session, ds)
     if ds.kind == "clickhouse":
         return _sync_clickhouse(session, ds)
+    if ds.kind == "trino":
+        return _sync_trino(session, ds)
     return _sync_sql(session, ds)

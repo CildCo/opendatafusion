@@ -1,0 +1,240 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: flink-libs
+  namespace: stream
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: flink-plugins
+  namespace: stream
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: flink-libs-prepare
+  namespace: stream
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: prepare
+          image: ${IMAGE_FLINK}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              mkdir -p /libs /plugins/s3-fs-hadoop
+              cp -n /opt/flink/lib/*.jar /libs/ || true
+              cp -f /opt/flink/opt/flink-s3-fs-hadoop-*.jar \
+                    /plugins/s3-fs-hadoop/ || true
+              cd /tmp
+              while read -r url; do
+                [ -z "$url" ] && continue
+                file="/libs/$(basename "$url")"
+                [ -f "$file" ] && continue
+                curl -fsSL --retry 3 --retry-delay 2 --max-time 600 -o "$file" "$url"
+              done < /etc/jars/urls.txt
+          volumeMounts:
+            - name: libs
+              mountPath: /libs
+            - name: plugins
+              mountPath: /plugins
+            - name: jars
+              mountPath: /etc/jars
+              readOnly: true
+      volumes:
+        - name: libs
+          persistentVolumeClaim:
+            claimName: flink-libs
+        - name: plugins
+          persistentVolumeClaim:
+            claimName: flink-plugins
+        - name: jars
+          configMap:
+            name: flink-jars
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flink-jobmanager
+  namespace: stream
+  labels:
+    app: flink
+    component: jobmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flink
+      component: jobmanager
+  template:
+    metadata:
+      labels:
+        app: flink
+        component: jobmanager
+    spec:
+      containers:
+        - name: jobmanager
+          image: ${IMAGE_FLINK}
+          args: ["jobmanager"]
+          env:
+            - name: FLINK_PROPERTIES
+              value: |
+                jobmanager.rpc.address: flink-jobmanager
+                jobmanager.memory.process.size: 2g
+                taskmanager.memory.process.size: 2g
+                taskmanager.numberOfTaskSlots: 4
+                parallelism.default: 1
+                state.backend: hashmap
+                state.checkpoints.dir: s3://${LAKE_BUCKET}/checkpoints
+                s3.endpoint: http://seaweedfs-s3.storage.svc:8333
+                s3.path.style.access: true
+                execution.checkpointing.interval: 5s
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: lakehouse-s3
+                  key: access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: lakehouse-s3
+                  key: secret-key
+          ports:
+            - name: rpc
+              containerPort: 6123
+            - name: blob
+              containerPort: 6124
+            - name: webui
+              containerPort: 8081
+          readinessProbe:
+            httpGet:
+              path: /overview
+              port: webui
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 300m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 3Gi
+          volumeMounts:
+            - name: libs
+              mountPath: /opt/flink/lib
+              readOnly: true
+            - name: plugins
+              mountPath: /opt/flink/plugins
+              readOnly: true
+      volumes:
+        - name: libs
+          persistentVolumeClaim:
+            claimName: flink-libs
+        - name: plugins
+          persistentVolumeClaim:
+            claimName: flink-plugins
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flink-taskmanager
+  namespace: stream
+  labels:
+    app: flink
+    component: taskmanager
+spec:
+  replicas: ${FLINK_TASKMANGERS}
+  selector:
+    matchLabels:
+      app: flink
+      component: taskmanager
+  template:
+    metadata:
+      labels:
+        app: flink
+        component: taskmanager
+    spec:
+      containers:
+        - name: taskmanager
+          image: ${IMAGE_FLINK}
+          args: ["taskmanager"]
+          env:
+            - name: JOB_MANAGER_RPC_ADDRESS
+              value: flink-jobmanager
+            - name: FLINK_PROPERTIES
+              value: |
+                taskmanager.memory.process.size: 2g
+                taskmanager.numberOfTaskSlots: 4
+                parallelism.default: 1
+                state.backend: hashmap
+                state.checkpoints.dir: s3://${LAKE_BUCKET}/checkpoints
+                s3.endpoint: http://seaweedfs-s3.storage.svc:8333
+                s3.path.style.access: true
+                execution.checkpointing.interval: 5s
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: lakehouse-s3
+                  key: access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: lakehouse-s3
+                  key: secret-key
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: "3"
+              memory: 3Gi
+          volumeMounts:
+            - name: libs
+              mountPath: /opt/flink/lib
+              readOnly: true
+            - name: plugins
+              mountPath: /opt/flink/plugins
+              readOnly: true
+      volumes:
+        - name: libs
+          persistentVolumeClaim:
+            claimName: flink-libs
+        - name: plugins
+          persistentVolumeClaim:
+            claimName: flink-plugins
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flink-jobmanager
+  namespace: stream
+spec:
+  selector:
+    app: flink
+    component: jobmanager
+  ports:
+    - name: rpc
+      port: 6123
+      targetPort: rpc
+    - name: blob
+      port: 6124
+      targetPort: blob
+    - name: webui
+      port: 8081
+      targetPort: webui

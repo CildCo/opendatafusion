@@ -44,6 +44,8 @@ def connect_args_for(kind: str, dsn: str = "", timeout: int = 5) -> dict:
         return {"login_timeout": timeout}
     if kind == "clickhouse":
         return {}
+    if kind == "trino":
+        return {}
     return {"connect_timeout": timeout}
 
 
@@ -116,6 +118,12 @@ def create_datasource(session, project_id: int, name: str, dsn: str,
 
 
 def test_connection(dsn: str, timeout: int = 5, kind: str | None = None) -> bool:
+    if (kind or "").lower() == "trino":
+        try:
+            from odf.trino.client import TrinoClient
+            return TrinoClient.from_dsn(dsn, timeout=timeout).ping()
+        except Exception:
+            return False
     if (kind or "").lower() == "clickhouse":
         try:
             from odf import clickhouse

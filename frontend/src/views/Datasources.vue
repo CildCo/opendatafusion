@@ -13,6 +13,7 @@
         <el-option value="oracle" label="Oracle" />
         <el-option value="mssql" label="SQL Server" />
         <el-option value="clickhouse" label="ClickHouse" />
+        <el-option value="trino" label="Trino / Iceberg" />
         <el-option value="file" label="本地文件 (CSV/Excel/Parquet/JSON)" />
       </el-select>
       <div class="spacer" />
@@ -30,11 +31,13 @@
           </template>
         </el-table-column>
         <el-table-column prop="dsn" label="连接串（脱敏）" min-width="320" />
-        <el-table-column label="操作" width="260" fixed="right">
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="{ row }">
             <el-button link @click="test(row)">测试</el-button>
             <el-button link @click="sync(row)">同步元数据</el-button>
             <el-button link @click="showTables(row)">表</el-button>
+            <el-button v-if="row.kind === 'trino'" link
+                       @click="openMaintain(row)">湖仓维护</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -62,6 +65,7 @@
             <el-option value="oracle" label="Oracle" />
             <el-option value="mssql" label="SQL Server" />
             <el-option value="clickhouse" label="ClickHouse" />
+        <el-option value="trino" label="Trino / Iceberg" />
             <el-option value="file" label="本地文件 (CSV/Excel/Parquet/JSON)" />
           </el-select>
         </el-form-item>
@@ -73,6 +77,35 @@
       <template #footer>
         <el-button @click="dialog = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="create">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="maintainOpen" title="湖仓维护" width="520px">
+      <el-form label-width="110px">
+        <el-form-item label="表">
+          <el-input v-model="maintain.tables"
+                    placeholder="留空维护全部表，多个用逗号分隔" />
+        </el-form-item>
+        <el-form-item label="合并小文件">
+          <el-switch v-model="maintain.optimize" />
+        </el-form-item>
+        <el-form-item label="清理快照">
+          <el-switch v-model="maintain.expire" />
+        </el-form-item>
+        <el-form-item label="保留时长">
+          <el-input v-model="maintain.retention" placeholder="7d" />
+        </el-form-item>
+      </el-form>
+      <el-table v-if="maintain.results.length" :data="maintain.results"
+                size="small">
+        <el-table-column prop="table" label="表" />
+        <el-table-column prop="optimize" label="合并" />
+        <el-table-column prop="expire" label="快照" />
+      </el-table>
+      <template #footer>
+        <el-button @click="maintainOpen = false">关闭</el-button>
+        <el-button type="primary" :loading="maintain.running"
+                   @click="runMaintain">执行</el-button>
       </template>
     </el-dialog>
 
@@ -107,6 +140,10 @@ const kind = ref("");
 const page = ref(1);
 const pageSize = 10;
 const form = reactive({ name: "", kind: "postgres", dsn: "" });
+const maintainOpen = ref(false);
+const maintain = reactive({ datasource_id: 0, tables: "", optimize: true,
+                            expire: true, retention: "7d",
+                            running: false, results: [] });
 const placeholders = {
   postgres: "postgresql+psycopg://user:pass@host:5432/db",
   mysql: "mysql://user:pass@host:3306/db",
@@ -115,6 +152,7 @@ const placeholders = {
   oracle: "oracle://user:pass@host:1521/service",
   mssql: "mssql://user:pass@host:1433/db",
   clickhouse: "clickhouse://user:pass@host:8123/db（TLS 用 8443）",
+  trino: "trino://user@host:8080/iceberg/schema（https 用 trino+https://）",
   file: "/data/odf/files/sales.csv 或 file:///data/odf/files/orders.xlsx",
 };
 const dsnPlaceholder = computed(() => placeholders[form.kind] || "连接串");
@@ -146,6 +184,37 @@ function openCreate() {
   form.dsn = "";
   dialog.value = true;
 }
+function openMaintain(row) {
+  maintain.datasource_id = row.id;
+  maintain.tables = "";
+  maintain.optimize = true;
+  maintain.expire = true;
+  maintain.retention = "7d";
+  maintain.results = [];
+  maintainOpen.value = true;
+}
+
+async function runMaintain() {
+  maintain.running = true;
+  try {
+    const tables = maintain.tables.split(",").map((x) => x.trim())
+      .filter(Boolean);
+    const out = await api.post("/lakehouse/maintain", {
+      datasource_id: maintain.datasource_id,
+      tables,
+      optimize: maintain.optimize,
+      expire_snapshots: maintain.expire,
+      retention: maintain.retention,
+    });
+    maintain.results = out.results || [];
+    ElMessage.success("维护完成：" + maintain.results.length + " 张表");
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    maintain.running = false;
+  }
+}
+
 async function create() {
   if (!form.name || !form.dsn) {
     ElMessage.warning("名称和连接串必填");
