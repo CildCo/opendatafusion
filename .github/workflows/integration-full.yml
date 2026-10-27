@@ -26,8 +26,8 @@ jobs:
       ODF_IT_LDAP_USER_DN_TEMPLATE: "cn={username},ou=users,dc=example,dc=org"
       ODF_IT_LDAP_PASSWORD: alicepass
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: Generate test secrets
