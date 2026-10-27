@@ -39,7 +39,7 @@ Documentation = "https://github.com/CildCo/opendatafusion/tree/main/docs"
 [project.optional-dependencies]
 dev = ["pytest>=8", "pyyaml>=6"]
 ldap = ["ldap3>=2.9"]
-files-s3 = ["boto3>=1.34"]
+files-s3 = ["boto3>=1.43.118"]
 metrics = ["prometheus-client>=0.20"]
 otel = ["opentelemetry-sdk>=1.24", "opentelemetry-exporter-otlp>=1.24",
   "opentelemetry-instrumentation-fastapi>=0.45b0",
