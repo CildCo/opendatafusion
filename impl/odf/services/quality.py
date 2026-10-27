@@ -34,8 +34,19 @@ def list_rules(session, project_id: int):
             .order_by(QualityRule.id).all())
 
 
+class _TrinoRunner:
+    """Trino has no SQLAlchemy dialect; run the same generated SQL through the
+    REST client instead."""
+
+    def execute(self, datasource, sql, params, limit):
+        from odf.services.query import execute_query
+        return execute_query(None, datasource, sql, params, limit)
+
+
 def _simple_runner(datasource):
     from odf import clickhouse, filesource
+    if datasource.kind == "trino":
+        return _TrinoRunner()
     return filesource if datasource.kind == "file" else clickhouse
 
 
@@ -176,7 +187,7 @@ def run_rule(session, rule_id: int, project_id: int | None = None) -> QualityRes
     datasource = session.get(Datasource, ds.datasource_id)
     if not datasource:
         raise ValueError("rule not found")
-    if datasource.kind in ("file", "clickhouse"):
+    if datasource.kind in ("file", "clickhouse", "trino"):
         ok, detail = _run_simple(session, datasource, ds, rule)
         result = QualityResult(rule_id=rule.id,
                                status="pass" if ok else "fail",

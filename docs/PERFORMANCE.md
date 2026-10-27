@@ -132,3 +132,63 @@ catalog 397 ms, list 396 ms. Host load stayed around 12-15. All caches are
 off by default and process-local; use a deliberate TTL (15-30 seconds is a
 reasonable starting point) and do not assume they are shared across API
 replicas.
+
+## Lakehouse benchmark
+
+`scripts/bench_lakehouse.py` drives the GB-scale run through the platform API,
+not through the engines directly:
+
+1. submit a Spark job that writes `BENCH_ROWS` synthetic events into an Iceberg
+   table partitioned by day;
+2. wait for the engine job to reach a terminal state;
+3. time three Trino queries through `POST /workbench/query`: a count, a group-by
+   over a low-cardinality column, and a daily window aggregation.
+
+```bash
+ODF_API=http://<control-plane> ODF_USER=admin ODF_PASSWORD=... \
+LAKE_DSN='trino://odf@<node>:8080/iceberg/demo' \
+SPARK_ARTIFACT=s3a://warehouse/artifacts/ingest.py \
+BENCH_ROWS=20000000 python scripts/bench_lakehouse.py
+```
+
+Each row carries 120 bytes of payload, so 20 million rows is roughly 2.4 GB
+before compression. The script prints ingest throughput and per-query latency;
+record the numbers from the run alongside the environment description, because
+they depend on the node's disk and network.
+
+Engine job counters feed the existing metrics endpoint as
+`engine_jobs_total{status}`, so queue depth and failure rate are visible next to
+the rest of the platform metrics.
+
+### Lakehouse benchmark result
+
+Environment: one KVM guest, 16 vCPU, 31 GB RAM, k3s single node, local-path
+storage. SeaweedFS 4.48 (1 GiB volumes, 100 per node), Nessie 0.109 in-memory
+version store, Trino 484 with a 3 GB heap, Spark 3.5.1 (driver 2 GB, 3 executors
+x 3 GB x 2 cores). Table `iceberg.odf_bench.events`, partitioned by day, 7
+columns including two 64-character hash columns so the files do not compress
+away.
+
+Ingest was submitted through `POST /api/v1/engine/jobs`; queries ran through
+`POST /api/v1/workbench/query` against the Trino datasource.
+
+| Measurement | Result |
+| --- | --- |
+| Rows | 60,000,000 |
+| Table size | 5.10 GB across 62 Parquet files (about 84 MB each) |
+| Ingest, empty table | 30M rows in 135.2 s, 221,835 rows/s |
+| Ingest, append | 30M rows in 180.2 s, 166,512 rows/s |
+| `count(*)` | 136 ms |
+| Group by city with `avg`/`sum` | 1.42 s |
+| `count(distinct user_id)` over 1M users | 2.31 s |
+| Top 20 users by event count | 4.33 s |
+
+Reading these numbers:
+
+- Throughput is bounded by the single object store on one disk. A real
+  deployment spreads volumes over several nodes.
+- Nessie runs with an in-memory version store, so catalog state does not survive
+  a restart. Point it at a database before treating the stack as durable.
+- Parquet file sizes sit in the 64-256 MB range that Trino reads well, so no
+  compaction was needed for this dataset.
+- Query times are warm-cache. A cold run adds object-store round trips.

@@ -90,7 +90,7 @@ import { useRoute, useRouter } from "vue-router";
 import {
   Odometer, Coin, Collection, Share, Connection, CircleCheck, Bell,
   Switch, User, Document, Grid, Monitor, EditPen, Key, Promotion,
-  Folder, Setting, Lock, Search,
+  Folder, Setting, Lock, Search, Cpu, DataLine,
 } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import { api, clearSession, getProject, getRole, setProject }
@@ -118,6 +118,8 @@ const groups = [
   ] },
   { name: "数据开发", items: [
     { path: "/pipelines", title: "数据管道", icon: Share },
+    { path: "/engines", title: "计算引擎", icon: Cpu },
+    { path: "/cdc", title: "增量同步", icon: DataLine },
     { path: "/flows", title: "数据集成", icon: Share },
     { path: "/datasets", title: "数据模型", icon: Collection },
     { path: "/dashboards", title: "数据看板", icon: Odometer },

@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: seaweedfs-data
+  namespace: storage
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: ${STORAGE_SIZE}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seaweedfs
+  namespace: storage
+  labels:
+    app: seaweedfs
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: seaweedfs
+  template:
+    metadata:
+      labels:
+        app: seaweedfs
+      annotations:
+        checksum/s3: "${S3_CONFIG_SUM}"
+    spec:
+      containers:
+        - name: seaweedfs
+          image: ${IMAGE_SEAWEEDFS}
+          command: ["weed"]
+          args:
+            - server
+            - -dir=/data
+            - -s3
+            - -s3.port=8333
+            - -s3.config=/etc/seaweedfs/s3.json
+            - -master.volumeSizeLimitMB=1024
+            - -volume.max=100
+          ports:
+            - name: s3
+              containerPort: 8333
+            - name: master
+              containerPort: 9333
+          readinessProbe:
+            httpGet:
+              path: /cluster/healthz
+              port: master
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: s3-config
+              mountPath: /etc/seaweedfs
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: seaweedfs-data
+        - name: s3-config
+          secret:
+            secretName: seaweedfs-s3
+            items:
+              - key: s3.json
+                path: s3.json
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: seaweedfs-s3
+  namespace: storage
+spec:
+  selector:
+    app: seaweedfs
+  ports:
+    - name: s3
+      port: 8333
+      targetPort: s3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: seaweedfs-master
+  namespace: storage
+spec:
+  selector:
+    app: seaweedfs
+  ports:
+    - name: master
+      port: 9333
+      targetPort: master
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seaweedfs-bucket
+  namespace: storage
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create-bucket
+          image: ${IMAGE_SEAWEEDFS}
+          env:
+            - name: ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: lakehouse-s3
+                  key: access-key
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: lakehouse-s3
+                  key: secret-key
+            - name: BUCKET
+              value: ${LAKE_BUCKET}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              sign() {
+                curl -sS --aws-sigv4 "aws:amz:us-east-1:s3" --user "$ACCESS_KEY:$SECRET_KEY" "$@"
+              }
+              until [ "$(sign -o /dev/null -w '%{http_code}' http://seaweedfs-s3:8333/)" = "200" ]; do
+                echo "waiting for s3"; sleep 3;
+              done
+              code=$(sign -o /dev/null -w '%{http_code}' -X PUT "http://seaweedfs-s3:8333/$BUCKET")
+              echo "bucket $BUCKET -> $code"

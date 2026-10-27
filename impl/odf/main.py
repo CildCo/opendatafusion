@@ -20,11 +20,14 @@ import odf.dashboards.api as dashboard_api
 import odf.ops.api as ops_api
 import odf.share.api as share_api
 import odf.workbench.api as workbench_api
+import odf.api.engine as engine_api
 import odf.api.grants as grants_api
 import odf.webhooks.api as webhooks_api
 import odf.files.api as files_api
 import odf.portal.api as portal_api
 import odf.api.stats as stats_api
+import odf.cdc.api as cdc_api
+import odf.lakehouse.api as lakehouse_api
 import odf.modelstudio.api as modelstudio_api
 import odf.pipeline.api as pipeline_api
 from odf.services.auth import require_approver, require_user
@@ -72,6 +75,11 @@ app.include_router(stats_api.router, prefix="/api/v1",
 app.include_router(share_api.public_router, prefix="/api/v1",
                    tags=["public-share"])
 app.include_router(dashboard_api.router, prefix="/api/v1",
+                   dependencies=[Depends(require_user)])
+app.include_router(engine_api.router, prefix="/api/v1", tags=["engine"])
+app.include_router(lakehouse_api.router, prefix="/api/v1", tags=["lakehouse"],
+                   dependencies=[Depends(require_user)])
+app.include_router(cdc_api.router, prefix="/api/v1", tags=["cdc"],
                    dependencies=[Depends(require_user)])
 app.include_router(probe.router)
 from odf.observability import configure_observability

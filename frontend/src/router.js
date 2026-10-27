@@ -24,6 +24,8 @@ import AppEditor from "./views/AppEditor.vue";
 import AppRun from "./views/AppRun.vue";
 import OpsCenter from "./views/OpsCenter.vue";
 import Workbench from "./views/Workbench.vue";
+import Engines from "./views/Engines.vue";
+import Cdc from "./views/Cdc.vue";
 import Grants from "./views/Grants.vue";
 import Webhooks from "./views/Webhooks.vue";
 import Files from "./views/Files.vue";
@@ -68,6 +70,8 @@ const routes = [
       { path: "apps/:id/run", component: AppRun, meta: { title: "应用运行" } },
       { path: "ops", component: OpsCenter, meta: { title: "运维中心" } },
       { path: "workbench", component: Workbench, meta: { title: "SQL 工作台" } },
+      { path: "engines", component: Engines, meta: { title: "计算引擎" } },
+      { path: "cdc", component: Cdc, meta: { title: "增量同步" } },
       { path: "grants", component: Grants, meta: { title: "接口授权" } },
       { path: "webhooks", component: Webhooks, meta: { title: "事件订阅" } },
       { path: "files", component: Files, meta: { title: "文件" } },

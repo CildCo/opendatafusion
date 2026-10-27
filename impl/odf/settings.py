@@ -64,6 +64,33 @@ class Settings(BaseSettings):
     file_dir: str = "./data/files"
     file_max_mb: int = 20
     file_source_roots: str = ""
+    k8s_api_url: str = ""
+    k8s_token: str = ""
+    k8s_ca_file: str = ""
+    k8s_namespace: str = "data"
+    k8s_allowed_images: str = "apache/spark,flink,odf/spark"
+    flink_sql_gateway_url: str = ""
+    flink_rest_url: str = ""
+    engine_sql_write_enabled: bool = False
+    engine_sync_interval_s: int = 15
+    engine_job_timeout_s: int = 900
+    lakehouse_enabled: bool = False
+    lakehouse_catalog: str = "iceberg"
+    lakehouse_uri: str = ""
+    lakehouse_warehouse: str = "warehouse"
+    lakehouse_s3_endpoint: str = ""
+    lakehouse_s3_region: str = "us-east-1"
+    lakehouse_s3_access_key: str = ""
+    lakehouse_s3_secret_key: str = ""
+    spark_image: str = "odf/spark-iceberg:3.5.1"
+    spark_jars: str = ""
+    spark_jars_dir: str = ""
+    debezium_url: str = ""
+    k8s_tenancy_enabled: bool = False
+    k8s_tenancy_prefix: str = "odf"
+    k8s_quota_cpu: str = "4"
+    k8s_quota_memory: str = "8Gi"
+    k8s_quota_pods: int = 20
 
 
 @lru_cache

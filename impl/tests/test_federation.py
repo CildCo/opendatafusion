@@ -28,6 +28,7 @@ def _env(tmp_path):
             if row:
                 row.dsn_encrypted = encrypt_secret(url)
                 row.project_id = pid
+                row.kind = "sqlite"
             else:
                 s.add(Datasource(id=did, project_id=pid, name=name,
                                  kind="sqlite",

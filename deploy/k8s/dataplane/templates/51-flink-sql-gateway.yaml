@@ -1,0 +1,106 @@
+# The Flink image's entrypoint turns FLINK_PROPERTIES into flink-conf.yaml, but
+# it has no SQL Gateway mode. The gateway therefore gets a real config file.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flink-gateway-conf
+  namespace: stream
+data:
+  flink-conf.yaml: |
+    jobmanager.rpc.address: flink-jobmanager
+    rest.address: flink-jobmanager
+    rest.port: 8081
+    sql-gateway.endpoint.type: rest
+    sql-gateway.endpoint.rest.address: 0.0.0.0
+    sql-gateway.endpoint.rest.port: 8083
+    table.local-time-zone: UTC
+    execution.checkpointing.interval: 5s
+    state.backend: hashmap
+    state.checkpoints.dir: s3://${LAKE_BUCKET}/checkpoints
+    s3.endpoint: http://seaweedfs-s3.storage.svc:8333
+    s3.path.style.access: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flink-sql-gateway
+  namespace: stream
+  labels:
+    app: flink-sql-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flink-sql-gateway
+  template:
+    metadata:
+      labels:
+        app: flink-sql-gateway
+    spec:
+      containers:
+        - name: sql-gateway
+          image: ${IMAGE_FLINK}
+          command: ["/opt/flink/bin/sql-gateway.sh"]
+          args: ["start-foreground"]
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: lakehouse-s3
+                  key: access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: lakehouse-s3
+                  key: secret-key
+          ports:
+            - name: rest
+              containerPort: 8083
+          readinessProbe:
+            httpGet:
+              path: /v1/info
+              port: rest
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1500Mi
+          volumeMounts:
+            - name: conf
+              mountPath: /opt/flink/conf/flink-conf.yaml
+              subPath: flink-conf.yaml
+            - name: libs
+              mountPath: /opt/flink/lib
+              readOnly: true
+            - name: plugins
+              mountPath: /opt/flink/plugins
+              readOnly: true
+      volumes:
+        - name: conf
+          configMap:
+            name: flink-gateway-conf
+        - name: libs
+          persistentVolumeClaim:
+            claimName: flink-libs
+        - name: plugins
+          persistentVolumeClaim:
+            claimName: flink-plugins
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flink-sql-gateway
+  namespace: stream
+spec:
+  type: NodePort
+  selector:
+    app: flink-sql-gateway
+  ports:
+    - name: rest
+      port: 8083
+      targetPort: rest
+      nodePort: ${SQL_GATEWAY_NODEPORT}

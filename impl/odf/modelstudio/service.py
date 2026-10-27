@@ -2,8 +2,6 @@ import hashlib
 import json
 import time
 
-from sqlalchemy import create_engine, text
-
 from odf.apistudio.catalog import table_column_info
 from odf.apistudio.compiler import compile_visual, quote_ident
 from odf.apistudio.content import validate_content
@@ -13,8 +11,7 @@ from odf.modelstudio import cache
 from odf.modelstudio.content import (_published_dataset,
                                      dataset_output_columns, validate_metric)
 from odf.models import AssetVersion, Datasource
-from odf.services.datasource import (connect_args_for, get_dsn,
-                                     prepare_connection)
+from odf.services.query import execute_query
 from odf.settings import get_settings
 
 
@@ -165,32 +162,12 @@ def metric_sql(session, content, extra_filters=None,
 
 def _execute_metric(session, content, ds_content, ds, sql, params,
                     max_rows, role):
-    dsn = get_dsn(ds)
-    s = get_settings()
     started = time.time()
-    from sqlalchemy.exc import SQLAlchemyError
     try:
-        if ds.kind == "file":
-            from odf import filesource
-            result = filesource.execute(ds, sql, params, max_rows)
-            columns = result["columns"]
-            rows = result["rows"]
-        elif ds.kind == "clickhouse":
-            from odf import clickhouse
-            result = clickhouse.execute(ds, sql, params, max_rows)
-            columns = result["columns"]
-            rows = result["rows"]
-        else:
-            args = connect_args_for(ds.kind, dsn)
-            engine = create_engine(dsn, connect_args=args)
-            with engine.connect() as c:
-                prepare_connection(c, engine.dialect.name,
-                                   s.query_timeout_s * 1000)
-                result = c.execute(text(sql), params)
-                columns = list(result.keys())
-                rows = [dict(r) for r in
-                        result.mappings().fetchmany(max_rows)]
-    except (SQLAlchemyError, ValueError) as e:
+        result = execute_query(session, ds, sql, params, max_rows)
+        columns = result["columns"]
+        rows = result["rows"]
+    except ValueError as e:
         raise ValueError(str(e))
     from odf.services.masking import apply_metric_masks
     rows = apply_metric_masks(session, ds_content, rows,
