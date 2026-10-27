@@ -31,6 +31,7 @@ data:
     iceberg.rest-catalog.uri=http://nessie.catalog.svc:19120/iceberg
     iceberg.rest-catalog.warehouse=warehouse
     iceberg.register-table-procedure.enabled=true
+    iceberg.expire-snapshots.min-retention=${TRINO_EXPIRE_MIN_RETENTION}
     fs.s3.enabled=true
     s3.endpoint=${ENV:S3_ENDPOINT}
     s3.path-style-access=true
@@ -54,6 +55,8 @@ spec:
     metadata:
       labels:
         app: trino
+      annotations:
+        checksum/s3: "${S3_CONFIG_SUM}"
     spec:
       containers:
         - name: trino

@@ -87,6 +87,8 @@ spec:
       labels:
         app: flink
         component: jobmanager
+      annotations:
+        checksum/s3: "${S3_CONFIG_SUM}"
     spec:
       containers:
         - name: jobmanager
@@ -169,6 +171,8 @@ spec:
       labels:
         app: flink
         component: taskmanager
+      annotations:
+        checksum/s3: "${S3_CONFIG_SUM}"
     spec:
       containers:
         - name: taskmanager

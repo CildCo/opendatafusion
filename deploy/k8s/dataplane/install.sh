@@ -42,6 +42,13 @@ export CDC_PASSWORD
 if grep -q '^CDC_PASSWORD=$' "$VALUES"; then
   sed -i "s|^CDC_PASSWORD=$|CDC_PASSWORD=$CDC_PASSWORD|" "$VALUES"
 fi
+if [ -z "${NESSIE_DB_PASSWORD:-}" ]; then
+  NESSIE_DB_PASSWORD="$(head -c 24 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9')"
+fi
+export NESSIE_DB_PASSWORD
+if grep -q '^NESSIE_DB_PASSWORD=$' "$VALUES"; then
+  sed -i "s|^NESSIE_DB_PASSWORD=$|NESSIE_DB_PASSWORD=$NESSIE_DB_PASSWORD|" "$VALUES"
+fi
 
 # Only substitute the variables this file defines. Otherwise envsubst would
 # also expand the shell variables inside the manifests' container commands.
@@ -91,9 +98,19 @@ kubectl -n storage create secret generic seaweedfs-s3 \
 export S3_CONFIG_SUM
 S3_CONFIG_SUM="$(printf '%s' "$S3_JSON" | cksum | cut -d' ' -f1)"
 
+JDBC_PROPS=""
+if [ "${NESSIE_VERSION_STORE}" = "JDBC2" ]; then
+  JDBC_PROPS="quarkus.datasource.db-kind=postgresql
+quarkus.datasource.username=nessie
+quarkus.datasource.password=${NESSIE_DB_PASSWORD}
+quarkus.datasource.jdbc.url=jdbc:postgresql://nessie-postgres.catalog.svc:5432/nessie
+quarkus.flyway.migrate-at-start=true"
+fi
+
 NESSIE_PROPERTIES=$(cat <<PROPS
 quarkus.http.port=19120
 nessie.version.store.type=${NESSIE_VERSION_STORE}
+${JDBC_PROPS}
 nessie.catalog.default-warehouse=warehouse
 nessie.catalog.warehouses.warehouse.location=s3://${LAKE_BUCKET}/iceberg
 nessie.catalog.service.s3.default-options.endpoint=http://seaweedfs-s3.storage.svc:8333
@@ -104,6 +121,8 @@ odf-s3.default-access-key.name=${LAKE_ACCESS_KEY}
 odf-s3.default-access-key.secret=${LAKE_SECRET_KEY}
 PROPS
 )
+kubectl -n catalog create secret generic nessie-postgres   --from-literal=password="$NESSIE_DB_PASSWORD"   --dry-run=client -o yaml | kubectl apply -f -
+
 kubectl -n catalog create secret generic nessie-config \
   --from-literal=application.properties="$NESSIE_PROPERTIES" \
   --dry-run=client -o yaml | kubectl apply -f -
@@ -143,6 +162,9 @@ kubectl -n storage rollout status deploy/seaweedfs --timeout=10m
 kubectl -n storage wait --for=condition=complete job/seaweedfs-bucket --timeout=5m || true
 
 say "catalog"
+apply_tpl "$TEMPLATES/25-nessie-postgres.yaml"
+kubectl -n catalog rollout status deploy/nessie-postgres --timeout=10m
+
 apply_tpl "$TEMPLATES/20-nessie.yaml"
 kubectl -n catalog rollout status deploy/nessie --timeout=10m
 
@@ -201,32 +223,6 @@ say "monitoring"
 apply_tpl "$TEMPLATES/70-monitoring.yaml"
 kubectl -n monitoring rollout status deploy/prometheus --timeout=10m || true
 kubectl -n monitoring rollout status deploy/grafana --timeout=10m || true
-
-say "debezium connector"
-kubectl -n stream port-forward svc/debezium 18083:8083 >/dev/null 2>&1 &
-PF=$!
-trap 'kill $PF 2>/dev/null || true' EXIT
-for _ in $(seq 1 30); do
-  curl -fsS http://127.0.0.1:18083/ >/dev/null 2>&1 && break
-  sleep 2
-done
-curl -fsS -X PUT -H 'Content-Type: application/json' \
-  http://127.0.0.1:18083/connectors/odf-cdc -d '{
-    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
-    "tasks.max": "1",
-    "plugin.name": "pgoutput",
-    "database.hostname": "cdc-postgres.stream.svc.cluster.local",
-    "database.port": "5432",
-    "database.user": "'"${CDC_USER}"'",
-    "database.password": "'"$CDC_PASSWORD"'",
-    "database.dbname": "'"${CDC_DB}"'",
-    "topic.prefix": "odf",
-    "schema.include.list": "public",
-    "table.include.list": "public.events",
-    "publication.autocreate.mode": "filtered"
-  }' >/dev/null
-kill $PF 2>/dev/null || true
-trap - EXIT
 
 say "done"
 kubectl get pods -A -l 'app in (seaweedfs,nessie,trino,kafka,debezium,flink)' \

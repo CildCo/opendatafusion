@@ -168,3 +168,48 @@ the Connect REST API.
 
 Each table reports `optimize` and `expire` separately, so one failing table does
 not hide the rest. Schedule it from the platform's scheduler or an external cron.
+
+### Catalog durability
+
+Nessie keeps its version store in a PostgreSQL instance that the data plane
+creates next to it. `NESSIE_VERSION_STORE=JDBC2` (the default) points Nessie at
+`nessie-postgres`; `IN_MEMORY` remains for throwaway environments and loses the
+catalog on restart.
+
+Verified: a table written through Trino survives deleting and recreating the
+Nessie pod.
+
+### Backup and restore
+
+`scripts/backup_restore_drill.sh` dumps the catalog database, drops a table
+through Trino, restores the dump and compares row counts. Iceberg data files are
+immutable, so the catalog is the part that needs backing up; the drill leaves
+the files in place.
+
+Verified on a table with seven rows: dropped, restored, seven rows again.
+
+### Snapshot cleanup
+
+`expire_snapshots` refuses to run unless the table carries `gc.enabled=true`.
+Trino cannot set that property (`ALTER TABLE ... SET PROPERTIES` only accepts
+catalog-level properties), so it is set through Spark:
+
+```sql
+ALTER TABLE <catalog>.<schema>.<table> SET TBLPROPERTIES ('gc.enabled' = 'true')
+```
+
+With Nessie, history is squashed on the main branch, so a table usually has a
+single snapshot and expiry has nothing to reclaim. The procedure runs and
+returns `ok`; a table with real history would see files removed.
+
+Trino refuses retentions shorter than `TRINO_EXPIRE_MIN_RETENTION` (7 days by
+default). Lower it only for a controlled test.
+
+### Known limitation: streaming inserts through the SQL Gateway
+
+A streaming `INSERT` submitted through the SQL Gateway fails with a job-id
+resolution error (`Cannot resolve path parameter (jobid) from value "None"`), so
+the detached path of the `flink_sql` node and a savepoint against a gateway job
+cannot be exercised in this deployment. Queries, DDL and bounded statements work.
+Streaming jobs are expected to run as operator-managed Flink deployments until
+this is resolved.
