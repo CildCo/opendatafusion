@@ -51,7 +51,8 @@ def lakehouse_tables(datasource_id: int, schema: str | None = None,
     try:
         tables = list_tables(client, target)
     except ValueError as error:
-        raise HTTPException(400, str(error))
+        _log.warning("lakehouse table listing failed: %s", error)
+        raise HTTPException(400, "could not read the lakehouse catalog")
     except Exception:
         raise HTTPException(502, "trino query failed")
     return {"schema": target, "tables": tables}
@@ -70,7 +71,8 @@ def lakehouse_columns(table: str, datasource_id: int,
         return {"schema": target, "table": table,
                 "columns": table_columns(client, target, table)}
     except ValueError as error:
-        raise HTTPException(400, str(error))
+        _log.warning("lakehouse column listing failed: %s", error)
+        raise HTTPException(400, "could not read the lakehouse catalog")
     except Exception:
         raise HTTPException(502, "trino query failed")
 
@@ -83,7 +85,8 @@ def lakehouse_schema(body: DsIn, session: Session = Depends(get_session),
         schema = ensure_schema(client_for_datasource(ds),
                                claims["project_id"])
     except ValueError as error:
-        raise HTTPException(400, str(error))
+        _log.warning("lakehouse schema creation failed: %s", error)
+        raise HTTPException(400, "could not create the lakehouse schema")
     except Exception:
         raise HTTPException(502, "trino query failed")
     return {"datasource_id": ds.id, "schema": schema}
@@ -96,7 +99,8 @@ def lakehouse_sync(body: DsIn, session: Session = Depends(get_session),
     try:
         count = sync_datasource(session, ds.id)
     except ValueError as error:
-        raise HTTPException(400, str(error))
+        _log.warning("lakehouse metadata sync failed: %s", error)
+        raise HTTPException(400, "could not sync lakehouse metadata")
     return {"datasource_id": ds.id, "tables": count}
 
 

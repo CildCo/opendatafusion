@@ -165,3 +165,64 @@ def test_tables_route_prefers_the_datasource_schema(monkeypatch, session):
         headers=_user(936, "viewer"))
     assert response.status_code == 200
     assert response.json()["schema"] == "demo"
+
+
+def _boom_client(message):
+    class Boom:
+        catalog = "iceberg"
+        schema = ""
+
+        def query(self, sql, max_rows=1000):
+            raise ValueError(message)
+
+        def execute(self, sql):
+            raise ValueError(message)
+
+    return Boom()
+
+
+def test_tables_route_does_not_echo_error_text(monkeypatch, session):
+    ds = _ds(session)
+    monkeypatch.setattr("odf.lakehouse.api.client_for_datasource",
+                        lambda d: _boom_client("internal detail: table x"))
+    response = TestClient(app).get(
+        "/api/v1/lakehouse/tables?datasource_id=%d" % ds.id,
+        headers=_user(937, "viewer"))
+    assert response.status_code == 400
+    assert "internal detail" not in response.text
+
+
+def test_columns_route_does_not_echo_error_text(monkeypatch, session):
+    ds = _ds(session)
+    monkeypatch.setattr("odf.lakehouse.api.client_for_datasource",
+                        lambda d: _boom_client("internal detail: column y"))
+    response = TestClient(app).get(
+        "/api/v1/lakehouse/tables/events/columns?datasource_id=%d" % ds.id,
+        headers=_user(938, "viewer"))
+    assert response.status_code == 400
+    assert "internal detail" not in response.text
+
+
+def test_schema_route_does_not_echo_error_text(monkeypatch, session):
+    ds = _ds(session)
+    monkeypatch.setattr("odf.lakehouse.api.client_for_datasource",
+                        lambda d: _boom_client("internal detail: schema z"))
+    response = TestClient(app).post(
+        "/api/v1/lakehouse/schema", json={"datasource_id": ds.id},
+        headers=_user(939, "editor"))
+    assert response.status_code == 400
+    assert "internal detail" not in response.text
+
+
+def test_sync_route_does_not_echo_error_text(monkeypatch, session):
+    ds = _ds(session)
+
+    def boom(session_, datasource_id):
+        raise ValueError("internal detail: sync w")
+
+    monkeypatch.setattr("odf.lakehouse.api.sync_datasource", boom)
+    response = TestClient(app).post(
+        "/api/v1/lakehouse/sync", json={"datasource_id": ds.id},
+        headers=_user(940, "editor"))
+    assert response.status_code == 400
+    assert "internal detail" not in response.text

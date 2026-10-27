@@ -14,12 +14,14 @@ VALUES = {
     "CDC_DB": "cdc",
     "CDC_USER": "cdc",
     "TRINO_HEAP": "3G",
+    "TRINO_EXPIRE_MIN_RETENTION": "7d",
     "FLINK_TASKMANGERS": "1",
     "SQL_GATEWAY_NODEPORT": "30083",
     "KAFKA_CLUSTER_ID": "MkU3OEVBNTcwNTJENDM2Qk",
     "DEBEZIUM_PLUGIN_URL": "https://example.invalid/plugin.tar.gz",
     "ODF_METRICS_TARGET": "127.0.0.1:18080",
     "NESSIE_CONFIG_SUM": "1",
+    "NESSIE_PG_SIZE": "5Gi",
     "S3_CONFIG_SUM": "2",
     "IMAGE_SEAWEEDFS": "chrislusf/seaweedfs:4.48",
     "IMAGE_AWSCLI": "amazon/aws-cli:2.15.30",
@@ -68,7 +70,7 @@ def _all_templates():
 def test_templates_exist():
     names = [p.name for p in _all_templates()]
     for expected in ("01-namespaces.yaml", "10-seaweedfs.yaml",
-                     "20-nessie.yaml", "30-trino.yaml", "40-kafka.yaml",
+                     "25-nessie-postgres.yaml", "20-nessie.yaml", "30-trino.yaml", "40-kafka.yaml",
                      "41-cdc-postgres.yaml", "42-debezium.yaml",
                      "50-flink.yaml", "51-flink-sql-gateway.yaml",
                      "60-control-plane-rbac.yaml", "61-tenancy-rbac.yaml",
@@ -224,3 +226,22 @@ def test_driver_service_account_can_create_pods():
                and d["metadata"]["name"] == "spark-driver-edit"][0]
     assert binding["subjects"][0]["name"] == "spark-operator-spark"
     assert binding["roleRef"]["name"] == "edit"
+
+
+def test_nessie_has_a_persistent_catalog_database():
+    docs = documents(TEMPLATES / "25-nessie-postgres.yaml")
+    kinds = {d["kind"] for d in docs}
+    assert kinds == {"PersistentVolumeClaim", "Deployment", "Service"}
+    deploy = [d for d in docs if d["kind"] == "Deployment"][0]
+    env = {e["name"] for e in
+           deploy["spec"]["template"]["spec"]["containers"][0]["env"]}
+    assert {"POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD"} <= env
+    assert deploy["spec"]["template"]["spec"]["containers"][0]["image"] ==         VALUES["IMAGE_POSTGRES"]
+
+
+def test_installer_points_nessie_at_its_database():
+    script = (BASE / "install.sh").read_text(encoding="utf-8")
+    assert "nessie.version.store.type=${NESSIE_VERSION_STORE}" in script
+    assert "jdbc:postgresql://nessie-postgres.catalog.svc:5432/nessie" in script
+    assert "quarkus.flyway.migrate-at-start=true" in script
+    assert "25-nessie-postgres.yaml" in script
