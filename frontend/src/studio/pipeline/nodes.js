@@ -9,6 +9,8 @@ export const NODE_DEFS = {
   union: { label: "并集", color: "#db2777" },
   dedupe: { label: "去重", color: "#db2777" },
   quality: { label: "质量校验", color: "#db2777" },
+  spark: { label: "Spark 作业", color: "#ea580c" },
+  flink_sql: { label: "Flink SQL", color: "#0d9488" },
   sink: { label: "目标", color: "#059669" },
 };
 

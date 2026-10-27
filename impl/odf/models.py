@@ -526,3 +526,52 @@ class PipelineNodeRun(Base):
     ms: Mapped[int] = mapped_column(Integer, default=0)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class EngineJob(Base):
+    __tablename__ = "engine_job"
+    __table_args__ = (Index("ix_engine_job_status_synced", "status",
+                            "synced_at"),)
+    id: Mapped[int] = mapped_column(BigIntPK, primary_key=True,
+                                    autoincrement=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"),
+                                            index=True)
+    asset_id: Mapped[int | None] = mapped_column(ForeignKey("asset.id"),
+                                                 nullable=True, index=True)
+    engine: Mapped[str] = mapped_column(String(16), index=True)
+    name: Mapped[str] = mapped_column(String(63), unique=True)
+    spec_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(16), default="pending",
+                                        index=True)
+    external_id: Mapped[str] = mapped_column(String(255), default="")
+    submitted_by: Mapped[str] = mapped_column(String(64))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=2)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    result_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now)
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    synced_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+
+
+class CdcSource(Base):
+    __tablename__ = "cdc_source"
+    __table_args__ = (UniqueConstraint("project_id", "name"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"),
+                                            index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    connector_name: Mapped[str] = mapped_column(String(128), unique=True)
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    config_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    password_encrypted: Mapped[str] = mapped_column(String(512), default="")
+    created_by: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now, onupdate=now)
