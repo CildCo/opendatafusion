@@ -179,19 +179,30 @@ def process_job(session, job, worker_id):
              None if run.status == 2 else "flow run failed")
 
 
+def tick(session, worker_id):
+    requeue_stale(session)
+    try:
+        from odf.services.engine_jobs import sync_due
+        sync_due(session, 20)
+    except Exception:
+        session.rollback()
+    job = claim(session, worker_id)
+    if not job:
+        return None
+    try:
+        process_job(session, job, worker_id)
+    except Exception as e:
+        complete(session, job.id, False, str(e))
+    return job
+
+
 def worker_loop(worker_id: str, poll_s: int = 2) -> None:
     from odf.db import SessionLocal
     while True:
         with SessionLocal() as s:
-            requeue_stale(s)
-            job = claim(s, worker_id)
-            if not job:
-                time.sleep(poll_s)
-                continue
-            try:
-                process_job(s, job, worker_id)
-            except Exception as e:
-                complete(s, job.id, False, str(e))
+            job = tick(s, worker_id)
+        if not job:
+            time.sleep(poll_s)
 
 
 def flow_tick(session, now=None):

@@ -194,6 +194,53 @@
       </el-form>
     </template>
 
+    <template v-else-if="node.data.kind === 'spark'">
+      <el-form label-width="70px" size="small">
+        <el-form-item label="作业名">
+          <el-input v-model="cfg.name" placeholder="留空自动生成"
+                    @change="$emit('update')" />
+        </el-form-item>
+        <el-form-item label="镜像">
+          <el-input v-model="cfg.image" placeholder="apache/spark:3.5.1"
+                    @change="$emit('update')" />
+        </el-form-item>
+        <el-form-item label="主程序">
+          <el-input v-model="cfg.main_application_file"
+                    placeholder="local:///opt/spark/work-dir/job.py"
+                    @change="$emit('update')" />
+        </el-form-item>
+        <el-form-item label="目标表">
+          <el-input v-model="cfg.target_table" placeholder="demo.events"
+                    @change="$emit('update')" />
+        </el-form-item>
+        <el-form-item label="等待完成">
+          <el-switch v-model="cfg.wait" @change="$emit('update')" />
+        </el-form-item>
+      </el-form>
+    </template>
+
+    <template v-else-if="node.data.kind === 'flink_sql'">
+      <el-form label-width="70px" size="small">
+        <el-form-item label="SQL">
+          <el-input v-model="cfg.statement" type="textarea" :rows="8"
+                    @change="$emit('update')" />
+        </el-form-item>
+        <el-form-item label="模式">
+          <el-select v-model="cfg.attached" style="width: 100%"
+                     @change="$emit('update')">
+            <el-option :value="true" label="同步执行并返回结果" />
+            <el-option :value="false" label="后台流式作业" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="目标表">
+          <el-input v-model="cfg.target_table" @change="$emit('update')" />
+        </el-form-item>
+        <el-form-item label="等待完成">
+          <el-switch v-model="cfg.wait" @change="$emit('update')" />
+        </el-form-item>
+      </el-form>
+    </template>
+
     <template v-else-if="node.data.kind === 'sink'">
       <el-form label-width="70px" size="small">
         <el-form-item label="数据源">
@@ -291,6 +338,18 @@ function reset() {
   if (kind === "quality") {
     c.rules = c.rules || [];
     c.on_fail = c.on_fail || "fail";
+  }
+  if (kind === "spark") {
+    if (c.image === undefined) c.image = "apache/spark:3.5.1";
+    if (c.main_application_file === undefined) {
+      c.main_application_file = "local:///opt/spark/work-dir/job.py";
+    }
+    if (c.wait === undefined) c.wait = true;
+  }
+  if (kind === "flink_sql") {
+    if (c.statement === undefined) c.statement = "";
+    if (c.attached === undefined) c.attached = false;
+    if (c.wait === undefined) c.wait = true;
   }
   cfg.value = c;
   props.node.data.config = cfg.value;

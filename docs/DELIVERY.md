@@ -84,3 +84,87 @@ git push origin v1.0.0
 Then install the chart with the matching image tag. Roll back with
 `helm rollback odf`, which re-runs the migration hook (upgrade is expected to
 be forward-only; restore a database backup for a schema downgrade).
+
+## Lakehouse data plane
+
+`deploy/k8s/dataplane` installs the data plane the platform runs work on:
+SeaweedFS S3, Nessie (Iceberg REST catalog), Trino, Kafka, a CDC PostgreSQL,
+Debezium, Flink with its SQL Gateway, and Prometheus/Grafana.
+
+```bash
+cd deploy/k8s/dataplane
+cp values.env.example values.env   # image tags, sizes, bucket
+./install.sh
+./make-kubeconfig.sh               # prints the control-plane settings
+```
+
+The installer is idempotent and creates every credential as a Kubernetes
+Secret. Nothing in the repository contains an access key, password or token.
+
+### Control-plane settings
+
+| Variable | Purpose |
+| --- | --- |
+| `ODF_K8S_API_URL` | Kubernetes API endpoint |
+| `ODF_K8S_TOKEN` | namespace-scoped service account token |
+| `ODF_K8S_CA_FILE` | cluster CA bundle |
+| `ODF_K8S_NAMESPACE` | namespace Spark applications are created in |
+| `ODF_K8S_ALLOWED_IMAGES` | comma-separated image prefixes allowed for jobs |
+| `ODF_FLINK_SQL_GATEWAY_URL` | Flink SQL Gateway REST base URL |
+| `ODF_FLINK_REST_URL` | Flink JobManager REST base URL, used for job status |
+| `ODF_ENGINE_SQL_WRITE_ENABLED` | allow non-read-only statements on `/engine/sql` |
+| `ODF_ENGINE_JOB_TIMEOUT_S` | default pipeline engine-node timeout |
+
+The service account from `60-control-plane-rbac.yaml` may create and delete
+Spark applications and read pods in one namespace. It cannot read Secrets.
+
+### Verification
+
+```bash
+ODF_API=http://<control-plane> ODF_USER=admin ODF_PASSWORD=... \
+LAKE_DSN='trino://odf@<node>:8080/iceberg/demo' \
+python scripts/acceptance_lakehouse.py
+```
+
+The script checks datasource creation, the Trino connection, schema creation,
+Iceberg metadata sync, table listing, a Spark job reaching a terminal state,
+Flink SQL through the gateway, engine job listing, audit records, and
+cancellation. It exits non-zero on failure.
+
+### Lakehouse profile
+
+A Spark job submitted without a `spark_conf` still gets the Iceberg catalog
+because the control plane applies a profile:
+
+| Variable | Purpose |
+| --- | --- |
+| `ODF_LAKEHOUSE_ENABLED` | apply the profile at all |
+| `ODF_LAKEHOUSE_CATALOG` | catalog name, default `iceberg` |
+| `ODF_LAKEHOUSE_URI` | Nessie Iceberg REST endpoint |
+| `ODF_LAKEHOUSE_WAREHOUSE` | warehouse identifier |
+| `ODF_LAKEHOUSE_S3_ENDPOINT` | S3 endpoint for Spark writers |
+| `ODF_SPARK_IMAGE` | image with the Iceberg runtime baked in |
+| `ODF_SPARK_JARS` | fallback jar list when a custom image is not available |
+
+`GET /api/v1/engine/profiles` returns the effective profile. Values a caller
+passes in the job body override it key by key.
+
+### CDC sources
+
+`/api/v1/cdc/sources` registers Debezium connectors. `ODF_DEBEZIUM_URL` points
+at Kafka Connect. Connector names are `odf-p<project>-<slug>`, so two projects
+cannot collide, and the database password is stored encrypted and never
+returned by the API. Pausing, resuming, refreshing status and deleting map onto
+the Connect REST API.
+
+### Table maintenance
+
+`POST /api/v1/lakehouse/maintain` runs Iceberg procedures through Trino:
+
+```json
+{"datasource_id": 3, "tables": ["events"],
+ "optimize": true, "expire_snapshots": true, "retention": "7d"}
+```
+
+Each table reports `optimize` and `expire` separately, so one failing table does
+not hide the rest. Schedule it from the platform's scheduler or an external cron.
