@@ -1,0 +1,77 @@
+# HTTP entry points. k3s ships Traefik, so these apply without an extra
+# controller. Uncomment the cert-manager annotation and the tls block once an
+# issuer exists in the cluster.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: trino
+  namespace: trino
+  annotations:
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  ingressClassName: traefik
+  # tls:
+  #   - hosts: ["${TRINO_HOST}"]
+  #     secretName: trino-tls
+  rules:
+    - host: ${TRINO_HOST}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: trino
+                port:
+                  number: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flink-sql-gateway
+  namespace: stream
+  annotations:
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  ingressClassName: traefik
+  # tls:
+  #   - hosts: ["${FLINK_HOST}"]
+  #     secretName: flink-tls
+  rules:
+    - host: ${FLINK_HOST}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: flink-sql-gateway
+                port:
+                  number: 8083
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana
+  namespace: monitoring
+  annotations:
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  ingressClassName: traefik
+  # tls:
+  #   - hosts: ["${GRAFANA_HOST}"]
+  #     secretName: grafana-tls
+  rules:
+    - host: ${GRAFANA_HOST}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000

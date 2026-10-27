@@ -12,8 +12,24 @@ def validate_pipeline_content(session, content, project_id=0):
     errs = list(validate_dag(content))
     nodes = content.get("nodes") or []
     for node in nodes:
-        if not isinstance(node, dict) or node.get("type") not in (
-                "source", "sink"):
+        if not isinstance(node, dict):
+            continue
+        if node.get("type") == "spark":
+            config = node.get("config") or {}
+            if not (config.get("image") or "").strip():
+                errs.append(_err(node.get("id"), "image", "缺少镜像"))
+            main = config.get("main_application_file") or ""
+            if not main.startswith(("local://", "s3://", "s3a://")):
+                errs.append(_err(node.get("id"), "main_application_file",
+                                 "主程序必须使用 local:// 或 s3://"))
+            continue
+        if node.get("type") == "flink_sql":
+            config = node.get("config") or {}
+            if not (config.get("statement") or "").strip():
+                errs.append(_err(node.get("id"), "statement",
+                                 "缺少 SQL 语句"))
+            continue
+        if node.get("type") not in ("source", "sink"):
             continue
         nid = node.get("id")
         config = node.get("config") or {}

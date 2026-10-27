@@ -30,6 +30,9 @@ Connect sources, move and transform data, model datasets and metrics, publish go
 | **Model Studio** | Dataset and metric assets over curated tables; schema; preview; approval publishing; AI read tools. |
 | **Dashboard Studio** | 12-column dashboard assets with cards, charts, tables and text; filters and parameter binding; drag/resize editor; versioned publish; read-only runtime and expiring share links. |
 | **App Studio** | Multi-page internal apps with parameters, metric cards, tables, row-detail drawers and audited insert/update/delete forms over published datasets. |
+| **Lakehouse** | Trino data sources over Apache Iceberg, with metadata sync, table maintenance (small-file compaction, snapshot expiry) and Iceberg catalogs registered as first-class data sources. |
+| **Compute engines** | Spark applications through the Spark Operator and Flink SQL through the SQL Gateway: submit, inspect, cancel, savepoint, and a lakehouse profile the platform applies by default. |
+| **Change data capture** | Debezium connectors created, paused, resumed and monitored from the platform; change events land in Kafka for Flink or Spark to consume. |
 | **Catalog & lineage** | Table and column search, tags, column-level lineage, downstream impact analysis and health events. |
 | **Governance** | Column classification and masking, row policies, data standards, freshness/regex/enum/schema quality rules and audit-backed policy changes. |
 | **Operations** | Ops center, queue summary, job retry, alert acknowledgement, Prometheus metrics, request IDs, JSON logs, backup/restore and HA guidance. |

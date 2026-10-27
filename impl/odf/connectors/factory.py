@@ -3,6 +3,7 @@ from odf.connectors.es import ESSink, ESSource
 from odf.connectors.file import FileSource
 from odf.connectors.http import HTTPSink, HTTPSource
 from odf.connectors.sql import SQLSink, SQLSource
+from odf.connectors.trino import TrinoSource
 
 SOURCE_SQL_KINDS = ("postgres", "postgresql", "sqlite", "mysql",
                     "mariadb", "oracle", "mssql", "sqlserver")
@@ -14,6 +15,8 @@ def source_for(ds, dag):
         return FileSource(ds, dag)
     if ds.kind == "clickhouse":
         return ClickHouseSource(ds, dag)
+    if ds.kind == "trino":
+        return TrinoSource(ds, dag)
     if ds.kind in SOURCE_SQL_KINDS:
         return SQLSource(ds, dag)
     if ds.kind == "http":

@@ -1,9 +1,6 @@
 import json
 import time
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import SQLAlchemyError
-
 from odf.apistudio.catalog import table_columns
 from odf.apistudio.compiler import compile_visual, render_sql
 from odf.apistudio.content import validate_content
@@ -11,8 +8,7 @@ from odf.apistudio.params import ParamError, coerce_params
 from odf.apistudio.sqlguard import ensure_read_only
 from odf.assets.service import get_asset
 from odf.models import AssetVersion, Datasource
-from odf.services.datasource import (connect_args_for, get_dsn,
-                                     prepare_connection)
+from odf.services.query import execute_query
 from odf.settings import get_settings
 
 
@@ -63,31 +59,12 @@ def _run(session, asset, content, params, limit=None, include_sql=False,
     except (TypeError, ValueError):
         raise ApiError("limit must be a number")
     max_rows = max(1, min(requested, s.query_max_rows))
-    dsn = get_dsn(ds)
     started = time.time()
     try:
-        if ds.kind == "file":
-            from odf import filesource
-            result = filesource.execute(ds, sql, binds, max_rows)
-            columns = result["columns"]
-            rows = result["rows"]
-        elif ds.kind == "clickhouse":
-            from odf import clickhouse
-            result = clickhouse.execute(ds, sql, binds, max_rows)
-            columns = result["columns"]
-            rows = result["rows"]
-        else:
-            args = connect_args_for(ds.kind, dsn)
-            engine = create_engine(dsn, connect_args=args)
-            with engine.connect() as c:
-                prepare_connection(c, engine.dialect.name,
-                                   s.query_timeout_s * 1000)
-                # SQL is compiled/guarded; all values are bound.
-                result = c.execute(text(sql), binds)
-                columns = list(result.keys())
-                rows = [dict(r) for r in
-                        result.mappings().fetchmany(max_rows)]
-    except (SQLAlchemyError, ValueError) as e:
+        result = execute_query(session, ds, sql, binds, max_rows)
+        columns = result["columns"]
+        rows = result["rows"]
+    except ValueError as e:
         raise ApiError(str(e))
     if content.get("mode") == "visual":
         from odf.services.masking import apply_masks
