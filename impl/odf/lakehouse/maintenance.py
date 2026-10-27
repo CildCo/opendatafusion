@@ -1,7 +1,10 @@
+import logging
 import re
 
 from odf.connectors.trino import quote_ident
 from odf.lakehouse.service import list_tables
+
+_log = logging.getLogger("odf.lakehouse")
 
 _RETENTION = re.compile(r"^\d+[smhd]$")
 _SIZE = re.compile(r"^\d+(?:B|KB|MB|GB)$")
@@ -22,11 +25,13 @@ def _size(value: str) -> str:
 
 
 def _failure(error) -> str:
+    """Return a fixed reason; the detail goes to the server log, never to the
+    caller."""
     text = str(error)
+    _log.warning("maintenance step failed: %s", text)
     if "GC is disabled" in text:
-        return ("failed: catalog snapshot cleanup is disabled "
-                "(Iceberg GC is off for this catalog)")
-    return "failed: %s" % text[:200]
+        return "failed: snapshot cleanup is disabled for this catalog"
+    return "failed"
 
 
 def maintain(client, schema: str, tables=None, optimize: bool = True,

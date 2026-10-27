@@ -61,7 +61,7 @@ def test_maintain_records_failures_per_table():
     client = FakeClient(tables=["good", "bad"], fail_on=["bad"])
     results = maintain(client, "odf_p1", expire_snapshots=False)
     assert results[0]["optimize"] == "ok"
-    assert results[1]["optimize"].startswith("failed")
+    assert results[1]["optimize"] == "failed"
 
 
 def test_maintain_rejects_unsafe_identifiers():
@@ -131,4 +131,5 @@ def test_maintain_explains_disabled_gc():
                 "may corrupt other tables)")
 
     results = maintain(NoGc(), "odf_p1", tables=["events"], optimize=False)
-    assert results[0]["expire"].startswith("failed: catalog snapshot cleanup")
+    assert results[0]["expire"] == ("failed: snapshot cleanup is "
+                                    "disabled for this catalog")
