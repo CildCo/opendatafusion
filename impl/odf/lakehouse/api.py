@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -12,6 +14,7 @@ from odf.services.metadata import sync_datasource
 from odf.trino.client import client_for_datasource
 
 router = APIRouter()
+_log = logging.getLogger("odf.lakehouse")
 
 
 class DsIn(BaseModel):
@@ -102,14 +105,16 @@ def lakehouse_maintain(body: MaintainIn, session: Session = Depends(get_session)
                        claims: dict = Depends(require_editor)):
     ds = _trino(session, claims["project_id"], body.datasource_id)
     client = client_for_datasource(ds)
-    target = body.schema_name or getattr(client, "schema", "") or         project_schema(claims["project_id"])
+    target = (body.schema_name or getattr(client, "schema", "")
+              or project_schema(claims["project_id"]))
     try:
         results = maintain(client, target,
                            body.tables or None, body.optimize,
                            body.expire_snapshots, body.retention,
                            body.file_size_threshold)
     except ValueError as error:
-        raise HTTPException(400, str(error))
+        _log.warning("lakehouse maintenance rejected: %s", error)
+        raise HTTPException(400, "maintenance request is invalid")
     except Exception:
         raise HTTPException(502, "trino query failed")
     return {"schema": target, "results": results}
