@@ -12,7 +12,7 @@ jobs:
       ODF_DATABASE_URL: sqlite:///./ci.db
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Generate test secrets
@@ -51,7 +51,7 @@ jobs:
       ODF_IT_S3_SECRET_KEY: odf-test-secret
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Generate test secrets
@@ -80,7 +80,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Install backend
