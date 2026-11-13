@@ -25,7 +25,7 @@
     "@vue-flow/minimap": "^1.5.4",
     "codemirror": "^6.0.2",
     "echarts": "^6.1.0",
-    "element-plus": "^2.8.0",
+    "element-plus": "^2.14.8",
     "vue": "^3.5.0",
     "vue-router": "^5.4.0"
   },
