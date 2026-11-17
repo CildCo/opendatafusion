@@ -28,6 +28,15 @@ def _now():
     return datetime.now(timezone.utc)
 
 
+def _public_error(error) -> str:
+    """Keep the controlled reason, drop transport detail such as gateway
+    URLs and status lines."""
+    text = str(error)
+    if "Server error" in text or "://" in text:
+        return "engine gateway rejected the request"
+    return text[:300]
+
+
 def _spark_engine() -> KubernetesEngine:
     settings = get_settings()
     if not settings.k8s_api_url or not settings.k8s_token:
@@ -161,14 +170,17 @@ def submit_job(session, project_id, engine, name, spec, actor,
         return job
 
     job.status = JobStatus.FAILED.value
-    job.error = str(last_error)[:1000]
+    _log.warning("engine submission failed for job %s: %s", job.name,
+                 last_error)
+    reason = _public_error(last_error)
+    job.error = reason
     job.finished_at = _now()
     session.commit()
     _audit(session, job, "engine_job_failed",
            {"attempts": job.attempts, "error": job.error})
     _count(job.status)
     _on_failure(session, job)
-    raise ValueError("engine submission failed: %s" % str(last_error)[:300])
+    raise ValueError("engine submission failed: %s" % reason)
 
 
 def sync_job(session, job):

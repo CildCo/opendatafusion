@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import re
 import secrets
 
@@ -16,6 +17,7 @@ from odf.services.engine_jobs import (cancel_job, get_job, job_out, list_jobs,
 from odf.settings import get_settings
 
 router = APIRouter()
+_log = logging.getLogger("odf.engine")
 
 _NAME = r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
 _READ_ONLY = re.compile(r"(?is)^\s*(select|with|show|describe|explain|use)\b")
@@ -47,6 +49,10 @@ def _error(error: ValueError) -> HTTPException:
         return HTTPException(409, message)
     if "does not belong" in message:
         return HTTPException(404, message)
+    if ("Server error" in message or "://" in message
+            or "gateway rejected" in message):
+        _log.warning("engine gateway rejected the request: %s", message)
+        return HTTPException(502, "engine request failed")
     return HTTPException(400, message)
 
 
@@ -68,9 +74,22 @@ def _check_flink(spec: dict) -> None:
         raise HTTPException(400, "flink job requires a statement")
 
 
+_SECRET_KEYS = ("secret", "password", "token", "access-key")
+
+
+def _redact(conf: dict) -> dict:
+    return {key: ("***" if any(word in key.lower() for word in _SECRET_KEYS)
+                  else value)
+            for key, value in (conf or {}).items()}
+
+
 @router.get("/engine/profiles")
 def engine_profiles_view(claims: dict = Depends(require_user)):
-    return engine_profiles(get_settings())
+    profile = engine_profiles(get_settings())
+    spark = profile.get("spark") or {}
+    if spark.get("spark_conf"):
+        spark["spark_conf"] = _redact(spark["spark_conf"])
+    return profile
 
 
 @router.post("/engine/jobs", status_code=201)
