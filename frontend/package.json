@@ -25,13 +25,13 @@
     "@vue-flow/minimap": "^1.5.4",
     "codemirror": "^6.0.2",
     "echarts": "^6.1.0",
-    "element-plus": "^2.8.0",
-    "vue": "^3.5.0",
-    "vue-router": "^5.4.0"
+    "element-plus": "^2.14.8",
+    "vue": "^3.5.45",
+    "vue-router": "^5.5.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.1",
+    "@playwright/test": "^1.65.0",
     "@vitejs/plugin-vue": "^6.0.10",
-    "vite": "^8.3.5"
+    "vite": "^8.3.7"
   }
 }
