@@ -41,7 +41,7 @@ def limited(sql: str, dialect: str, rows: int) -> str:
     dialect = (dialect or "").lower()
     if dialect == "oracle":
         prefix, order = _split_order(body)
-        inner = "SELECT * FROM (%s) _odf_wb" % prefix
+        inner = "SELECT * FROM (%s) odf_wb" % prefix
         if order:
             inner += " " + order
         return inner + " FETCH FIRST %d ROWS ONLY" % rows

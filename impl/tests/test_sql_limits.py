@@ -3,7 +3,7 @@ from odf.services.sqldialect import limited
 
 def test_limit_syntax_per_dialect():
     assert limited("select * from t;", "oracle", 10) == (
-        "SELECT * FROM (select * from t) _odf_wb FETCH FIRST 10 ROWS ONLY")
+        "SELECT * FROM (select * from t) odf_wb FETCH FIRST 10 ROWS ONLY")
     assert limited("select * from t", "mssql", 5) == (
         "SELECT TOP 5 * FROM (select * from t) AS _odf_wb")
     assert limited("select * from t", "postgresql", 5) == (
@@ -16,7 +16,7 @@ def test_limit_keeps_order_by_outside_the_derived_table():
     assert limited("select id from t order by id", "mssql", 5) == (
         "SELECT TOP 5 * FROM (select id from t) AS _odf_wb order by id")
     assert limited("select id from t ORDER BY id", "oracle", 5) == (
-        "SELECT * FROM (select id from t) _odf_wb ORDER BY id "
+        "SELECT * FROM (select id from t) odf_wb ORDER BY id "
         "FETCH FIRST 5 ROWS ONLY")
 
 
