@@ -13,6 +13,14 @@ Connect sources, move and transform data, model datasets and metrics, publish go
 
 ![OpenDataFusion dashboard](docs/images/dashboard.png)
 
+## What is OpenDataFusion?
+
+OpenDataFusion is an open-source, self-hosted data platform that combines the jobs usually split across ingestion tools, transformation frameworks, catalogs, BI tools and internal-tool builders in one project-scoped workspace. It ships a visual pipeline studio, a governed API studio, dataset/metric modelling, dashboards, data apps, a lakehouse layer over Apache Iceberg with Trino, Spark and Flink execution, Debezium change data capture, and an MCP server so AI agents can operate the same capabilities.
+
+**Use it when you need:** a low-code ETL/ELT and data integration platform; a data catalog with lineage and quality rules; governed data APIs with AK/SK; self-service dashboards and internal apps; or a lakehouse control plane on Kubernetes.
+
+**Keywords:** open-source data platform, low-code ETL, ELT, data integration, data pipeline, lakehouse, Apache Iceberg, Nessie, Trino, Apache Spark, Apache Flink, Kafka, Debezium, CDC, data catalog, data lineage, data quality, data governance, API gateway, internal tools, BI dashboards, MCP, AI data agents, FastAPI, Vue 3, Kubernetes.
+
 ## Why OpenDataFusion
 
 - **One delivery loop.** Source → pipeline → dataset/metric → API, dashboard or app, with lineage, quality, approvals and audit in the same product model.

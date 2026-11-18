@@ -11,12 +11,12 @@
 
       <nav class="rail-nav">
         <section v-for="group in menuGroups" :key="group.name" class="nav-group">
-          <div class="nav-label">{{ group.name }}</div>
+          <div class="nav-label">{{ t(group.key) }}</div>
           <router-link v-for="m in group.items" :key="m.path" :to="m.path"
                        class="nav-item"
                        :class="{ active: activePath === m.path }">
             <el-icon><component :is="m.icon" /></el-icon>
-            <span>{{ m.title }}</span>
+            <span>{{ t(m.key) }}</span>
           </router-link>
         </section>
       </nav>
@@ -24,7 +24,7 @@
       <div class="rail-foot">
         <div class="service-state">
           <span class="dot" :class="{ on: online }"></span>
-          {{ online ? "服务在线" : "服务离线" }}
+          {{ online ? t("top.serviceOnline") : t("top.serviceOffline") }}
         </div>
         <div class="rail-meta">
           <span>API 18080</span>
@@ -37,7 +37,7 @@
     <div class="workspace">
       <header class="topbar">
         <div class="identity">
-          <h1>{{ $route.meta.title || "控制台" }}</h1>
+          <h1>{{ pageTitle }}</h1>
           <div class="context">
             <span>{{ projectName }}</span>
             <span class="sep">/</span>
@@ -48,8 +48,11 @@
           <button class="search-entry" type="button"
                   @click="$router.push('/catalog')">
             <el-icon><Search /></el-icon>
-            <span>搜索资产、接口、作业</span>
+            <span>{{ t("top.search") }}</span>
           </button>
+          <el-button size="small" text @click="toggleLocale">
+            {{ t("top.language") }}
+          </el-button>
           <el-select :model-value="currentProject" class="project-switch"
                      size="small" @change="switchProject">
             <el-option v-for="p in projects" :key="p.id" :value="p.id"
@@ -57,7 +60,7 @@
           </el-select>
           <div class="online" :class="{ off: !online }">
             <span class="dot" :class="{ on: online }"></span>
-            {{ online ? "在线" : "离线" }}
+            {{ online ? t("top.online") : t("top.offline") }}
           </div>
           <el-dropdown trigger="click" @command="onUserCommand">
             <button class="user-trigger" type="button">
@@ -69,9 +72,9 @@
             </button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="security">账号安全</el-dropdown-item>
-                <el-dropdown-item command="workspace">工作区设置</el-dropdown-item>
-                <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+                <el-dropdown-item command="security">{{ t("top.security") }}</el-dropdown-item>
+                <el-dropdown-item command="workspace">{{ t("top.workspace") }}</el-dropdown-item>
+                <el-dropdown-item command="logout" divided>{{ t("top.logout") }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -95,6 +98,7 @@ import {
 import { ElMessage } from "element-plus";
 import { api, clearSession, getProject, getRole, setProject }
   from "../api";
+import { t, toggleLocale } from "../i18n";
 
 const route = useRoute();
 const router = useRouter();
@@ -106,39 +110,39 @@ const portal = ref({ brand_name: "OpenDataFusion", primary_color: "#1d4ed8",
                      hidden_menus: [], allowed_menus: null });
 
 const groups = [
-  { name: "工作台", items: [
-    { path: "/dashboard", title: "概览", icon: Odometer },
-    { path: "/ops", title: "运维中心", icon: Monitor },
+  { key: "nav.workspace", items: [
+    { path: "/dashboard", key: "menu.dashboard", icon: Odometer },
+    { path: "/ops", key: "menu.ops", icon: Monitor },
   ] },
-  { name: "数据资产", items: [
-    { path: "/datasources", title: "数据源", icon: Coin },
-    { path: "/catalog", title: "数据目录", icon: Collection },
-    { path: "/workbench", title: "SQL 工作台", icon: EditPen },
-    { path: "/files", title: "文件", icon: Folder },
+  { key: "nav.assets", items: [
+    { path: "/datasources", key: "menu.datasources", icon: Coin },
+    { path: "/catalog", key: "menu.catalog", icon: Collection },
+    { path: "/workbench", key: "menu.workbench", icon: EditPen },
+    { path: "/files", key: "menu.files", icon: Folder },
   ] },
-  { name: "数据开发", items: [
-    { path: "/pipelines", title: "数据管道", icon: Share },
-    { path: "/engines", title: "计算引擎", icon: Cpu },
-    { path: "/cdc", title: "增量同步", icon: DataLine },
-    { path: "/flows", title: "数据集成", icon: Share },
-    { path: "/datasets", title: "数据模型", icon: Collection },
-    { path: "/dashboards", title: "数据看板", icon: Odometer },
-    { path: "/apps", title: "数据应用", icon: Grid },
+  { key: "nav.development", items: [
+    { path: "/pipelines", key: "menu.pipelines", icon: Share },
+    { path: "/engines", key: "menu.engines", icon: Cpu },
+    { path: "/cdc", key: "menu.cdc", icon: DataLine },
+    { path: "/flows", key: "menu.flows", icon: Share },
+    { path: "/datasets", key: "menu.datasets", icon: Collection },
+    { path: "/dashboards", key: "menu.dashboards", icon: Odometer },
+    { path: "/apps", key: "menu.apps", icon: Grid },
   ] },
-  { name: "开放与治理", items: [
-    { path: "/apis", title: "数据接口", icon: Connection },
-    { path: "/grants", title: "接口授权", icon: Key },
-    { path: "/webhooks", title: "事件订阅", icon: Promotion },
-    { path: "/quality", title: "数据质量", icon: CircleCheck },
-    { path: "/alerts", title: "告警", icon: Bell },
-    { path: "/changes", title: "变更", icon: Switch },
-    { path: "/tools", title: "AI 工具", icon: Connection },
+  { key: "nav.governance", items: [
+    { path: "/apis", key: "menu.apis", icon: Connection },
+    { path: "/grants", key: "menu.grants", icon: Key },
+    { path: "/webhooks", key: "menu.webhooks", icon: Promotion },
+    { path: "/quality", key: "menu.quality", icon: CircleCheck },
+    { path: "/alerts", key: "menu.alerts", icon: Bell },
+    { path: "/changes", key: "menu.changes", icon: Switch },
+    { path: "/tools", key: "menu.tools", icon: Connection },
   ] },
-  { name: "管理", items: [
-    { path: "/users", title: "用户", icon: User, adminOnly: true },
-    { path: "/workspace", title: "工作区设置", icon: Setting },
-    { path: "/security", title: "账号安全", icon: Lock },
-    { path: "/audit", title: "审计", icon: Document, adminOnly: true },
+  { key: "nav.management", items: [
+    { path: "/users", key: "menu.users", icon: User, adminOnly: true },
+    { path: "/workspace", key: "menu.workspace", icon: Setting },
+    { path: "/security", key: "menu.security", icon: Lock },
+    { path: "/audit", key: "menu.audit", icon: Document, adminOnly: true },
   ] },
 ];
 
@@ -166,9 +170,15 @@ const projectName = computed(() => {
   return p ? p.name : "Default";
 });
 
-const roleLabel = computed(() => ({ admin: "管理员", editor: "编辑者",
-                                   approver: "审批者", viewer: "查看者" })[role]
-  || role);
+const roleLabel = computed(() =>
+  t("role." + (["admin", "editor", "approver", "viewer"].includes(role)
+    ? role : "viewer")));
+
+const pageTitle = computed(() => {
+  const found = groups.flatMap((g) => g.items).find(
+    (m) => route.path === m.path || route.path.startsWith(m.path + "/"));
+  return found ? t(found.key) : (route.meta.title || "");
+});
 
 function luminance(hex) {
   const m = hex.replace("#", "").match(/.{2}/g);

@@ -15,6 +15,14 @@ MCP 使用同一套能力。
 
 ![OpenDataFusion 概览](docs/images/dashboard.png)
 
+## OpenDataFusion 是什么？
+
+OpenDataFusion 是一个开源自托管的数据平台，把通常分散在数据集成、转换、目录、BI 和内部工具里的工作合并到同一个按项目隔离的工作区：可视化数据管道、受治理的数据接口、数据集/指标建模、数据看板、数据应用，以及基于 Apache Iceberg 的湖仓层（Trino、Spark、Flink 执行）、Debezium 增量同步，并提供 MCP 服务让 AI 代理调用同一套能力。
+
+**适用场景：** 低代码 ETL/ELT 与数据集成平台；带血缘和质量规则的数据目录；带 AK/SK 鉴权的数据开放接口；自助式看板与内部应用；Kubernetes 上的湖仓控制面。
+
+**关键词：** 开源数据平台、低代码 ETL、数据集成、数据管道、湖仓、Apache Iceberg、Nessie、Trino、Apache Spark、Apache Flink、Kafka、Debezium、CDC、数据目录、数据血缘、数据质量、数据治理、API 网关、内部工具、BI 看板、MCP、大模型数据代理、FastAPI、Vue 3、Kubernetes。
+
 ## 为什么选择 OpenDataFusion
 
 - **一条完整交付链路**：数据源 → 管道 → 数据集/指标 → 接口、看板或应用；

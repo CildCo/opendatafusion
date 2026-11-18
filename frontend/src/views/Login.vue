@@ -7,21 +7,21 @@
       </div>
       <h1>OpenData<br>Fusion.</h1>
       <p class="statement">
-        从数据源到管道、模型、接口和应用，<br>
-        一个工作区完成数据流动的全过程。
+        {{ locale === "en" ? "From sources to pipelines, models, interfaces and apps," : "从数据源到管道、模型、接口和应用，" }}<br>
+        {{ locale === "en" ? "one workspace for the whole data journey." : "一个工作区完成数据流动的全过程。" }}
       </p>
       <div class="facts">
         <div class="fact">
           <span class="fact-key"></span>
-          <span>数据源 → 管道 → 模型 → 接口</span>
+          <span>{{ t("login.feature1") }}</span>
         </div>
         <div class="fact">
           <span class="fact-key"></span>
-          <span>治理、审批与审计在同一条链路上</span>
+          <span>{{ t("login.feature2") }}</span>
         </div>
         <div class="fact">
           <span class="fact-key"></span>
-          <span>外部 AI 通过 MCP 接入同一套能力</span>
+          <span>{{ t("login.feature3") }}</span>
         </div>
       </div>
       <div class="intro-foot">
@@ -32,31 +32,32 @@
     <section class="panel">
       <div class="panel-inner">
         <header class="panel-head">
-          <h2>登录工作区</h2>
-          <p>使用管理员或项目成员账号进入控制台。</p>
+          <el-button link style="float:right" @click="toggleLocale">{{ locale === "en" ? "中文" : "English" }}</el-button>
+          <h2>{{ locale === "en" ? "Sign in" : "登录工作区" }}</h2>
+          <p>{{ t("login.subtitle") }}</p>
         </header>
 
         <el-form label-position="top" @submit.prevent="submit">
-          <el-form-item label="用户名">
+          <el-form-item :label="t('login.username')">
             <el-input v-model="username" size="large" placeholder="admin"
                       autocomplete="username" :prefix-icon="User" />
           </el-form-item>
-          <el-form-item label="密码">
+          <el-form-item :label="t('login.password')">
             <el-input v-model="password" size="large" type="password"
                       show-password autocomplete="current-password"
                       placeholder="输入密码" :prefix-icon="Lock"
                       @keyup.enter="submit" />
           </el-form-item>
-          <el-form-item label="动态验证码（启用 2FA 时）">
+          <el-form-item :label="t('login.otp')">
             <el-input v-model="otp" size="large" placeholder="可选"
                       autocomplete="one-time-code" :prefix-icon="Key" />
           </el-form-item>
-          <el-form-item label="项目 ID">
+          <el-form-item :label="t('login.project')">
             <el-input-number v-model="projectId" :min="1" size="large"
                              controls-position="right" />
           </el-form-item>
           <el-button type="primary" size="large" class="submit"
-                     :loading="loading" @click="submit">登录</el-button>
+                     :loading="loading" @click="submit">{{ t("login.submit") }}</el-button>
           <el-button v-if="oidcEnabled" size="large" class="oidc"
                      @click="oidcLogin">使用企业账号登录 (OIDC)</el-button>
         </el-form>
@@ -65,7 +66,7 @@
                   show-icon class="error" />
 
         <div class="panel-foot">
-          <span>遇到权限问题请联系工作区管理员</span>
+          <span>{{ t("login.help") }}</span>
           <span class="mono">MCP 18082</span>
         </div>
       </div>
@@ -74,6 +75,7 @@
 </template>
 
 <script setup>
+import { locale, t, toggleLocale } from "../i18n";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { Lock, User, Key } from "@element-plus/icons-vue";

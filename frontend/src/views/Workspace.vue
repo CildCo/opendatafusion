@@ -10,7 +10,14 @@
 
     <el-card shadow="never">
       <el-form label-width="110px" style="max-width: 680px">
-        <el-form-item label="品牌名称">
+        <el-form-item :label="locale === 'en' ? 'Interface language' : '界面语言'">
+          <el-select :model-value="locale" style="width: 200px"
+                     @change="changeLocale">
+            <el-option value="zh" label="简体中文" />
+            <el-option value="en" label="English" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="locale === 'en' ? 'Brand name' : '品牌名称'">
           <el-input v-model="form.brand_name" maxlength="64" />
         </el-form-item>
         <el-form-item label="主题色">
@@ -30,14 +37,14 @@
         <el-form-item label="隐藏菜单">
           <el-checkbox-group v-model="form.hidden_menus" class="menus">
             <el-checkbox v-for="m in menus" :key="m.path" :value="m.path">
-              {{ m.title }}
+              {{ t(m.key) }}
             </el-checkbox>
           </el-checkbox-group>
         </el-form-item>
         <el-form-item label="菜单权限">
           <el-checkbox-group v-model="allowedMenus" class="menus">
             <el-checkbox v-for="m in menus" :key="m.path" :value="m.path">
-              {{ m.title }}
+              {{ t(m.key) }}
             </el-checkbox>
           </el-checkbox-group>
           <p class="hint">
@@ -56,28 +63,33 @@
 import { onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { api, errMsg } from "../api";
+import { locale, setLocale, t } from "../i18n";
+
+function changeLocale(value) {
+  setLocale(value);
+}
 
 const menus = [
-  { path: "/dashboard", title: "概览" },
-  { path: "/ops", title: "运维中心" },
-  { path: "/datasources", title: "数据源" },
-  { path: "/catalog", title: "数据目录" },
-  { path: "/workbench", title: "SQL 工作台" },
-  { path: "/pipelines", title: "数据管道" },
-  { path: "/flows", title: "数据集成" },
-  { path: "/apis", title: "数据接口" },
-  { path: "/tools", title: "AI 工具" },
-  { path: "/datasets", title: "数据模型" },
-  { path: "/dashboards", title: "数据看板" },
-  { path: "/apps", title: "数据应用" },
-  { path: "/quality", title: "数据质量" },
-  { path: "/alerts", title: "告警" },
-  { path: "/changes", title: "变更" },
-  { path: "/grants", title: "接口授权" },
-  { path: "/webhooks", title: "事件订阅" },
-  { path: "/files", title: "文件" },
-  { path: "/workspace", title: "工作区设置" },
-  { path: "/security", title: "账号安全" },
+  { path: "/dashboard", key: "menu.dashboard" },
+  { path: "/ops", key: "menu.ops" },
+  { path: "/datasources", key: "menu.datasources" },
+  { path: "/catalog", key: "menu.catalog" },
+  { path: "/workbench", key: "menu.workbench" },
+  { path: "/pipelines", key: "menu.pipelines" },
+  { path: "/flows", key: "menu.flows" },
+  { path: "/apis", key: "menu.apis" },
+  { path: "/tools", key: "menu.tools" },
+  { path: "/datasets", key: "menu.datasets" },
+  { path: "/dashboards", key: "menu.dashboards" },
+  { path: "/apps", key: "menu.apps" },
+  { path: "/quality", key: "menu.quality" },
+  { path: "/alerts", key: "menu.alerts" },
+  { path: "/changes", key: "menu.changes" },
+  { path: "/grants", key: "menu.grants" },
+  { path: "/webhooks", key: "menu.webhooks" },
+  { path: "/files", key: "menu.files" },
+  { path: "/workspace", key: "menu.workspace" },
+  { path: "/security", key: "menu.security" },
 ];
 const form = reactive({ brand_name: "OpenDataFusion",
                         primary_color: "#1d4ed8", welcome_title: "",
