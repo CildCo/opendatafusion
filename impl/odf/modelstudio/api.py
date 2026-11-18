@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from odf.assets.service import (create_asset, get_asset, list_assets,
-                                list_versions, update_asset, update_draft)
+from odf.assets.service import (create_asset, delete_asset_of,
+                                get_asset, list_assets, list_versions,
+                                update_asset, update_draft)
 from odf.db import get_session
 from odf.modelstudio.content import (empty_dataset, empty_metric,
                                      validate_dataset, validate_metric)
@@ -160,6 +161,17 @@ def create_dataset(body: ModelIn, s: Session = Depends(get_session),
     return _create(s, claims, "dataset", body, empty_dataset)
 
 
+@router.delete("/datasets/{asset_id}", status_code=204)
+def delete(asset_id: int, s: Session = Depends(get_session),
+           claims: dict = Depends(require_editor)):
+    try:
+        delete_asset_of(s, asset_id, claims["project_id"], "dataset")
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    write_audit(s, claims["sub"], "delete_dataset", str(asset_id), {})
+    return None
+
+
 @router.get("/datasets/{asset_id}")
 def get_dataset(asset_id: int, s: Session = Depends(get_session),
                 claims: dict = Depends(require_user)):
@@ -311,6 +323,17 @@ def metrics(s: Session = Depends(get_session),
 def create_metric(body: ModelIn, s: Session = Depends(get_session),
                   claims: dict = Depends(require_editor)):
     return _create(s, claims, "metric", body, empty_metric)
+
+
+@router.delete("/metrics/{asset_id}", status_code=204)
+def delete(asset_id: int, s: Session = Depends(get_session),
+           claims: dict = Depends(require_editor)):
+    try:
+        delete_asset_of(s, asset_id, claims["project_id"], "metric")
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    write_audit(s, claims["sub"], "delete_metric", str(asset_id), {})
+    return None
 
 
 @router.get("/metrics/{asset_id}")

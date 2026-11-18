@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from odf.assets.service import (create_asset, get_asset, list_assets,
-                                list_versions, update_asset, update_draft)
+from odf.assets.service import (create_asset, delete_asset_of,
+                                get_asset, list_assets, list_versions,
+                                update_asset, update_draft)
 from odf.dashboards.content import empty_dashboard, validate_dashboard
 from odf.dashboards.service import dashboard_data
 from odf.db import get_session
@@ -80,6 +81,17 @@ def create(body: DashboardIn, s: Session = Depends(get_session),
     write_audit(s, claims["sub"], "create_dashboard", str(a.id),
                 {"name": body.name})
     return {"id": a.id, "key": a.key}
+
+
+@router.delete("/dashboards/{asset_id}", status_code=204)
+def delete(asset_id: int, s: Session = Depends(get_session),
+           claims: dict = Depends(require_editor)):
+    try:
+        delete_asset_of(s, asset_id, claims["project_id"], "dashboard")
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    write_audit(s, claims["sub"], "delete_dashboard", str(asset_id), {})
+    return None
 
 
 @router.get("/dashboards/{asset_id}")

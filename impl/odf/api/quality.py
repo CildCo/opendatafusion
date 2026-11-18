@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 
 from odf.db import get_session
 from odf.services.auth import require_editor, require_user
-from odf.services.quality import (create_rule, list_results, list_rules,
-                                  run_rule)
+from odf.services.quality import (create_rule, delete_rule,
+                                  list_results, list_rules, run_rule)
 
 router = APIRouter()
 
@@ -39,6 +39,16 @@ def create(body: RuleIn, s: Session = Depends(get_session),
     except ValueError as e:
         raise HTTPException(404, str(e))
     return {"id": r.id}
+
+
+@router.delete("/quality/rules/{rule_id}", status_code=204)
+def remove(rule_id: int, s: Session = Depends(get_session),
+           claims: dict = Depends(require_editor)):
+    try:
+        delete_rule(s, claims["project_id"], rule_id)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return None
 
 
 @router.post("/quality/rules/{rule_id}/run")

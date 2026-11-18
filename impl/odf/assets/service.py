@@ -1,6 +1,10 @@
 import secrets
 
-from odf.models import Asset, AssetVersion
+from sqlalchemy import and_, or_
+
+from odf.models import (ApiCallStat, Asset, AssetVersion, InterfaceGrant,
+                        InterfaceRequest, Job, LineageEdge,
+                        PipelineNodeRun, ShareLink)
 
 
 def _next_version(session, asset_id):
@@ -26,8 +30,49 @@ def create_asset(session, project_id, type, name, content, owner, key=None,
     return a
 
 
+def delete_asset_of(session, asset_id, project_id, kind):
+    a = session.get(Asset, asset_id)
+    if not a or a.type != kind or a.project_id != project_id:
+        raise ValueError("%s not found" % kind)
+    return delete_asset(session, asset_id, project_id)
+
+
 def get_asset(session, asset_id):
     return session.get(Asset, asset_id)
+
+
+def delete_asset(session, asset_id, project_id):
+    """Remove an asset together with the rows that point at it."""
+    a = session.get(Asset, asset_id)
+    if not a or a.project_id != project_id:
+        raise ValueError("asset not found")
+    kind = a.type
+    job_ids = [row[0] for row in
+               session.query(Job.id).filter_by(asset_id=asset_id).all()]
+    if job_ids:
+        session.query(PipelineNodeRun).filter(
+            PipelineNodeRun.job_id.in_(job_ids)).delete(
+                synchronize_session=False)
+        session.query(Job).filter(Job.asset_id == asset_id).delete(
+            synchronize_session=False)
+    for model, column in ((ShareLink, ShareLink.asset_id),
+                          (InterfaceGrant, InterfaceGrant.interface_asset_id),
+                          (InterfaceRequest, InterfaceRequest.interface_asset_id),
+                          (ApiCallStat, ApiCallStat.api_id)):
+        session.query(model).filter(column == asset_id).delete(
+            synchronize_session=False)
+    session.query(LineageEdge).filter(or_(
+        LineageEdge.asset_id == asset_id,
+        and_(LineageEdge.from_type == kind,
+             LineageEdge.from_id == str(asset_id)),
+        and_(LineageEdge.to_type == kind,
+             LineageEdge.to_id == str(asset_id)),
+    )).delete(synchronize_session=False)
+    session.query(AssetVersion).filter_by(asset_id=asset_id).delete(
+        synchronize_session=False)
+    session.delete(a)
+    session.commit()
+    return kind
 
 
 def list_assets(session, project_id, type=None):

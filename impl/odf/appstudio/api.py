@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session
 from odf.appstudio.content import empty_app, validate_app
 from odf.appstudio.forms import form_schema, submit_form
 from odf.appstudio.service import app_data
-from odf.assets.service import (create_asset, get_asset, list_assets,
-                                list_versions, update_asset, update_draft)
+from odf.assets.service import (create_asset, delete_asset_of,
+                                get_asset, list_assets, list_versions,
+                                update_asset, update_draft)
 from odf.db import get_session
 from odf.models import AssetVersion, User
 from odf.services.approval import verify_token
@@ -88,6 +89,17 @@ def create(body: AppIn, s: Session = Depends(get_session),
     write_audit(s, claims["sub"], "create_app", str(a.id),
                 {"name": body.name})
     return {"id": a.id, "key": a.key}
+
+
+@router.delete("/apps/{asset_id}", status_code=204)
+def delete(asset_id: int, s: Session = Depends(get_session),
+           claims: dict = Depends(require_editor)):
+    try:
+        delete_asset_of(s, asset_id, claims["project_id"], "app")
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    write_audit(s, claims["sub"], "delete_app", str(asset_id), {})
+    return None
 
 
 @router.get("/apps/{asset_id}")

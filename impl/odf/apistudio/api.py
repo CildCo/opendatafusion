@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session
 from odf.apistudio.content import empty_content, validate_content
 from odf.apistudio.service import (ApiError, build_docs, execute_published,
                                    preview_api)
-from odf.assets.service import (create_asset, get_asset, list_assets,
-                                list_versions, update_asset, update_draft)
+from odf.assets.service import (create_asset, delete_asset_of,
+                                get_asset, list_assets, list_versions,
+                                update_asset, update_draft)
 from odf.db import get_session
 from odf.models import AssetVersion
 from odf.services.approval import verify_token
@@ -79,6 +80,17 @@ def create(body: ApiIn, s: Session = Depends(get_session),
     write_audit(s, claims["sub"], "create_api", str(a.id),
                 {"name": body.name})
     return {"id": a.id, "key": a.key}
+
+
+@router.delete("/apis/{asset_id}", status_code=204)
+def delete(asset_id: int, s: Session = Depends(get_session),
+           claims: dict = Depends(require_editor)):
+    try:
+        delete_asset_of(s, asset_id, claims["project_id"], "api")
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    write_audit(s, claims["sub"], "delete_api", str(asset_id), {})
+    return None
 
 
 @router.get("/apis/{asset_id}")

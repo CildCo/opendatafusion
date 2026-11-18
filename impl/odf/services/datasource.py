@@ -143,3 +143,71 @@ def test_connection(dsn: str, timeout: int = 5, kind: str | None = None) -> bool
         return True
     except Exception:
         return False
+
+
+class DatasourceInUse(ValueError):
+    def __init__(self, blockers: dict):
+        super().__init__("datasource is in use")
+        self.blockers = blockers
+
+
+def update_datasource(session, project_id: int, datasource_id: int,
+                      name: str | None = None,
+                      dsn: str | None = None) -> Datasource:
+    ds = session.get(Datasource, datasource_id)
+    if not ds or ds.project_id != project_id:
+        raise ValueError("datasource not found")
+    if name:
+        ds.name = name.strip()
+    if dsn:
+        dsn = normalize_dsn(ds.kind, dsn)
+        if is_control_database(dsn):
+            raise ValueError("control database cannot be used as a datasource")
+        ds.dsn_encrypted = encrypt_secret(dsn)
+    session.commit()
+    session.refresh(ds)
+    return ds
+
+
+def delete_datasource(session, project_id: int, datasource_id: int,
+                      force: bool = False) -> dict:
+    from odf.models import (Column, Dataset, DatasetTag, QualityResult,
+                            QualityRule, StandardMapping)
+
+    ds = session.get(Datasource, datasource_id)
+    if not ds or ds.project_id != project_id:
+        raise ValueError("datasource not found")
+    datasets = session.query(Dataset).filter_by(datasource_id=ds.id).all()
+    ids = [d.id for d in datasets]
+    rules = (session.query(QualityRule).filter(QualityRule.dataset_id.in_(ids))
+             .all() if ids else [])
+    rule_ids = [r.id for r in rules]
+    blockers = {
+        "datasets": len(ids),
+        "quality_rules": len(rules),
+        "tags": (session.query(DatasetTag).filter(
+            DatasetTag.dataset_id.in_(ids)).count() if ids else 0),
+        "mappings": (session.query(StandardMapping).filter(
+            StandardMapping.dataset_id.in_(ids)).count() if ids else 0),
+    }
+    if any(blockers.values()) and not force:
+        raise DatasourceInUse(blockers)
+    if rule_ids:
+        session.query(QualityResult).filter(
+            QualityResult.rule_id.in_(rule_ids)).delete(
+                synchronize_session=False)
+        session.query(QualityRule).filter(
+            QualityRule.id.in_(rule_ids)).delete(synchronize_session=False)
+    if ids:
+        session.query(DatasetTag).filter(
+            DatasetTag.dataset_id.in_(ids)).delete(synchronize_session=False)
+        session.query(StandardMapping).filter(
+            StandardMapping.dataset_id.in_(ids)).delete(
+                synchronize_session=False)
+        session.query(Column).filter(Column.dataset_id.in_(ids)).delete(
+            synchronize_session=False)
+        session.query(Dataset).filter(Dataset.id.in_(ids)).delete(
+            synchronize_session=False)
+    session.delete(ds)
+    session.commit()
+    return blockers

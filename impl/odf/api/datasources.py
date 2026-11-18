@@ -6,8 +6,9 @@ from odf.db import get_session
 from odf.models import Datasource
 from odf.services.audit import write_audit
 from odf.services.auth import require_editor, require_user
-from odf.services.datasource import (create_datasource, get_dsn, mask_dsn,
-                                     test_connection)
+from odf.services.datasource import (DatasourceInUse, create_datasource,
+                                     delete_datasource, get_dsn, mask_dsn,
+                                     test_connection, update_datasource)
 
 router = APIRouter()
 
@@ -17,6 +18,11 @@ class DsIn(BaseModel):
     dsn: str
     kind: str = "postgres"
     project_id: int | None = None
+
+
+class DsUpdateIn(BaseModel):
+    name: str | None = None
+    dsn: str | None = None
 
 
 @router.post("/datasources")
@@ -41,6 +47,40 @@ def list_ds(s: Session = Depends(get_session),
              "dsn": mask_dsn(get_dsn(d))}
             for d in s.query(Datasource)
             .filter_by(project_id=claims["project_id"]).all()]
+
+
+@router.put("/datasources/{datasource_id}")
+def update(datasource_id: int, body: DsUpdateIn,
+           s: Session = Depends(get_session),
+           claims: dict = Depends(require_editor)):
+    try:
+        ds = update_datasource(s, claims["project_id"], datasource_id,
+                               body.name, body.dsn)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    write_audit(s, claims["sub"], "update_datasource", str(ds.id),
+                {"name": ds.name, "dsn_changed": bool(body.dsn)})
+    return {"id": ds.id, "name": ds.name,
+            "dsn": mask_dsn(get_dsn(ds))}
+
+
+@router.delete("/datasources/{datasource_id}", status_code=204)
+def remove(datasource_id: int, force: bool = False,
+           s: Session = Depends(get_session),
+           claims: dict = Depends(require_editor)):
+    try:
+        blockers = delete_datasource(s, claims["project_id"], datasource_id,
+                                     force)
+    except DatasourceInUse as e:
+        parts = ["%d %s" % (v, k) for k, v in e.blockers.items() if v]
+        raise HTTPException(
+            409, "datasource is in use: %s; pass force=true to delete"
+            % ", ".join(parts))
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    write_audit(s, claims["sub"], "delete_datasource", str(datasource_id),
+                blockers)
+    return None
 
 
 @router.post("/datasources/{datasource_id}/test")
