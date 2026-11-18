@@ -6,7 +6,7 @@ from odf.db import get_session
 from odf.services.auth import require_user
 from odf.services.catalog import (create_tag, dataset_detail, impact,
                                   lineage, list_datasets, list_tags,
-                                  search_catalog, tag_dataset)
+                                  search_catalog, tag_dataset, untag_dataset)
 
 router = APIRouter()
 
@@ -80,3 +80,14 @@ def attach(body: TagDatasetIn, s: Session = Depends(get_session),
     except ValueError as e:
         raise HTTPException(404, str(e))
     return {"id": row.id}
+
+
+@router.post("/catalog/tags/detach")
+def detach(body: TagDatasetIn, s: Session = Depends(get_session),
+           claims: dict = Depends(require_user)):
+    try:
+        removed = untag_dataset(s, body.dataset_id, body.tag_id,
+                                claims["project_id"])
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return {"removed": removed}

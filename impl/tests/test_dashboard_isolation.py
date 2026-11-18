@@ -4,9 +4,9 @@ from fastapi.testclient import TestClient
 
 from odf.db import SessionLocal
 from odf.main import app
-from odf.models import (Alert, Asset, Dataset, Datasource, Flow, FlowRun,
-                        Interface, Job, PipelineNodeRun, Project,
-                        QualityRule, User)
+from odf.models import (Alert, Asset, AssetVersion, Dataset, Datasource, Flow,
+                        FlowRun, Job, PipelineNodeRun, Project, QualityRule,
+                        User)
 from odf.services.auth import create_token
 from odf.services.crypto import encrypt_secret
 
@@ -29,11 +29,23 @@ def _seed():
             if not s.get(Flow, pid):
                 s.add(Flow(id=pid, project_id=pid, name="flow_%d" % pid,
                            status=0))
-            if not s.get(Interface, pid):
-                s.add(Interface(id=pid, project_id=pid, datasource_id=pid,
-                                interface_key="if_%d" % pid,
-                                name="if%d" % pid, sql_text="select 1",
-                                status=1))
+            # Published API assets are what the interface counter reports.
+            old = s.query(Asset).filter_by(project_id=pid, type="api").all()
+            for row in old:
+                s.query(AssetVersion).filter_by(asset_id=row.id).delete(
+                    synchronize_session=False)
+                s.delete(row)
+            s.flush()
+            api = Asset(project_id=pid, type="api", key="api_%d" % pid,
+                        name="api%d" % pid, owner="1", enabled=True)
+            s.add(api)
+            s.flush()
+            version = AssetVersion(asset_id=api.id, version=1,
+                                   content_json={}, status="published",
+                                   created_by="1")
+            s.add(version)
+            s.flush()
+            api.published_version_id = version.id
             if not s.get(Dataset, pid):
                 s.add(Dataset(id=pid, datasource_id=pid, schema_name="main",
                               table_name="t%d" % pid))

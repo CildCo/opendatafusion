@@ -1,3 +1,7 @@
+import logging
+import re
+
+import httpx
 from datetime import datetime, timezone
 
 from dataclasses import replace
@@ -10,6 +14,10 @@ from odf.services import tenancy
 from odf.services.audit import write_audit
 from odf.settings import get_settings
 
+_log = logging.getLogger("odf.engine")
+_FLINK_JOB_ID = re.compile(r"^[0-9a-f]{32}$")
+MAX_SYNC_FAILURES = 5
+
 TERMINAL = (JobStatus.SUCCEEDED.value, JobStatus.FAILED.value,
             JobStatus.CANCELLED.value)
 ACTIVE = (JobStatus.PENDING.value, JobStatus.RUNNING.value)
@@ -18,6 +26,15 @@ ENGINES = ("spark", "flink")
 
 def _now():
     return datetime.now(timezone.utc)
+
+
+def _public_error(error) -> str:
+    """Keep the controlled reason, drop transport detail such as gateway
+    URLs and status lines."""
+    text = str(error)
+    if "Server error" in text or "://" in text:
+        return "engine gateway rejected the request"
+    return text[:300]
 
 
 def _spark_engine() -> KubernetesEngine:
@@ -94,6 +111,7 @@ def _dispatch(job):
         job_spec = spark_spec_from(job.name, spec, settings)
         if namespace:
             job_spec = replace(job_spec, namespace=namespace)
+            job.spec_json = dict(spec, namespace=namespace)
         return _spark_engine().submit(job_spec), {}, None
     statement = (spec.get("statement") or "").strip()
     if not statement:
@@ -103,7 +121,10 @@ def _dispatch(job):
         statement, spec.get("properties") or {}, attached=attached)
     if attached:
         return "", result, JobStatus.SUCCEEDED.value
-    return result["job_id"], {}, None
+    job_id = result.get("job_id") or ""
+    if not _FLINK_JOB_ID.match(job_id):
+        raise ValueError("flink did not return a job id")
+    return job_id, {}, None
 
 
 def submit_job(session, project_id, engine, name, spec, actor,
@@ -149,14 +170,17 @@ def submit_job(session, project_id, engine, name, spec, actor,
         return job
 
     job.status = JobStatus.FAILED.value
-    job.error = str(last_error)[:1000]
+    _log.warning("engine submission failed for job %s: %s", job.name,
+                 last_error)
+    reason = _public_error(last_error)
+    job.error = reason
     job.finished_at = _now()
     session.commit()
     _audit(session, job, "engine_job_failed",
            {"attempts": job.attempts, "error": job.error})
     _count(job.status)
     _on_failure(session, job)
-    raise ValueError("engine submission failed: %s" % str(last_error)[:300])
+    raise ValueError("engine submission failed: %s" % reason)
 
 
 def sync_job(session, job):
@@ -165,10 +189,12 @@ def sync_job(session, job):
     error = ""
     if job.engine == "spark":
         engine = _spark_engine()
-        status = engine.status(job.name)
+        namespace = (job.spec_json or {}).get("namespace")
+        status = engine.status(job.name, namespace=namespace)
         if status in (JobStatus.SUCCEEDED, JobStatus.FAILED):
             try:
-                error = engine.result(job.name).get("error") or ""
+                error = engine.result(job.name, namespace=namespace).get(
+                    "error") or ""
             except Exception:
                 error = ""
     else:
@@ -195,10 +221,16 @@ def cancel_job(session, job, actor):
     if job.status in TERMINAL:
         return job
     if job.external_id:
-        if job.engine == "spark":
-            _spark_engine().cancel(job.name)
-        else:
-            _flink_gateway().cancel(job.external_id)
+        try:
+            if job.engine == "spark":
+                _spark_engine().cancel(
+                    job.name, namespace=(job.spec_json or {}).get("namespace"))
+            else:
+                _flink_gateway().cancel(job.external_id)
+        except httpx.HTTPStatusError as error:
+            if error.response.status_code != 404:
+                raise
+            _log.info("engine object for job %s is already gone", job.id)
     job.status = JobStatus.CANCELLED.value
     job.finished_at = _now()
     job.synced_at = _now()
@@ -253,10 +285,29 @@ def sync_due(session, limit=20):
     for job in rows:
         try:
             sync_job(session, job)
+            if job.sync_failures:
+                job.sync_failures = 0
+                session.commit()
             count += 1
-        except Exception:
+        except Exception as error:
             session.rollback()
+            _record_sync_failure(session, job.id, error)
     return count
+
+
+def _record_sync_failure(session, job_id, error):
+    job = session.get(EngineJob, job_id)
+    if not job or job.status in TERMINAL:
+        return
+    job.sync_failures = (job.sync_failures or 0) + 1
+    job.synced_at = _now()
+    if job.sync_failures >= MAX_SYNC_FAILURES:
+        job.status = JobStatus.FAILED.value
+        job.error = "engine status unavailable"
+        job.finished_at = _now()
+    session.commit()
+    _log.warning("engine job %s sync failed (%d/%d): %s", job_id,
+                 job.sync_failures, MAX_SYNC_FAILURES, error)
 
 
 def job_out(job):
