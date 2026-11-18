@@ -168,7 +168,7 @@ const WORD_EN = {
   "状态": "Status", "输入": "In", "输出": "Out", "错误": "Errors",
   "资产概览": "Assets", "计划窗口": "Schedule window", "暂无": "None",
   "运营数字": "Operations figures", "排队": "Queued", "跳过": "Skipped",
-  "严重": "Critical", "警告": "Warning", "流程": "Flow", "滞后": "Lag",
+  "严重": "Critical", "警告": "Warning", "滞后": "Lag",
   "游标年龄": "Cursor age", "打开运维中心 →": "Open Operations →",
   "没有未处理告警": "No open alerts",
   "已启用 cron 的管道": "Pipelines with cron enabled",
