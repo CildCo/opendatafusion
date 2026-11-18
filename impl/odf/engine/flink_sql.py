@@ -6,6 +6,41 @@ from odf.engine.base import JobStatus
 
 _JOB_COLUMNS = ("job id", "jobid", "job_id")
 
+
+def split_statements(text: str) -> list[str]:
+    """Split a SQL script on semicolons that are outside quotes/comments."""
+    out: list[str] = []
+    buf: list[str] = []
+    quote = ""
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if quote:
+            buf.append(ch)
+            if ch == quote:
+                quote = ""
+        elif ch in ("'", '"', "`"):
+            quote = ch
+            buf.append(ch)
+        elif text.startswith("--", i):
+            end = text.find("\n", i)
+            if end < 0:
+                break
+            buf.append("\n")
+            i = end
+        elif ch == ";":
+            piece = "".join(buf).strip()
+            if piece:
+                out.append(piece)
+            buf = []
+        else:
+            buf.append(ch)
+        i += 1
+    piece = "".join(buf).strip()
+    if piece:
+        out.append(piece)
+    return out
+
 _STATUS = {
     "CREATED": JobStatus.PENDING,
     "INITIALIZING": JobStatus.PENDING,
@@ -31,37 +66,47 @@ class FlinkSqlGateway:
 
     def execute(self, statement: str, properties: dict | None = None,
                 attached: bool = True) -> dict:
-        props = dict(properties or {})
+        properties = dict(properties or {})
         if not attached:
-            props["execution.attached"] = "false"
+            properties["execution.attached"] = "false"
+        statements = split_statements(statement) or [statement]
         session = self._client.post(
-            "/v1/sessions", json={"properties": props})
+            "/v1/sessions", json={"properties": properties})
         session.raise_for_status()
         session_id = session.json()["sessionHandle"]
         try:
-            submitted = self._client.post(
-                "/v1/sessions/%s/statements" % session_id,
-                json={"statement": statement})
-            submitted.raise_for_status()
-            operation_id = submitted.json()["operationHandle"]
-            path = ("/v1/sessions/%s/operations/%s/result/0"
-                    % (session_id, operation_id))
-            result = {}
-            for _ in range(self._max_polls):
-                response = self._client.get(path)
-                response.raise_for_status()
-                result = response.json()
-                if result.get("resultType") != "NOT_READY":
-                    break
-                time.sleep(0.2)
+            result: dict = {}
+            for sql in statements:
+                result = self._run_statement(session_id, sql, attached)
             if not attached:
                 return {"job_id": self._job_id(result)}
-            return self._collect_pages(result)
+            return result
         finally:
             try:
                 self._client.delete("/v1/sessions/%s" % session_id)
             except httpx.HTTPError:
                 pass
+
+    def _run_statement(self, session_id: str, statement: str,
+                       attached: bool) -> dict:
+        submitted = self._client.post(
+            "/v1/sessions/%s/statements" % session_id,
+            json={"statement": statement})
+        submitted.raise_for_status()
+        operation_id = submitted.json()["operationHandle"]
+        path = ("/v1/sessions/%s/operations/%s/result/0"
+                % (session_id, operation_id))
+        result: dict = {}
+        for _ in range(self._max_polls):
+            response = self._client.get(path)
+            response.raise_for_status()
+            result = response.json()
+            if result.get("resultType") != "NOT_READY":
+                break
+            time.sleep(0.2)
+        if not attached:
+            return result
+        return self._collect_pages(result)
 
     def _collect_pages(self, result: dict) -> dict:
         """Flink returns the first page as columns with an empty data list and
@@ -99,7 +144,9 @@ class FlinkSqlGateway:
         columns = [str(c.get("name", "")).lower()
                    for c in results.get("columns") or []]
         for row in results.get("data") or []:
-            for name, value in zip(columns, row):
+            # The REST API wraps row values in {"kind": "INSERT", "fields": []}.
+            fields = row.get("fields") or [] if isinstance(row, dict) else row
+            for name, value in zip(columns, fields):
                 if name in _JOB_COLUMNS and isinstance(value, str) and value:
                     return value
         raise ValueError("detached statement did not return a job id")
