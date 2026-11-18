@@ -7,7 +7,8 @@ from odf.services.aksk_admin import issue_aksk, list_aksk, revoke_aksk
 from odf.models import User
 from odf.services.auth import require_admin, require_approver, require_user
 from odf.services.projects import (add_member, create_project, list_members,
-                                   list_projects, list_projects_for_user)
+                                   list_projects, list_projects_for_user,
+                                   remove_member)
 
 router = APIRouter()
 
@@ -64,6 +65,13 @@ def add(project_id: int, body: MemberIn, s: Session = Depends(get_session),
         claims: dict = Depends(require_admin)):
     m = add_member(s, project_id, body.user_id, body.role)
     return {"id": m.id, "user_id": m.user_id, "role": m.role}
+
+
+@router.delete("/projects/{project_id}/members/{user_id}", status_code=204)
+def remove(project_id: int, user_id: int, s: Session = Depends(get_session),
+           claims: dict = Depends(require_admin)):
+    if not remove_member(s, project_id, user_id):
+        raise HTTPException(404, "member not found")
 
 
 @router.post("/projects/{project_id}/aksk")

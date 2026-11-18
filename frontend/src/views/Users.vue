@@ -5,6 +5,7 @@
                 :prefix-icon="Search" />
       <div class="spacer" />
       <el-button @click="load" :loading="loading">刷新</el-button>
+      <el-button @click="openMembers">项目成员</el-button>
       <el-button type="primary" @click="dialog = true">新建用户</el-button>
     </div>
 
@@ -55,6 +56,44 @@
         <el-button type="primary" :loading="saving" @click="create">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-drawer v-model="membersOpen" title="项目成员" size="560px"
+               @open="loadProjects">
+      <el-select v-model="memberProject" style="width: 100%"
+                 placeholder="选择项目" @change="loadMembers">
+        <el-option v-for="p in projects" :key="p.id" :value="p.id"
+                   :label="`${p.name} (${p.code})`" />
+      </el-select>
+      <div class="member-add">
+        <el-select v-model="memberForm.user_id" filterable
+                   placeholder="选择用户" style="width: 200px">
+          <el-option v-for="u in rows" :key="u.id" :value="u.id"
+                     :label="u.username" />
+        </el-select>
+        <el-select v-model="memberForm.role" style="width: 120px">
+          <el-option value="viewer" label="viewer" />
+          <el-option value="editor" label="editor" />
+          <el-option value="approver" label="approver" />
+          <el-option value="admin" label="admin" />
+        </el-select>
+        <el-button type="primary" :disabled="!memberProject"
+                   @click="addMember">添加</el-button>
+      </div>
+      <el-table :data="members" size="small">
+        <el-table-column label="用户" min-width="150">
+          <template #default="{ row }">{{ userName(row.user_id) }}</template>
+        </el-table-column>
+        <el-table-column prop="role" label="项目角色" width="120" />
+        <el-table-column label="操作" width="90">
+          <template #default="{ row }">
+            <el-button link type="danger" @click="removeMember(row)">
+              移除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="!members.length" description="还没有成员" :image-size="60" />
+    </el-drawer>
   </div>
 </template>
 
@@ -70,6 +109,74 @@ const saving = ref(false);
 const dialog = ref(false);
 const q = ref("");
 const form = reactive({ username: "", password: "", role: "viewer" });
+const membersOpen = ref(false);
+const projects = ref([]);
+const members = ref([]);
+const memberProject = ref(null);
+const memberForm = reactive({ user_id: null, role: "viewer" });
+
+function userName(id) {
+  const u = rows.value.find((x) => x.id === id);
+  return u ? u.username : `用户 ${id}`;
+}
+
+function openMembers() {
+  membersOpen.value = true;
+}
+
+async function loadProjects() {
+  try {
+    projects.value = await api.get("/projects");
+    if (!memberProject.value && projects.value.length) {
+      memberProject.value = projects.value[0].id;
+      await loadMembers();
+    }
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function loadMembers() {
+  if (!memberProject.value) return;
+  try {
+    members.value = await api.get(`/projects/${memberProject.value}/members`);
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function addMember() {
+  if (!memberProject.value || !memberForm.user_id) {
+    ElMessage.warning("请选择项目和用户");
+    return;
+  }
+  try {
+    await api.post(`/projects/${memberProject.value}/members`,
+                   { user_id: memberForm.user_id, role: memberForm.role });
+    memberForm.user_id = null;
+    await loadMembers();
+    ElMessage.success("已添加");
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function removeMember(row) {
+  try {
+    await ElMessageBox.confirm(
+      `将 ${userName(row.user_id)} 移出该项目？`, "移除成员",
+      { type: "warning" });
+  } catch (e) {
+    return;
+  }
+  try {
+    await api.del(`/projects/${memberProject.value}/members/${row.user_id}`);
+    await loadMembers();
+    ElMessage.success("已移除");
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
 
 const filtered = computed(() =>
   rows.value.filter((u) => !q.value || u.username.toLowerCase().includes(q.value.toLowerCase()))
@@ -136,5 +243,11 @@ onMounted(load);
 .card {
   border-radius: 12px;
   border: 1px solid #e5e7eb;
+}
+.member-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 14px 0;
 }
 </style>

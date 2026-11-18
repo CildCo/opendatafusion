@@ -82,9 +82,13 @@
 
     <el-dialog v-model="maintainOpen" title="湖仓维护" width="520px">
       <el-form label-width="110px">
+        <el-form-item label="模式">
+          <el-input v-model="maintain.schema"
+                    placeholder="留空使用数据源默认模式，例如 odf_bench" />
+        </el-form-item>
         <el-form-item label="表">
           <el-input v-model="maintain.tables"
-                    placeholder="留空维护全部表，多个用逗号分隔" />
+                    placeholder="留空维护该模式的全部表，多个用逗号分隔" />
         </el-form-item>
         <el-form-item label="合并小文件">
           <el-switch v-model="maintain.optimize" />
@@ -141,8 +145,8 @@ const page = ref(1);
 const pageSize = 10;
 const form = reactive({ name: "", kind: "postgres", dsn: "" });
 const maintainOpen = ref(false);
-const maintain = reactive({ datasource_id: 0, tables: "", optimize: true,
-                            expire: true, retention: "7d",
+const maintain = reactive({ datasource_id: 0, schema: "", tables: "",
+                            optimize: true, expire: true, retention: "7d",
                             running: false, results: [] });
 const placeholders = {
   postgres: "postgresql+psycopg://user:pass@host:5432/db",
@@ -186,6 +190,7 @@ function openCreate() {
 }
 function openMaintain(row) {
   maintain.datasource_id = row.id;
+  maintain.schema = "";
   maintain.tables = "";
   maintain.optimize = true;
   maintain.expire = true;
@@ -201,13 +206,14 @@ async function runMaintain() {
       .filter(Boolean);
     const out = await api.post("/lakehouse/maintain", {
       datasource_id: maintain.datasource_id,
+      schema_name: maintain.schema.trim() || null,
       tables,
       optimize: maintain.optimize,
       expire_snapshots: maintain.expire,
       retention: maintain.retention,
     });
     maintain.results = out.results || [];
-    ElMessage.success("维护完成：" + maintain.results.length + " 张表");
+    ElMessage.success(`维护完成：${out.schema} · ${maintain.results.length} 张表`);
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {

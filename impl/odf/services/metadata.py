@@ -33,11 +33,49 @@ def _existing_columns(session, datasource_id: int) -> dict:
     return out
 
 
-def _clear(session, datasource_id: int):
-    for d in session.query(Dataset).filter_by(
-            datasource_id=datasource_id).all():
+def _dependents(session, dataset_id: int) -> bool:
+    from odf.models import DatasetTag, QualityRule, StandardMapping
+    for model in (QualityRule, DatasetTag, StandardMapping):
+        if session.query(model).filter_by(dataset_id=dataset_id).first():
+            return True
+    return False
+
+
+def _upsert(session, ds, tables: dict) -> None:
+    """Create or update dataset rows in place.
+
+    Deleting and recreating them would break every quality rule, tag and
+    standard mapping that points at a dataset, so rows are matched by schema
+    and table name and their columns are diffed.
+    """
+    existing = {(d.schema_name, d.table_name): d
+                for d in session.query(Dataset)
+                .filter_by(datasource_id=ds.id).all()}
+    for (schema, table), columns in tables.items():
+        d = existing.get((schema, table))
+        if d is None:
+            d = Dataset(datasource_id=ds.id, schema_name=schema,
+                        table_name=table)
+            session.add(d)
+            session.flush()
+        current = {c.name: c for c in
+                   session.query(Column).filter_by(dataset_id=d.id).all()}
+        wanted = {c["name"]: c["type"] for c in columns}
+        for name, kind in wanted.items():
+            if name in current:
+                current[name].data_type = kind
+            else:
+                session.add(Column(dataset_id=d.id, name=name,
+                                   data_type=kind))
+        for name, column in current.items():
+            if name not in wanted:
+                session.delete(column)
+    for key, d in existing.items():
+        if key in tables or _dependents(session, d.id):
+            continue
         session.query(Column).filter_by(dataset_id=d.id).delete()
         session.delete(d)
+    session.commit()
 
 
 def _detect_drift(session, ds, before: dict, after: dict):
@@ -67,42 +105,24 @@ def _sync_file(session, ds) -> int:
     name = filesource.table_name_for(path)
     columns = filesource.describe(path)
     before = _existing_columns(session, ds.id)
-    _clear(session, ds.id)
-    session.flush()
-    d = Dataset(datasource_id=ds.id, schema_name=filesource.SCHEMA,
-                table_name=name)
-    session.add(d)
-    session.flush()
-    for col in columns:
-        session.add(Column(dataset_id=d.id, name=col["name"],
-                           data_type=col["type"]))
-    session.commit()
-    after = {(filesource.SCHEMA, name):
-             {c["name"]: c["type"] for c in columns}}
-    _detect_drift(session, ds, before, after)
+    tables = {(filesource.SCHEMA, name): columns}
+    _upsert(session, ds, tables)
+    _detect_drift(session, ds, before,
+                  {k: {c["name"]: c["type"] for c in v}
+                   for k, v in tables.items()})
     return 1
 
 
 def _sync_clickhouse(session, ds) -> int:
     from odf import clickhouse
-    tables = clickhouse.tables(ds)
+    found = clickhouse.tables(ds)
     before = _existing_columns(session, ds.id)
-    _clear(session, ds.id)
-    session.flush()
-    after = {}
-    for table in tables:
-        d = Dataset(datasource_id=ds.id, schema_name=table["schema"],
-                    table_name=table["table"])
-        session.add(d)
-        session.flush()
-        after[(table["schema"], table["table"])] = {
-            c["name"]: c["type"] for c in table["columns"]}
-        for col in table["columns"]:
-            session.add(Column(dataset_id=d.id, name=col["name"],
-                               data_type=col["type"]))
-    session.commit()
-    _detect_drift(session, ds, before, after)
-    return len(tables)
+    tables = {(t["schema"], t["table"]): t["columns"] for t in found}
+    _upsert(session, ds, tables)
+    _detect_drift(session, ds, before,
+                  {k: {c["name"]: c["type"] for c in v}
+                   for k, v in tables.items()})
+    return len(found)
 
 
 def _sync_sql(session, ds) -> int:
@@ -111,8 +131,6 @@ def _sync_sql(session, ds) -> int:
     engine = create_engine(dsn, connect_args=args)
     insp = inspect(engine)
     before = _existing_columns(session, ds.id)
-    _clear(session, ds.id)
-    session.flush()
 
     if engine.dialect.name == "sqlite":
         schemas = ["main"]
@@ -122,23 +140,17 @@ def _sync_sql(session, ds) -> int:
         schemas = [s for s in insp.get_schema_names()
                    if s not in ("pg_catalog", "information_schema")]
 
-    count = 0
-    after = {}
+    tables = {}
     for schema in schemas:
         for table in insp.get_table_names(schema=schema):
-            d = Dataset(datasource_id=ds.id, schema_name=schema, table_name=table)
-            session.add(d)
-            session.flush()
-            columns = insp.get_columns(table, schema=schema)
-            after[(schema, table)] = {c["name"]: str(c["type"])
-                                      for c in columns}
-            for col in columns:
-                session.add(Column(dataset_id=d.id, name=col["name"],
-                                   data_type=str(col["type"])))
-            count += 1
-    session.commit()
-    _detect_drift(session, ds, before, after)
-    return count
+            tables[(schema, table)] = [
+                {"name": c["name"], "type": str(c["type"])}
+                for c in insp.get_columns(table, schema=schema)]
+    _upsert(session, ds, tables)
+    _detect_drift(session, ds, before,
+                  {k: {c["name"]: c["type"] for c in v}
+                   for k, v in tables.items()})
+    return len(tables)
 
 
 def _sync_trino(session, ds) -> int:
@@ -158,19 +170,10 @@ def _sync_trino(session, ds) -> int:
             (row["table_schema"], row["table_name"]), []).append(
             {"name": row["column_name"], "type": row["data_type"]})
     before = _existing_columns(session, ds.id)
-    _clear(session, ds.id)
-    session.flush()
-    for (schema, table), columns in grouped.items():
-        d = Dataset(datasource_id=ds.id, schema_name=schema, table_name=table)
-        session.add(d)
-        session.flush()
-        for col in columns:
-            session.add(Column(dataset_id=d.id, name=col["name"],
-                               data_type=col["type"]))
-    session.commit()
-    after = {key: {c["name"]: c["type"] for c in columns}
-             for key, columns in grouped.items()}
-    _detect_drift(session, ds, before, after)
+    _upsert(session, ds, grouped)
+    _detect_drift(session, ds, before,
+                  {k: {c["name"]: c["type"] for c in v}
+                   for k, v in grouped.items()})
     return len(grouped)
 
 
