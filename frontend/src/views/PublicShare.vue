@@ -2,15 +2,15 @@
   <div class="public">
     <header class="head">
       <div class="brand">OD</div>
-      <div class="name">{{ view?.name || "分享内容" }}</div>
-      <el-tag size="small" type="info">只读分享</el-tag>
+      <div class="name">{{ view?.name || t("aed.shareContent") }}</div>
+      <el-tag size="small" type="info">{{ t("aed.readonlyShare") }}</el-tag>
       <div class="spacer" />
       <el-button v-if="view" size="small" :loading="loading"
-                 @click="refresh">刷新</el-button>
+                 @click="refresh">{{ t("aed.refresh") }}</el-button>
     </header>
 
     <div v-if="error" class="error">
-      <el-result icon="warning" title="链接不可用"
+      <el-result icon="warning" :title="t('aed.linkUnavailable')"
                  :sub-title="error" />
     </div>
 
@@ -42,6 +42,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import AppRuntime from "../studio/app/AppRuntime.vue";
 import DashboardRuntime from "../studio/dashboard/DashboardRuntime.vue";
+import { t } from "../i18n";
 
 const route = useRoute();
 const token = computed(() => String(route.params.token || ""));
@@ -97,7 +98,7 @@ function setParams(p) {
 
 async function load() {
   if (!token.value) {
-    error.value = "链接缺少令牌";
+    error.value = t("aed.linkMissingToken");
     return;
   }
   loading.value = true;
@@ -110,13 +111,13 @@ async function load() {
     }
     resetParams();
     if (requiredMissing()) {
-      dataError.value = "请填写必填参数后查询";
+      dataError.value = t("aed.fillRequired");
       loading.value = false;
       return;
     }
     await refresh();
   } catch (e) {
-    error.value = e.message || "链接无效或已过期";
+    error.value = e.message || t("aed.linkInvalid");
   } finally {
     loading.value = false;
   }
@@ -138,7 +139,7 @@ function requiredMissing() {
 async function refresh() {
   if (!view.value) return;
   if (requiredMissing()) {
-    dataError.value = "请填写必填参数后查询";
+    dataError.value = t("aed.fillRequired");
     return;
   }
   loading.value = true;
@@ -159,7 +160,7 @@ async function refresh() {
       data.value = r.widgets || {};
     }
   } catch (e) {
-    dataError.value = e.message || "数据加载失败";
+    dataError.value = e.message || t("aed.loadFailed");
   } finally {
     loading.value = false;
   }

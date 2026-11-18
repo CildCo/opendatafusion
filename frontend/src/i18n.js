@@ -1,12 +1,22 @@
 import { computed, ref } from "vue";
 import zhCn from "element-plus/es/locale/lang/zh-cn";
 import en from "element-plus/es/locale/lang/en";
+import assets from "./locales/assets";
+import development from "./locales/development";
+import studio from "./locales/studio";
+import governance from "./locales/governance";
+import admin from "./locales/admin";
+import pipelineEditor from "./locales/pipeline_editor";
+import modelEditor from "./locales/model_editor";
+import dashboardEditor from "./locales/dashboard_editor";
+import appEditor from "./locales/app_editor";
+import apiEditor from "./locales/api_editor";
 
 const KEY = "odf_locale";
 
 export const locale = ref(localStorage.getItem(KEY) === "en" ? "en" : "zh");
 
-const messages = {
+const base = {
   zh: {
     "nav.workspace": "工作台",
     "nav.assets": "数据资产",
@@ -185,6 +195,14 @@ const messages = {
     "common.languageZh": "简体中文",
     "common.languageEn": "English",
   },
+};
+
+const parts = [assets, development, studio, governance, admin,
+               pipelineEditor, modelEditor, dashboardEditor, appEditor, apiEditor];
+
+const messages = {
+  zh: Object.assign({}, base.zh, ...parts.map((p) => p.zh || {})),
+  en: Object.assign({}, base.en, ...parts.map((p) => p.en || {})),
 };
 
 export function t(key) {

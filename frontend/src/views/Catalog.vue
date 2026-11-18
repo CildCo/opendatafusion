@@ -1,15 +1,15 @@
 <template>
   <div class="page">
     <div class="toolbar">
-      <el-input v-model="q" placeholder="搜索表名" clearable style="width: 240px"
+      <el-input v-model="q" :placeholder="t('cat.searchPlaceholder')" clearable style="width: 240px"
                 :prefix-icon="Search" />
       <div class="spacer" />
-      <el-button @click="load" :loading="loading">刷新</el-button>
+      <el-button @click="load" :loading="loading">{{ t("cat.refresh") }}</el-button>
     </div>
 
     <div class="layout">
       <el-card class="tree-card" shadow="never">
-        <template #header><b>数据资产</b></template>
+        <template #header><b>{{ t("cat.datasets") }}</b></template>
         <el-tree :data="tree" :props="{ label: 'label', children: 'children' }"
                  node-key="key" :filter-node-method="filterNode" ref="treeRef"
                  default-expand-all highlight-current @node-click="onNode">
@@ -22,23 +22,23 @@
             </span>
           </template>
         </el-tree>
-        <el-empty v-if="!datasets.length" description="尚未同步元数据" :image-size="70" />
+        <el-empty v-if="!datasets.length" :description="t('cat.noDatasets')" :image-size="70" />
       </el-card>
 
       <div class="right">
         <el-card v-if="q.trim()" class="card" shadow="never"
                  style="margin-bottom: 16px">
-          <template #header><b>搜索 · {{ q }}</b></template>
+          <template #header><b>{{ t("cat.search") }} · {{ q }}</b></template>
           <div v-if="search.tables.length || search.columns.length">
             <div class="search-group" v-if="search.tables.length">
-              <div class="muted">表</div>
+              <div class="muted">{{ t("cat.tables") }}</div>
               <el-tag v-for="t in search.tables" :key="'t' + t.id"
                       class="hit" @click="openDataset(t.id)">
                 {{ t.schema }}.{{ t.table }}
               </el-tag>
             </div>
             <div class="search-group" v-if="search.columns.length">
-              <div class="muted">字段</div>
+              <div class="muted">{{ t("cat.columns") }}</div>
               <el-tag v-for="c in search.columns"
                       :key="'c' + c.dataset_id + c.column" type="info"
                       class="hit" @click="openDataset(c.dataset_id)">
@@ -46,7 +46,7 @@
               </el-tag>
             </div>
           </div>
-          <el-empty v-else description="没有匹配的表或字段" :image-size="50" />
+          <el-empty v-else :description="t('cat.noMatches')" :image-size="50" />
         </el-card>
         <el-card v-if="detail.id" class="card" shadow="never">
           <template #header>
@@ -54,23 +54,23 @@
               <span>{{ detail.schema }}.{{ detail.table }}</span>
               <span>
                 <el-button v-if="isLakehouse" link
-                           @click="openProperties">表属性</el-button>
-                <el-button link @click="tagDialog = true">打标签</el-button>
+                           @click="openProperties">{{ t("cat.tableProperties") }}</el-button>
+                <el-button link @click="tagDialog = true">{{ t("cat.tag") }}</el-button>
               </span>
             </div>
           </template>
           <div class="meta">
             <el-tag v-for="t in detail.tags || []" :key="t" size="small"
                     type="info" closable @close="detachTag(t)">{{ t }}</el-tag>
-            <span v-if="!(detail.tags || []).length" class="muted">暂无标签</span>
+            <span v-if="!(detail.tags || []).length" class="muted">{{ t("cat.noTags") }}</span>
           </div>
           <el-table :data="detail.columns || []" size="small" style="margin-top: 12px">
-            <el-table-column prop="name" label="字段" />
-            <el-table-column prop="type" label="类型" />
+            <el-table-column prop="name" :label="t('cat.columns')" />
+            <el-table-column prop="type" :label="t('cat.type')" />
           </el-table>
           <div v-if="impact.edges.length" class="impact">
             <div class="muted" style="margin: 10px 0 6px">
-              影响分析 · 下游 {{ impact.edges.length }} 条
+              {{ t("cat.impactDownstream").replace("{n}", impact.edges.length) }}
             </div>
             <div v-for="(e, i) in impact.edges" :key="'i' + i"
                  class="col-edge">
@@ -80,16 +80,16 @@
             </div>
             <div v-if="impact.column_edges.length" class="muted"
                  style="margin-top: 6px">
-              列级影响 {{ impact.column_edges.length }} 条
+              {{ t("cat.columnImpact").replace("{n}", impact.column_edges.length) }}
             </div>
           </div>
         </el-card>
         <el-card v-else class="card" shadow="never">
-          <el-empty description="从左侧选择一张表查看字段与标签" />
+          <el-empty :description="t('cat.selectHint')" />
         </el-card>
 
         <el-card class="card" shadow="never" style="margin-top: 16px">
-          <template #header><b>血缘</b></template>
+          <template #header><b>{{ t("cat.lineage") }}</b></template>
           <div v-if="edges.length" class="lineage">
             <div v-for="(e, i) in edges" :key="i" class="edge">
               <span class="node-tag src">{{ e.from }}</span>
@@ -98,9 +98,9 @@
               <span v-if="e.flow" class="flow">← {{ e.flow }}</span>
             </div>
           </div>
-          <el-empty v-else description="暂无血缘（创建流程后自动生成）" :image-size="70" />
+          <el-empty v-else :description="t('cat.noLineage')" :image-size="70" />
           <div v-if="columnEdges.length" class="column-lineage">
-            <div class="muted" style="margin: 8px 0 6px">列级血缘</div>
+            <div class="muted" style="margin: 8px 0 6px">{{ t("cat.columnLineage") }}</div>
             <div v-for="(e, i) in columnEdges" :key="'c' + i" class="col-edge">
               <span>{{ e.from }}.{{ e.from_column }}</span>
               <el-icon><Right /></el-icon>
@@ -111,31 +111,31 @@
       </div>
     </div>
 
-    <el-dialog v-model="tagDialog" title="打标签" width="420px">
-      <el-input v-model="newTag" placeholder="新标签名" />
+    <el-dialog v-model="tagDialog" :title="t('cat.tag')" width="420px">
+      <el-input v-model="newTag" :placeholder="t('cat.newTagPlaceholder')" />
       <template #footer>
-        <el-button @click="tagDialog = false">取消</el-button>
-        <el-button type="primary" @click="attachTag">保存</el-button>
+        <el-button @click="tagDialog = false">{{ t("cat.cancel") }}</el-button>
+        <el-button type="primary" @click="attachTag">{{ t("cat.save") }}</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="propsOpen" title="Iceberg 表属性" width="600px">
+    <el-dialog v-model="propsOpen" :title="t('cat.propsTitle')" width="600px">
       <p class="muted" style="margin-top: 0">
-        通过 Spark 作业写入表属性，提交后可在「计算引擎」查看作业进度。
+        {{ t("cat.propsHint") }}
       </p>
       <div v-for="(row, i) in props.rows" :key="i" class="prop-row">
         <el-input v-model="row.key" placeholder="gc.enabled" size="small" />
         <el-input v-model="row.value" placeholder="true" size="small" />
         <el-button link type="danger" size="small"
-                   @click="props.rows.splice(i, 1)">删除</el-button>
+                   @click="props.rows.splice(i, 1)">{{ t("cat.delete") }}</el-button>
       </div>
       <el-button link @click="props.rows.push({ key: '', value: '' })">
-        + 属性
+        + {{ t("cat.addProperty") }}
       </el-button>
       <template #footer>
-        <el-button @click="propsOpen = false">取消</el-button>
+        <el-button @click="propsOpen = false">{{ t("cat.cancel") }}</el-button>
         <el-button type="primary" :loading="props.saving"
-                   @click="saveProperties">提交</el-button>
+                   @click="saveProperties">{{ t("cat.submit") }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -146,6 +146,7 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { Coin, Folder, Grid, Right, Search } from "@element-plus/icons-vue";
 import { api, errMsg, getProject } from "../api";
+import { t } from "../i18n";
 
 const datasources = ref([]);
 const datasets = ref([]);
@@ -172,7 +173,7 @@ const tree = computed(() => {
   const byDs = {};
   for (const d of datasets.value) {
     const ds = datasources.value.find((x) => x.id === d.datasource_id);
-    const dsName = ds ? ds.name : `数据源 ${d.datasource_id}`;
+    const dsName = ds ? ds.name : `${t("cat.datasourceFallback")} ${d.datasource_id}`;
     byDs[d.datasource_id] = byDs[d.datasource_id] || {
       key: `ds-${d.datasource_id}`, label: dsName, type: "ds", children: {},
     };
@@ -274,13 +275,13 @@ async function onNode(data) {
 async function attachTag() {
   if (!newTag.value) return;
   try {
-    const t = await api.post("/catalog/tags", { project_id: getProject() || 1, name: newTag.value });
-    await api.post("/catalog/tags/attach", { dataset_id: detail.value.id, tag_id: t.id });
+    const createdTag = await api.post("/catalog/tags", { project_id: getProject() || 1, name: newTag.value });
+    await api.post("/catalog/tags/attach", { dataset_id: detail.value.id, tag_id: createdTag.id });
     tagDialog.value = false;
     newTag.value = "";
     detail.value = await api.datasetDetail(detail.value.id);
     await loadTags();
-    ElMessage.success("已打标签");
+    ElMessage.success(t("cat.tagged"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -295,13 +296,13 @@ async function loadTags() {
 }
 
 async function detachTag(name) {
-  const tag = allTags.value.find((t) => t.name === name);
+  const tag = allTags.value.find((x) => x.name === name);
   if (!tag) return;
   try {
     await api.post("/catalog/tags/detach",
                    { dataset_id: detail.value.id, tag_id: tag.id });
     detail.value = await api.datasetDetail(detail.value.id);
-    ElMessage.success("已移除标签");
+    ElMessage.success(t("cat.tagRemoved"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -317,7 +318,7 @@ async function saveProperties() {
     props.rows.filter((r) => r.key.trim())
       .map((r) => [r.key.trim(), r.value]));
   if (!Object.keys(properties).length) {
-    ElMessage.warning("请填写属性");
+    ElMessage.warning(t("cat.propertiesRequired"));
     return;
   }
   props.saving = true;
@@ -327,7 +328,7 @@ async function saveProperties() {
       { datasource_id: detail.value.datasource_id,
         schema_name: detail.value.schema, properties });
     propsOpen.value = false;
-    ElMessage.success(`属性作业已提交 #${out.job_id}`);
+    ElMessage.success(`${t("cat.propsSubmitted")} #${out.job_id}`);
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {

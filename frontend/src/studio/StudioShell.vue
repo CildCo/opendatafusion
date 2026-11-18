@@ -7,24 +7,24 @@
                   @update:model-value="$emit('rename', $event)"
                   @change="$emit('rename-save', $event)" />
         <el-input :model-value="cron" size="small" style="width: 140px"
-                  placeholder="cron（可选）"
+                  :placeholder="t('shell.cronPlaceholder')"
                   @change="$emit('schedule', $event)" />
         <el-tag size="small" :type="published ? 'success' : 'info'">
-          {{ published ? "已发布" : "草稿" }}
+          {{ published ? t("shell.published") : t("shell.draft") }}
         </el-tag>
       </div>
       <div class="right">
-        <el-button size="small" :loading="saving" @click="$emit('save')">保存</el-button>
-        <el-button size="small" @click="$emit('validate')">校验</el-button>
-        <el-button size="small" @click="$emit('preview')">预览</el-button>
-        <el-button size="small" @click="$emit('run')">运行</el-button>
-        <el-button size="small" @click="$emit('backfill')">回填</el-button>
-        <el-button size="small" @click="$emit('cursors')">游标</el-button>
+        <el-button size="small" :loading="saving" @click="$emit('save')">{{ t("shell.save") }}</el-button>
+        <el-button size="small" @click="$emit('validate')">{{ t("shell.validate") }}</el-button>
+        <el-button size="small" @click="$emit('preview')">{{ t("shell.preview") }}</el-button>
+        <el-button size="small" @click="$emit('run')">{{ t("shell.run") }}</el-button>
+        <el-button size="small" @click="$emit('backfill')">{{ t("shell.backfill") }}</el-button>
+        <el-button size="small" @click="$emit('cursors')">{{ t("shell.cursors") }}</el-button>
         <el-button size="small" @click="$emit('toggle')">
-          {{ enabled ? "停用" : "启用" }}
+          {{ enabled ? t("shell.disable") : t("shell.enable") }}
         </el-button>
-        <el-button size="small" type="primary" @click="$emit('publish')">发布</el-button>
-        <el-button size="small" @click="$emit('versions')">版本</el-button>
+        <el-button size="small" type="primary" @click="$emit('publish')">{{ t("shell.publish") }}</el-button>
+        <el-button size="small" @click="$emit('versions')">{{ t("shell.versions") }}</el-button>
       </div>
     </header>
     <div class="studio-body">
@@ -37,6 +37,8 @@
 </template>
 
 <script setup>
+import { t } from "../i18n";
+
 defineProps({
   title: { type: String, default: "" },
   cron: { type: String, default: "" },

@@ -1,45 +1,45 @@
 <template>
   <div class="page">
     <el-tabs v-model="tab" @tab-change="go">
-      <el-tab-pane label="数据集" name="datasets" />
-      <el-tab-pane label="指标" name="metrics" />
+      <el-tab-pane :label="t('model.datasets')" name="datasets" />
+      <el-tab-pane :label="t('model.metrics')" name="metrics" />
     </el-tabs>
     <div class="toolbar">
-      <el-input v-model="q" placeholder="搜索名称 / Key" clearable
+      <el-input v-model="q" :placeholder="t('model.search')" clearable
                 style="width: 260px" />
       <div class="spacer" />
-      <el-button @click="load" :loading="loading">刷新</el-button>
+      <el-button @click="load" :loading="loading">{{ t("model.refresh") }}</el-button>
       <el-button type="primary" @click="create">
-        新建{{ tab === "datasets" ? "数据集" : "指标" }}
+        {{ t(tab === "datasets" ? "model.newDataset" : "model.newMetric") }}
       </el-button>
     </div>
     <el-card shadow="never">
       <el-table :data="filtered" size="small" v-loading="loading">
-        <el-table-column prop="name" label="名称" min-width="160" />
-        <el-table-column prop="key" label="Key" min-width="240">
+        <el-table-column prop="name" :label="t('model.name')" min-width="160" />
+        <el-table-column prop="key" :label="t('model.key')" min-width="240">
           <template #default="{ row }">
             <span class="mono">{{ row.key }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="110">
+        <el-table-column :label="t('model.status')" width="110">
           <template #default="{ row }">
             <el-tag :type="row.published ? 'success' : 'info'" size="small">
-              {{ row.published ? "已发布" : "草稿" }}
+              {{ row.published ? t("model.published") : t("model.draft") }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="170">
+        <el-table-column :label="t('model.actions')" width="170">
           <template #default="{ row }">
             <el-button link @click="$router.push(`/${tab}/${row.id}`)">
-              编辑
+              {{ t("model.edit") }}
             </el-button>
             <el-button link type="danger" @click="remove(row)">
-              删除
+              {{ t("model.delete") }}
             </el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" description="还没有模型" />
+      <el-empty v-if="!loading && !filtered.length" :description="t('model.empty')" />
     </el-card>
   </div>
 </template>
@@ -49,6 +49,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 
 const route = useRoute();
 const router = useRouter();
@@ -63,14 +64,14 @@ const filtered = computed(() => rows.value.filter(
 async function remove(row) {
   try {
     await ElMessageBox.confirm(
-      `删除模型 ${row.name}？该资产的历史版本与分享链接会一并删除。`,
-      "删除确认", { type: "warning" });
+      t("model.deleteConfirm").replace("{name}", row.name),
+      t("model.deleteTitle"), { type: "warning" });
   } catch (e) {
     return;
   }
   try {
     await api.del(`/${tab.value}/${row.id}`);
-    ElMessage.success("已删除");
+    ElMessage.success(t("model.deleted"));
     await load();
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -94,8 +95,8 @@ function go() {
 
 async function create() {
   try {
-    const { value } = await ElMessageBox.prompt("名称", "新建", {
-      inputPattern: /\S+/, inputErrorMessage: "名称必填",
+    const { value } = await ElMessageBox.prompt(t("model.namePrompt"), t("model.createTitle"), {
+      inputPattern: /\S+/, inputErrorMessage: t("model.nameRequired"),
     });
     const r = await api.post(`/${tab.value}`, { name: value });
     router.push(`/${tab.value}/${r.id}`);

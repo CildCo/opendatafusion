@@ -5,42 +5,42 @@
       <el-input v-model="name" size="small" style="width: 220px"
                 @change="rename" />
       <el-tag size="small" :type="published ? 'success' : 'info'">
-        {{ published ? "已发布" : "草稿" }}
+        {{ published ? t("med.published") : t("med.draft") }}
       </el-tag>
       <div class="spacer" />
-      <el-button size="small" @click="save">保存</el-button>
-      <el-button size="small" @click="validate">校验</el-button>
-      <el-button size="small" :loading="querying" @click="preview">预览</el-button>
-      <el-button size="small" type="primary" @click="publish">发布</el-button>
-      <el-button size="small" @click="versionsOpen = true">版本</el-button>
+      <el-button size="small" @click="save">{{ t("med.save") }}</el-button>
+      <el-button size="small" @click="validate">{{ t("med.validate") }}</el-button>
+      <el-button size="small" :loading="querying" @click="preview">{{ t("med.preview") }}</el-button>
+      <el-button size="small" type="primary" @click="publish">{{ t("med.publish") }}</el-button>
+      <el-button size="small" @click="versionsOpen = true">{{ t("med.versions") }}</el-button>
     </div>
 
     <div class="body">
       <aside class="form">
         <el-form label-width="86px" size="small">
-          <el-form-item label="数据集">
+          <el-form-item :label="t('med.dataset')">
             <el-select v-model="content.dataset_id" filterable
                        style="width: 100%" @change="loadSchema">
               <el-option v-for="d in datasets" :key="d.id" :value="d.id"
                          :label="d.name" />
             </el-select>
           </el-form-item>
-          <el-form-item label="聚合">
+          <el-form-item :label="t('med.aggregation')">
             <el-select v-model="content.measure.agg" style="width: 100%">
               <el-option v-for="a in aggs" :key="a" :value="a" :label="a" />
             </el-select>
           </el-form-item>
-          <el-form-item label="度量列">
+          <el-form-item :label="t('med.measureColumn')">
             <el-select v-model="content.measure.column" filterable
                        style="width: 100%">
               <el-option v-for="c in columnOptions" :key="c" :value="c"
                          :label="c" />
             </el-select>
           </el-form-item>
-          <el-form-item label="输出名">
+          <el-form-item :label="t('med.outputName')">
             <el-input v-model="content.measure.as" />
           </el-form-item>
-          <el-form-item label="维度">
+          <el-form-item :label="t('med.dimensions')">
             <el-select v-model="content.dimensions" multiple filterable
                        style="width: 100%">
               <el-option v-for="c in columns" :key="c" :value="c" :label="c" />
@@ -48,7 +48,7 @@
           </el-form-item>
         </el-form>
 
-        <h4>过滤</h4>
+        <h4>{{ t("med.filters") }}</h4>
         <div v-for="(f, i) in content.filters" :key="i" class="row">
           <el-select v-model="f.column" filterable style="width: 130px">
             <el-option v-for="c in columns" :key="c" :value="c" :label="c" />
@@ -57,33 +57,33 @@
             <el-option v-for="op in ['=','!=','>','>=','<','<=','like']"
                        :key="op" :value="op" :label="op" />
           </el-select>
-          <el-input v-model="f.value" placeholder="值" />
+          <el-input v-model="f.value" :placeholder="t('med.value')" />
           <el-button link type="danger"
                      @click="content.filters.splice(i, 1)">×</el-button>
         </div>
         <el-button link type="primary"
                    @click="content.filters.push({ column: '', op: '=', value: '' })">
-          + 过滤
+          {{ t("med.addFilter") }}
         </el-button>
 
-        <h4>格式</h4>
+        <h4>{{ t("med.format") }}</h4>
         <el-form label-width="86px" size="small">
-          <el-form-item label="类型">
+          <el-form-item :label="t('med.type')">
             <el-select v-model="content.format.type" style="width: 100%">
-              <el-option value="number" label="数字" />
-              <el-option value="percent" label="百分比" />
-              <el-option value="currency" label="金额" />
+              <el-option value="number" :label="t('med.number')" />
+              <el-option value="percent" :label="t('med.percent')" />
+              <el-option value="currency" :label="t('med.currency')" />
             </el-select>
           </el-form-item>
-          <el-form-item label="单位">
+          <el-form-item :label="t('med.unit')">
             <el-input v-model="content.format.unit" />
           </el-form-item>
-          <el-form-item label="小数位">
+          <el-form-item :label="t('med.decimals')">
             <el-input-number v-model="content.format.decimals" :min="0" :max="6" />
           </el-form-item>
         </el-form>
         <p v-if="!publishedDatasets.length" class="hint">
-          先发布一个数据集，指标才能引用它。
+          {{ t("med.publishFirst") }}
         </p>
       </aside>
 
@@ -92,22 +92,23 @@
           <el-table-column v-for="c in resultColumns" :key="c" :prop="c"
                            :label="c" />
         </el-table>
-        <el-empty v-else description="预览后显示聚合结果" :image-size="70" />
+        <el-empty v-else :description="t('med.emptyPreview')"
+                  :image-size="70" />
         <div v-if="stats" class="stats">{{ stats }}</div>
         <pre v-if="sql" class="sql">{{ sql }}</pre>
       </main>
     </div>
 
-    <el-drawer v-model="versionsOpen" title="版本" size="480px"
+    <el-drawer v-model="versionsOpen" :title="t('med.versions')" size="480px"
                @open="loadVersions">
       <el-table :data="versions" size="small">
-        <el-table-column prop="version" label="版本" width="70" />
-        <el-table-column prop="status" label="状态" width="100" />
-        <el-table-column prop="created_by" label="创建人" />
-        <el-table-column label="操作" width="90">
+        <el-table-column prop="version" :label="t('med.version')" width="70" />
+        <el-table-column prop="status" :label="t('med.status')" width="100" />
+        <el-table-column prop="created_by" :label="t('med.createdBy')" />
+        <el-table-column :label="t('med.actions')" width="90">
           <template #default="{ row }">
             <el-button link :disabled="row.current || row.status === 'draft'"
-                       @click="rollback(row)">回滚</el-button>
+                       @click="rollback(row)">{{ t("med.rollback") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -120,6 +121,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 
 const route = useRoute();
 const id = Number(route.params.id);
@@ -181,7 +183,7 @@ async function loadSchema() {
 async function save() {
   try {
     await api.put(`/metrics/${id}/draft`, { content: content.value });
-    ElMessage.success("已保存草稿");
+    ElMessage.success(t("med.draftSaved"));
     return true;
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -201,7 +203,7 @@ async function validate() {
   try {
     const r = await api.post(`/metrics/${id}/validate`,
                              { content: content.value });
-    if (r.valid) ElMessage.success("校验通过");
+    if (r.valid) ElMessage.success(t("med.validated"));
     else ElMessage.error(r.errors.map((e) => e.message).join("; "));
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -216,7 +218,8 @@ async function preview() {
     });
     rows.value = r.rows || [];
     resultColumns.value = r.columns || [];
-    stats.value = `${r.row_count} 行 · ${r.ms}ms`;
+    stats.value = t("med.statsRows")
+      .replace("{count}", r.row_count).replace("{ms}", r.ms);
     sql.value = r.sql || "";
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -231,7 +234,7 @@ async function publish() {
   try {
     await api.applyChange("publish_metric", id);
     await load();
-    ElMessage.success("已发布");
+    ElMessage.success(t("med.published"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -243,7 +246,9 @@ async function loadVersions() {
 
 async function rollback(row) {
   try {
-    await ElMessageBox.confirm(`回滚到版本 ${row.version}？`, "回滚确认");
+    await ElMessageBox.confirm(
+      t("med.rollbackConfirm").replace("{version}", row.version),
+      t("med.rollbackTitle"));
     await api.applyChange("rollback_metric", id, { version: row.version });
     await load();
     await loadVersions();

@@ -1,32 +1,32 @@
 <template>
   <div class="page">
     <div class="toolbar">
-      <el-button @click="load" :loading="loading">刷新</el-button>
-      <el-button type="primary" @click="create">新建管道</el-button>
+      <el-button @click="load" :loading="loading">{{ t("pipe.refresh") }}</el-button>
+      <el-button type="primary" @click="create">{{ t("pipe.newPipeline") }}</el-button>
     </div>
 
     <el-card class="card" shadow="never">
       <el-table :data="rows" size="small" v-loading="loading"
                 row-class-name="clickable" @row-click="open">
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="name" label="名称" min-width="160" />
-        <el-table-column prop="cron" label="调度" width="160" />
-        <el-table-column prop="enabled" label="状态" width="100">
+        <el-table-column prop="name" :label="t('pipe.name')" min-width="160" />
+        <el-table-column prop="cron" :label="t('pipe.schedule')" width="160" />
+        <el-table-column prop="enabled" :label="t('pipe.status')" width="100">
           <template #default="{ row }">
             <el-tag :type="row.enabled ? 'success' : 'info'" size="small">
-              {{ row.enabled ? "启用" : "停用" }}
+              {{ row.enabled ? t("pipe.enabled") : t("pipe.disabled") }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="90" fixed="right">
+        <el-table-column :label="t('pipe.actions')" width="90" fixed="right">
           <template #default="{ row }">
             <el-button link type="danger" @click.stop="remove(row)">
-              删除
+              {{ t("pipe.delete") }}
             </el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !rows.length" description="还没有管道" />
+      <el-empty v-if="!loading && !rows.length" :description="t('pipe.empty')" />
     </el-card>
   </div>
 </template>
@@ -36,6 +36,7 @@ import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 
 const rows = ref([]);
 const loading = ref(false);
@@ -55,14 +56,14 @@ async function load() {
 async function remove(row) {
   try {
     await ElMessageBox.confirm(
-      `删除管道 ${row.name}？版本、运行记录和血缘会一并删除。`,
-      "删除管道", { type: "warning" });
+      t("pipe.deleteConfirm").replace("{name}", row.name),
+      t("pipe.deleteTitle"), { type: "warning" });
   } catch (e) {
     return;
   }
   try {
     await api.del(`/pipelines/${row.id}`);
-    ElMessage.success("已删除");
+    ElMessage.success(t("pipe.deleted"));
     await load();
   } catch (e) {
     ElMessage.error(errMsg(e));

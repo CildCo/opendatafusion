@@ -1,40 +1,40 @@
 <template>
   <div class="page">
     <div class="toolbar">
-      <el-input v-model="q" placeholder="搜索接口名 / Key" clearable
+      <el-input v-model="q" :placeholder="t('api.search')" clearable
                 style="width: 260px" />
       <div class="spacer" />
-      <el-button @click="load" :loading="loading">刷新</el-button>
-      <el-button type="primary" @click="create">新建接口</el-button>
+      <el-button @click="load" :loading="loading">{{ t("api.refresh") }}</el-button>
+      <el-button type="primary" @click="create">{{ t("api.new") }}</el-button>
     </div>
     <el-card shadow="never">
       <el-table :data="filtered" size="small" v-loading="loading">
-        <el-table-column prop="name" label="名称" min-width="160" />
-        <el-table-column prop="key" label="接口 Key" min-width="240">
+        <el-table-column prop="name" :label="t('api.name')" min-width="160" />
+        <el-table-column prop="key" :label="t('api.key')" min-width="240">
           <template #default="{ row }">
             <span class="mono">{{ row.key }}</span>
-            <el-button link @click="copy(row.key)">复制</el-button>
+            <el-button link @click="copy(row.key)">{{ t("api.copy") }}</el-button>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="110">
+        <el-table-column :label="t('api.status')" width="110">
           <template #default="{ row }">
             <el-tag :type="row.enabled ? 'success' : 'info'" size="small">
-              {{ row.enabled ? "已发布" : "草稿" }}
+              {{ row.enabled ? t("api.published") : t("api.draft") }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180">
+        <el-table-column :label="t('api.actions')" width="180">
           <template #default="{ row }">
             <el-button link @click="$router.push(`/apis/${row.id}`)">
-              编辑
+              {{ t("api.edit") }}
             </el-button>
             <el-button link type="danger" @click="remove(row)">
-              删除
+              {{ t("api.delete") }}
             </el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" description="还没有接口" />
+      <el-empty v-if="!loading && !filtered.length" :description="t('api.empty')" />
     </el-card>
   </div>
 </template>
@@ -44,6 +44,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 
 const router = useRouter();
 const rows = ref([]);
@@ -56,14 +57,14 @@ const filtered = computed(() => rows.value.filter(
 async function remove(row) {
   try {
     await ElMessageBox.confirm(
-      `删除接口 ${row.name}？该资产的历史版本与分享链接会一并删除。`,
-      "删除确认", { type: "warning" });
+      t("api.deleteConfirm").replace("{name}", row.name),
+      t("api.deleteTitle"), { type: "warning" });
   } catch (e) {
     return;
   }
   try {
     await api.del(`/apis/${row.id}`);
-    ElMessage.success("已删除");
+    ElMessage.success(t("api.deleted"));
     await load();
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -83,8 +84,8 @@ async function load() {
 
 async function create() {
   try {
-    const { value } = await ElMessageBox.prompt("接口名称", "新建接口", {
-      inputPattern: /\S+/, inputErrorMessage: "名称必填",
+    const { value } = await ElMessageBox.prompt(t("api.namePrompt"), t("api.new"), {
+      inputPattern: /\S+/, inputErrorMessage: t("api.nameRequired"),
     });
     const r = await api.post("/apis", { name: value });
     router.push(`/apis/${r.id}`);
@@ -96,9 +97,9 @@ async function create() {
 async function copy(text) {
   try {
     await navigator.clipboard.writeText(text);
-    ElMessage.success("已复制");
+    ElMessage.success(t("api.copied"));
   } catch (e) {
-    ElMessage.error("复制失败");
+    ElMessage.error(t("api.copyFailed"));
   }
 }
 

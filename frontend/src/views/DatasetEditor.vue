@@ -5,16 +5,16 @@
       <el-input v-model="name" size="small" style="width: 240px"
                 @change="rename" />
       <el-tag size="small" :type="published ? 'success' : 'info'">
-        {{ published ? "已发布" : "草稿" }}
+        {{ published ? t("ded.published") : t("ded.draft") }}
       </el-tag>
       <div class="spacer" />
-      <el-button size="small" @click="save">保存</el-button>
-      <el-button size="small" @click="validate">校验</el-button>
-      <el-button size="small" :loading="previewing" @click="preview">预览</el-button>
-      <el-button size="small" type="primary" @click="publish">发布</el-button>
-      <el-button size="small" @click="openPolicies">行级策略</el-button>
-      <el-button size="small" @click="openColumnPolicies">字段脱敏</el-button>
-      <el-button size="small" @click="versionsOpen = true">版本</el-button>
+      <el-button size="small" @click="save">{{ t("ded.save") }}</el-button>
+      <el-button size="small" @click="validate">{{ t("ded.validate") }}</el-button>
+      <el-button size="small" :loading="previewing" @click="preview">{{ t("ded.preview") }}</el-button>
+      <el-button size="small" type="primary" @click="publish">{{ t("ded.publish") }}</el-button>
+      <el-button size="small" @click="openPolicies">{{ t("ded.rowPolicies") }}</el-button>
+      <el-button size="small" @click="openColumnPolicies">{{ t("ded.columnMasking") }}</el-button>
+      <el-button size="small" @click="versionsOpen = true">{{ t("ded.versions") }}</el-button>
     </div>
     <div class="body">
       <main class="center">
@@ -28,10 +28,11 @@
         <pre v-if="sql" class="sql">{{ sql }}</pre>
       </aside>
     </div>
-    <el-drawer v-model="policiesOpen" title="行级策略" size="620px"
+    <el-drawer v-model="policiesOpen" :title="t('ded.rowPolicies')" size="620px"
                @open="loadPolicies">
       <div class="policy-add">
-        <el-select v-model="policyForm.column" filterable placeholder="列"
+        <el-select v-model="policyForm.column" filterable
+                   :placeholder="t('ded.column')"
                    size="small" style="width: 130px">
           <el-option v-for="c in policyColumns" :key="c" :value="c"
                      :label="c" />
@@ -40,46 +41,48 @@
           <el-option v-for="op in policyOps" :key="op" :value="op"
                      :label="op" />
         </el-select>
-        <el-input v-model="policyForm.value" size="small" placeholder="值"
+        <el-input v-model="policyForm.value" size="small"
+                  :placeholder="t('ded.value')"
                   style="width: 150px" />
         <el-select v-model="policyForm.roles" multiple size="small"
-                   placeholder="角色" style="width: 190px">
+                   :placeholder="t('ded.roles')" style="width: 190px">
           <el-option v-for="r in roles" :key="r" :value="r" :label="r" />
         </el-select>
         <el-button type="primary" size="small" @click="addPolicy">
-          添加
+          {{ t("ded.add") }}
         </el-button>
       </div>
       <p class="policy-hint">
-        对匹配角色的读取追加过滤；角色留空表示所有角色，管理员不受限制。
-        in 操作使用逗号分隔的值。
+        {{ t("ded.policyHint") }}
       </p>
-      <el-table :data="policies" size="small" empty-text="没有行级策略">
-        <el-table-column prop="column" label="列" width="130" />
-        <el-table-column prop="op" label="操作" width="90" />
-        <el-table-column prop="value" label="值" min-width="150">
+      <el-table :data="policies" size="small"
+                :empty-text="t('ded.noPolicies')">
+        <el-table-column prop="column" :label="t('ded.column')" width="130" />
+        <el-table-column prop="op" :label="t('ded.operation')" width="90" />
+        <el-table-column prop="value" :label="t('ded.value')" min-width="150">
           <template #default="{ row }">{{ JSON.stringify(row.value) }}</template>
         </el-table-column>
-        <el-table-column label="角色" min-width="140">
+        <el-table-column :label="t('ded.roles')" min-width="140">
           <template #default="{ row }">
-            <span v-if="!row.roles?.length">全部</span>
+            <span v-if="!row.roles?.length">{{ t("ded.all") }}</span>
             <el-tag v-for="r in row.roles" :key="r" size="small"
                     style="margin-right: 4px">{{ r }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="80">
+        <el-table-column :label="t('ded.operation')" width="80">
           <template #default="{ row }">
             <el-button link type="danger" @click="removePolicy(row)">
-              删除
+              {{ t("ded.delete") }}
             </el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-drawer>
-    <el-drawer v-model="columnPoliciesOpen" title="字段脱敏" size="720px"
-               @open="loadColumnPolicies">
+    <el-drawer v-model="columnPoliciesOpen" :title="t('ded.columnMasking')"
+               size="720px" @open="loadColumnPolicies">
       <div class="policy-add">
-        <el-select v-model="columnForm.column" filterable placeholder="列"
+        <el-select v-model="columnForm.column" filterable
+                   :placeholder="t('ded.column')"
                    size="small" style="width: 130px">
           <el-option v-for="c in policyColumns" :key="c" :value="c"
                      :label="c" />
@@ -87,64 +90,64 @@
         <el-select v-model="columnForm.classification" size="small"
                    style="width: 130px">
           <el-option value="pii" label="PII" />
-          <el-option value="confidential" label="机密" />
-          <el-option value="sensitive" label="敏感" />
+          <el-option value="confidential" :label="t('ded.confidential')" />
+          <el-option value="sensitive" :label="t('ded.sensitive')" />
         </el-select>
         <el-select v-model="columnForm.mask_type" size="small"
                    style="width: 120px">
-          <el-option value="redact" label="全遮蔽" />
-          <el-option value="partial" label="部分保留" />
-          <el-option value="hash" label="哈希" />
-          <el-option value="null" label="置空" />
+          <el-option value="redact" :label="t('ded.maskRedact')" />
+          <el-option value="partial" :label="t('ded.maskPartial')" />
+          <el-option value="hash" :label="t('ded.maskHash')" />
+          <el-option value="null" :label="t('ded.maskNull')" />
         </el-select>
         <el-select v-model="columnForm.exempt_roles" multiple size="small"
-                   placeholder="豁免角色" style="width: 180px">
+                   :placeholder="t('ded.exemptRoles')" style="width: 180px">
           <el-option v-for="r in roles" :key="r" :value="r" :label="r" />
         </el-select>
         <el-button type="primary" size="small" @click="saveColumnPolicy">
-          保存
+          {{ t("ded.save") }}
         </el-button>
       </div>
       <p class="policy-hint">
-        管理员默认可见原文；未在豁免角色中的用户读取时按规则脱敏。
-        受治理数据源会禁用 SQL 模式 API 和非管理员工作台查询。
+        {{ t("ded.columnHint") }}
       </p>
       <el-table :data="columnPolicies" size="small"
-                empty-text="没有字段脱敏策略">
-        <el-table-column prop="column" label="字段" width="130" />
-        <el-table-column label="分类" width="110">
+                :empty-text="t('ded.noColumnPolicies')">
+        <el-table-column prop="column" :label="t('ded.field')" width="130" />
+        <el-table-column :label="t('ded.classification')" width="110">
           <template #default="{ row }">{{ classLabel(row.classification) }}</template>
         </el-table-column>
-        <el-table-column label="脱敏方式" width="110">
+        <el-table-column :label="t('ded.maskType')" width="110">
           <template #default="{ row }">{{ maskLabel(row.mask_type) }}</template>
         </el-table-column>
-        <el-table-column label="豁免角色" min-width="140">
+        <el-table-column :label="t('ded.exemptRoles')" min-width="140">
           <template #default="{ row }">
-            <span v-if="!row.exempt_roles?.length">无</span>
+            <span v-if="!row.exempt_roles?.length">{{ t("ded.none") }}</span>
             <el-tag v-for="r in row.exempt_roles" :key="r" size="small"
                     style="margin-right: 4px">{{ r }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_by" label="设置人" width="110" />
-        <el-table-column label="操作" width="80">
+        <el-table-column prop="created_by" :label="t('ded.configuredBy')"
+                         width="110" />
+        <el-table-column :label="t('ded.operation')" width="80">
           <template #default="{ row }">
             <el-button link type="danger" @click="removeColumnPolicy(row)">
-              删除
+              {{ t("ded.delete") }}
             </el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-drawer>
-    <el-drawer v-model="versionsOpen" title="版本" size="480px"
+    <el-drawer v-model="versionsOpen" :title="t('ded.versions')" size="480px"
                @open="loadVersions">
       <el-table :data="versions" size="small">
-        <el-table-column prop="version" label="版本" width="70" />
-        <el-table-column prop="status" label="状态" width="100" />
-        <el-table-column prop="created_by" label="创建人" />
-        <el-table-column label="操作" width="90">
+        <el-table-column prop="version" :label="t('ded.version')" width="70" />
+        <el-table-column prop="status" :label="t('ded.status')" width="100" />
+        <el-table-column prop="created_by" :label="t('ded.createdBy')" />
+        <el-table-column :label="t('ded.operation')" width="90">
           <template #default="{ row }">
             <el-button link :disabled="row.current || row.status === 'draft'"
-                       @click="rollback(row)">回滚</el-button>
+                       @click="rollback(row)">{{ t("ded.rollback") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -157,6 +160,7 @@ import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 import VisualBuilder from "../studio/api/VisualBuilder.vue";
 import { normalizeContent } from "../studio/api/content";
 
@@ -204,11 +208,12 @@ async function openColumnPolicies() {
 }
 
 function classLabel(v) {
-  return { pii: "PII", confidential: "机密", sensitive: "敏感" }[v] || v;
+  return { pii: "PII", confidential: t("ded.confidential"),
+           sensitive: t("ded.sensitive") }[v] || v;
 }
 function maskLabel(v) {
-  return { redact: "全遮蔽", partial: "部分保留", hash: "哈希",
-           null: "置空" }[v] || v;
+  return { redact: t("ded.maskRedact"), partial: t("ded.maskPartial"),
+           hash: t("ded.maskHash"), null: t("ded.maskNull") }[v] || v;
 }
 
 async function loadColumnPolicies() {
@@ -225,7 +230,7 @@ async function loadColumnPolicies() {
 async function saveColumnPolicy() {
   const f = columnForm.value;
   if (!f.column) {
-    ElMessage.warning("请选择字段");
+    ElMessage.warning(t("ded.selectField"));
     return;
   }
   try {
@@ -236,7 +241,7 @@ async function saveColumnPolicy() {
     columnForm.value = { column: "", classification: "pii",
                          mask_type: "redact", exempt_roles: [] };
     await loadColumnPolicies();
-    ElMessage.success("已保存");
+    ElMessage.success(t("ded.saved"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -265,7 +270,7 @@ async function addPolicy() {
     });
     policyForm.value = { column: "", op: "=", value: "", roles: [] };
     await loadPolicies();
-    ElMessage.success("已添加");
+    ElMessage.success(t("ded.added"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -291,7 +296,7 @@ async function load() {
 async function save() {
   try {
     await api.put(`/datasets/${id}/draft`, { content: content.value });
-    ElMessage.success("已保存草稿");
+    ElMessage.success(t("ded.draftSaved"));
     return true;
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -311,7 +316,7 @@ async function validate() {
   try {
     const r = await api.post(`/datasets/${id}/validate`,
                              { content: content.value });
-    if (r.valid) ElMessage.success("校验通过");
+    if (r.valid) ElMessage.success(t("ded.validated"));
     else ElMessage.error(r.errors.map((e) => e.message).join("; "));
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -326,7 +331,8 @@ async function preview() {
     });
     rows.value = r.rows || [];
     columns.value = r.columns || [];
-    stats.value = `${r.row_count} 行 · ${r.ms}ms`;
+    stats.value = t("ded.statsRows")
+      .replace("{count}", r.row_count).replace("{ms}", r.ms);
     sql.value = r.sql || "";
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -341,7 +347,7 @@ async function publish() {
   try {
     await api.applyChange("publish_dataset", id);
     await load();
-    ElMessage.success("已发布");
+    ElMessage.success(t("ded.published"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -353,7 +359,9 @@ async function loadVersions() {
 
 async function rollback(row) {
   try {
-    await ElMessageBox.confirm(`回滚到版本 ${row.version}？`, "回滚确认");
+    await ElMessageBox.confirm(
+      t("ded.rollbackConfirm").replace("{version}", row.version),
+      t("ded.rollbackTitle"));
     await api.applyChange("rollback_dataset", id, { version: row.version });
     await load();
     await loadVersions();

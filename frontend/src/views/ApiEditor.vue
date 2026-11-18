@@ -5,30 +5,30 @@
       <el-input v-model="name" size="small" style="width: 240px"
                 @change="rename" />
       <el-tag size="small" :type="enabled ? 'success' : 'info'">
-        {{ enabled ? "已发布" : "草稿" }}
+        {{ enabled ? t("aed.published") : t("aed.draft") }}
       </el-tag>
       <span class="key mono">{{ key }}</span>
       <div class="spacer" />
-      <el-button size="small" @click="save">保存</el-button>
-      <el-button size="small" @click="validate">校验</el-button>
-      <el-button size="small" @click="preview?.run()">预览</el-button>
-      <el-button size="small" @click="test">测试</el-button>
-      <el-button size="small" type="primary" @click="publish">发布</el-button>
-      <el-button size="small" @click="versionsOpen = true">版本</el-button>
-      <el-button size="small" @click="docsOpen = true">文档</el-button>
+      <el-button size="small" @click="save">{{ t("aed.save") }}</el-button>
+      <el-button size="small" @click="validate">{{ t("aed.validate") }}</el-button>
+      <el-button size="small" @click="preview?.run()">{{ t("aed.preview") }}</el-button>
+      <el-button size="small" @click="test">{{ t("aed.test") }}</el-button>
+      <el-button size="small" type="primary" @click="publish">{{ t("aed.publish") }}</el-button>
+      <el-button size="small" @click="versionsOpen = true">{{ t("aed.versions") }}</el-button>
+      <el-button size="small" @click="docsOpen = true">{{ t("aed.docs") }}</el-button>
       <el-button size="small" @click="toggle">
-        {{ enabled ? "下线" : "启用" }}
+        {{ enabled ? t("aed.offline") : t("aed.enable") }}
       </el-button>
     </div>
 
     <div class="body">
       <aside class="left">
-        <AssetTree :items="items" :active-id="id" title="数据接口"
+        <AssetTree :items="items" :active-id="id" :title="t('aed.interfaces')"
                    @select="openOther" />
       </aside>
       <main class="center">
         <div v-if="content.mode === 'sql'" class="sql-ds">
-          <span>数据源</span>
+          <span>{{ t("aed.datasource") }}</span>
           <el-select v-model="content.query.datasource_id" size="small"
                      style="width: 220px">
             <el-option v-for="d in datasources" :key="d.id" :value="d.id"
@@ -36,8 +36,8 @@
           </el-select>
         </div>
         <el-radio-group v-model="content.mode" size="small" class="mode">
-          <el-radio-button value="visual">可视化</el-radio-button>
-          <el-radio-button value="sql">SQL</el-radio-button>
+          <el-radio-button value="visual">{{ t("aed.visual") }}</el-radio-button>
+          <el-radio-button value="sql">{{ t("aed.sql") }}</el-radio-button>
         </el-radio-group>
         <VisualBuilder v-if="content.mode === 'visual'"
                        :content="content" :datasources="datasources" />
@@ -51,16 +51,16 @@
       </aside>
     </div>
 
-    <el-drawer v-model="versionsOpen" title="版本" size="480px"
+    <el-drawer v-model="versionsOpen" :title="t('aed.versions')" size="480px"
                @open="openVersions">
       <el-table :data="versions" size="small">
-        <el-table-column prop="version" label="版本" width="70" />
-        <el-table-column prop="status" label="状态" width="100" />
-        <el-table-column prop="created_by" label="创建人" />
-        <el-table-column label="操作" width="90">
+        <el-table-column prop="version" :label="t('aed.version')" width="70" />
+        <el-table-column prop="status" :label="t('aed.status')" width="100" />
+        <el-table-column prop="created_by" :label="t('aed.createdBy')" />
+        <el-table-column :label="t('aed.actions')" width="90">
           <template #default="{ row }">
             <el-button link :disabled="row.current || row.status === 'draft'"
-                       @click="rollback(row)">回滚</el-button>
+                       @click="rollback(row)">{{ t("aed.rollback") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -74,6 +74,7 @@ import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 import AssetTree from "../studio/AssetTree.vue";
 import VisualBuilder from "../studio/api/VisualBuilder.vue";
 import SqlEditor from "../studio/api/SqlEditor.vue";
@@ -113,7 +114,7 @@ function openOther(p) {
 async function save() {
   try {
     await api.put(`/apis/${id}/draft`, { content: content.value });
-    ElMessage.success("已保存草稿");
+    ElMessage.success(t("aed.draftSaved"));
     return true;
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -133,7 +134,7 @@ async function validate() {
   try {
     const r = await api.post(`/apis/${id}/validate`,
                              { content: content.value });
-    if (r.valid) ElMessage.success("校验通过");
+    if (r.valid) ElMessage.success(t("aed.validated"));
     else ElMessage.error(r.errors.map((x) => x.message).join("; "));
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -143,7 +144,7 @@ async function validate() {
 async function test() {
   try {
     const r = await api.post(`/apis/${id}/test`, { params: {} });
-    ElMessage.success(`测试成功：${r.row_count} 行`);
+    ElMessage.success(t("aed.testSuccess").replace("{count}", r.row_count));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -155,7 +156,7 @@ async function publish() {
     if (!ok) return;
     await api.applyChange("publish_api", id);
     await load();
-    ElMessage.success("已发布");
+    ElMessage.success(t("aed.publishedMsg"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -176,7 +177,9 @@ async function openVersions() {
 
 async function rollback(row) {
   try {
-    await ElMessageBox.confirm(`回滚到版本 ${row.version}？`, "回滚确认");
+    await ElMessageBox.confirm(
+      t("aed.rollbackConfirm").replace("{version}", row.version),
+      t("aed.rollbackTitle"));
     await api.applyChange("rollback_api", id, { version: row.version });
     await load();
     await openVersions();

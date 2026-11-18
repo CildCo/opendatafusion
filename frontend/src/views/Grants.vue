@@ -1,129 +1,154 @@
 <template>
   <div class="page">
     <div class="toolbar">
-      <el-tag size="small" type="info">跨项目访问</el-tag>
+      <el-tag size="small" type="info">{{ t("grants.crossProject") }}</el-tag>
       <div class="spacer" />
-      <el-button size="small" @click="loadAll" :loading="loading">刷新</el-button>
+      <el-button size="small" @click="loadAll" :loading="loading">
+        {{ t("grants.refresh") }}
+      </el-button>
     </div>
 
     <el-card shadow="never">
       <el-tabs v-model="tab">
-        <el-tab-pane label="接口目录" name="catalog">
-          <el-table :data="catalog" size="small" empty-text="没有已发布接口">
-            <el-table-column prop="name" label="接口" min-width="180" />
+        <el-tab-pane :label="t('grants.tabCatalog')" name="catalog">
+          <el-table :data="catalog" size="small"
+                    :empty-text="t('grants.emptyCatalog')">
+            <el-table-column prop="name" :label="t('grants.colInterface')"
+                             min-width="180" />
             <el-table-column prop="key" label="Key" min-width="220">
               <template #default="{ row }">
                 <span class="mono">{{ row.key }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="owner_project" label="所属项目"
-                             width="150" />
-            <el-table-column label="操作" width="120">
+            <el-table-column prop="owner_project"
+                             :label="t('grants.colProject')" width="150" />
+            <el-table-column :label="t('grants.colAction')" width="120">
               <template #default="{ row }">
                 <el-button v-if="!row.owned" link type="primary"
-                           @click="openRequest(row)">申请访问</el-button>
-                <span v-else class="hint">本项目</span>
+                           @click="openRequest(row)">
+                  {{ t("grants.requestAccess") }}
+                </el-button>
+                <span v-else class="hint">{{ t("grants.thisProject") }}</span>
               </template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="我的申请" name="outgoing">
-          <el-table :data="outgoing" size="small" empty-text="没有申请">
-            <el-table-column prop="asset_name" label="接口" min-width="160" />
-            <el-table-column prop="owner_project" label="所属项目"
-                             width="140" />
-            <el-table-column prop="note" label="说明" min-width="180" />
-            <el-table-column label="状态" width="100">
+        <el-tab-pane :label="t('grants.tabOutgoing')" name="outgoing">
+          <el-table :data="outgoing" size="small"
+                    :empty-text="t('grants.emptyOutgoing')">
+            <el-table-column prop="asset_name"
+                             :label="t('grants.colInterface')" min-width="160" />
+            <el-table-column prop="owner_project"
+                             :label="t('grants.colProject')" width="140" />
+            <el-table-column prop="note" :label="t('grants.colNote')"
+                             min-width="180" />
+            <el-table-column :label="t('grants.colStatus')" width="100">
               <template #default="{ row }">
                 <el-tag size="small" :type="statusTone(row.status)">
                   {{ row.status }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="申请时间" width="170">
+            <el-table-column :label="t('grants.colRequestedAt')" width="170">
               <template #default="{ row }">{{ fmt(row.created_at) }}</template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="待审批" name="incoming">
+        <el-tab-pane :label="t('grants.tabIncoming')" name="incoming">
           <el-table :data="incoming" size="small"
-                    empty-text="没有待审批申请">
-            <el-table-column prop="asset_name" label="接口" min-width="160" />
-            <el-table-column prop="grantee_project" label="申请项目"
+                    :empty-text="t('grants.emptyIncoming')">
+            <el-table-column prop="asset_name"
+                             :label="t('grants.colInterface')" min-width="160" />
+            <el-table-column prop="grantee_project"
+                             :label="t('grants.colRequestingProject')"
                              width="140" />
-            <el-table-column prop="requested_by" label="申请人" width="110" />
-            <el-table-column prop="note" label="说明" min-width="180" />
-            <el-table-column label="状态" width="100">
+            <el-table-column prop="requested_by"
+                             :label="t('grants.colRequester')" width="110" />
+            <el-table-column prop="note" :label="t('grants.colNote')"
+                             min-width="180" />
+            <el-table-column :label="t('grants.colStatus')" width="100">
               <template #default="{ row }">
                 <el-tag size="small" :type="statusTone(row.status)">
                   {{ row.status }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="130">
+            <el-table-column :label="t('grants.colAction')" width="130">
               <template #default="{ row }">
                 <template v-if="row.status === 'pending'">
                   <el-button link type="primary"
-                             @click="decide(row, true)">通过</el-button>
+                             @click="decide(row, true)">
+                    {{ t("grants.approve") }}
+                  </el-button>
                   <el-button link type="danger"
-                             @click="decide(row, false)">拒绝</el-button>
+                             @click="decide(row, false)">
+                    {{ t("grants.reject") }}
+                  </el-button>
                 </template>
               </template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="授权管理" name="grants">
-          <el-table :data="grants" size="small" empty-text="还没有授权">
-            <el-table-column prop="asset_name" label="接口" min-width="180" />
-            <el-table-column prop="grantee_project" label="授权项目"
-                             width="150" />
-            <el-table-column prop="granted_by" label="授权人" width="120" />
-            <el-table-column label="授权时间" width="170">
+        <el-tab-pane :label="t('grants.tabGrants')" name="grants">
+          <el-table :data="grants" size="small"
+                    :empty-text="t('grants.emptyGrants')">
+            <el-table-column prop="asset_name"
+                             :label="t('grants.colInterface')" min-width="180" />
+            <el-table-column prop="grantee_project"
+                             :label="t('grants.colGrantedProject')" width="150" />
+            <el-table-column prop="granted_by"
+                             :label="t('grants.colGrantedBy')" width="120" />
+            <el-table-column :label="t('grants.colGrantedAt')" width="170">
               <template #default="{ row }">{{ fmt(row.created_at) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="90">
+            <el-table-column :label="t('grants.colAction')" width="90">
               <template #default="{ row }">
                 <el-button link type="danger"
-                           @click="revoke(row)">撤销</el-button>
+                           @click="revoke(row)">
+                  {{ t("grants.revoke") }}
+                </el-button>
               </template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="访问密钥" name="keys">
+        <el-tab-pane :label="t('grants.tabKeys')" name="keys">
           <div class="keys-head">
-            <span class="hint">
-              调用已发布接口时使用 AK/SK 签名；密钥只显示一次，请妥善保存。
-            </span>
+            <span class="hint">{{ t("grants.keyHint") }}</span>
             <el-button size="small" type="primary" :loading="issuing"
-                       @click="issueKey">签发密钥</el-button>
+                       @click="issueKey">
+              {{ t("grants.issueKey") }}
+            </el-button>
           </div>
           <el-alert v-if="newKey" type="success" :closable="false"
                     show-icon style="margin: 10px 0">
-            <p style="margin: 0 0 6px">新密钥已生成，请立即保存：</p>
+            <p style="margin: 0 0 6px">{{ t("grants.keyCreated") }}</p>
             <p class="mono" style="margin: 0">AK: {{ newKey.ak }}</p>
             <p class="mono" style="margin: 0">SK: {{ newKey.sk }}</p>
           </el-alert>
-          <el-table :data="keys" size="small" empty-text="还没有访问密钥">
+          <el-table :data="keys" size="small"
+                    :empty-text="t('grants.emptyKeys')">
             <el-table-column prop="ak" label="Access Key" min-width="240">
               <template #default="{ row }">
                 <span class="mono">{{ row.ak }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="状态" width="110">
+            <el-table-column :label="t('grants.colStatus')" width="110">
               <template #default="{ row }">
                 <el-tag size="small" :type="row.enabled ? 'success' : 'info'">
-                  {{ row.enabled ? "有效" : "已吊销" }}
+                  {{ row.enabled ? t("grants.valid") : t("grants.revoked") }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="100">
+            <el-table-column :label="t('grants.colAction')" width="100">
               <template #default="{ row }">
                 <el-button v-if="row.enabled" link type="danger"
-                           @click="revokeKey(row)">吊销</el-button>
+                           @click="revokeKey(row)">
+                  {{ t("grants.revokeKey") }}
+                </el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -131,16 +156,20 @@
       </el-tabs>
     </el-card>
 
-    <el-dialog v-model="requestOpen" title="申请接口访问" width="480px">
+    <el-dialog v-model="requestOpen" :title="t('grants.dialogTitle')"
+               width="480px">
       <p class="hint">
-        接口：{{ target?.name }}（{{ target?.owner_project }}）
+        {{ tr("grants.targetHint",
+              { name: target?.name, project: target?.owner_project }) }}
       </p>
       <el-input v-model="note" type="textarea" :rows="3"
-                placeholder="用途说明（可选）" />
+                :placeholder="t('grants.notePlaceholder')" />
       <template #footer>
-        <el-button @click="requestOpen = false">取消</el-button>
+        <el-button @click="requestOpen = false">
+          {{ t("grants.cancel") }}
+        </el-button>
         <el-button type="primary" :loading="saving" @click="submitRequest">
-          提交申请
+          {{ t("grants.submitRequest") }}
         </el-button>
       </template>
     </el-dialog>
@@ -151,6 +180,12 @@
 import { onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getProject } from "../api";
+import { t } from "../i18n";
+
+function tr(key, vars = {}) {
+  return Object.entries(vars).reduce(
+    (s, [k, v]) => s.split(`{${k}}`).join(v ?? ""), t(key));
+}
 
 const tab = ref("catalog");
 const catalog = ref([]);
@@ -179,7 +214,7 @@ async function issueKey() {
   const pid = getProject() || 1;
   try {
     await ElMessageBox.confirm(
-      "签发后密钥只显示一次，请确认你已准备好保存。", "签发访问密钥");
+      t("grants.issueConfirm"), t("grants.issueTitle"));
   } catch (e) {
     return;
   }
@@ -197,11 +232,12 @@ async function issueKey() {
 async function revokeKey(row) {
   const pid = getProject() || 1;
   try {
-    await ElMessageBox.confirm(`吊销密钥 ${row.ak}？`, "吊销确认",
-                               { type: "warning" });
+    await ElMessageBox.confirm(
+      tr("grants.revokeKeyConfirm", { ak: row.ak }),
+      t("grants.revokeKeyTitle"), { type: "warning" });
     await api.del(`/projects/${pid}/aksk/${encodeURIComponent(row.ak)}`);
     await loadKeys();
-    ElMessage.success("已吊销");
+    ElMessage.success(t("grants.revokedMsg"));
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));
   }
@@ -250,7 +286,7 @@ async function submitRequest() {
     await api.post("/api-requests", {
       asset_id: target.value.id, note: note.value,
     });
-    ElMessage.success("申请已提交");
+    ElMessage.success(t("grants.requestSubmitted"));
     requestOpen.value = false;
     await loadAll();
   } catch (e) {
@@ -263,11 +299,14 @@ async function submitRequest() {
 async function decide(row, approve) {
   try {
     await ElMessageBox.confirm(
-      `${approve ? "通过" : "拒绝"}「${row.asset_name}」来自`
-      + `「${row.grantee_project}」的申请？`, "审批确认");
+      tr("grants.decideConfirm", {
+        action: t(approve ? "grants.approve" : "grants.reject"),
+        asset: row.asset_name,
+        project: row.grantee_project,
+      }), t("grants.decideTitle"));
     await api.post(`/api-requests/${row.id}/${approve ? "approve"
       : "reject"}`);
-    ElMessage.success(approve ? "已通过" : "已拒绝");
+    ElMessage.success(t(approve ? "grants.approvedMsg" : "grants.rejectedMsg"));
     await loadAll();
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));
@@ -277,10 +316,11 @@ async function decide(row, approve) {
 async function revoke(row) {
   try {
     await ElMessageBox.confirm(
-      `撤销「${row.grantee_project}」对「${row.asset_name}」的访问？`,
-      "撤销授权");
+      tr("grants.revokeConfirm", {
+        project: row.grantee_project, asset: row.asset_name,
+      }), t("grants.revokeGrantTitle"));
     await api.del(`/api-grants/${row.id}`);
-    ElMessage.success("已撤销");
+    ElMessage.success(t("grants.grantRevoked"));
     await loadAll();
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));

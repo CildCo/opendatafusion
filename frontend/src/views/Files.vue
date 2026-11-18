@@ -1,32 +1,32 @@
 <template>
   <div class="page">
     <div class="toolbar">
-      <el-tag size="small" type="info">内容寻址存储</el-tag>
+      <el-tag size="small" type="info">{{ t("files.storage") }}</el-tag>
       <div class="spacer" />
-      <el-button size="small" @click="load" :loading="loading">刷新</el-button>
+      <el-button size="small" @click="load" :loading="loading">{{ t("files.refresh") }}</el-button>
       <el-upload :show-file-list="false" :http-request="upload">
         <el-button type="primary" size="small" :loading="uploading">
-          上传文件
+          {{ t("files.upload") }}
         </el-button>
       </el-upload>
     </div>
 
     <el-card shadow="never">
-      <el-table :data="rows" size="small" empty-text="还没有文件">
-        <el-table-column prop="name" label="名称" min-width="200" />
-        <el-table-column prop="content_type" label="类型" width="150" />
-        <el-table-column label="大小" width="110">
+      <el-table :data="rows" size="small" :empty-text="t('files.empty')">
+        <el-table-column prop="name" :label="t('files.name')" min-width="200" />
+        <el-table-column prop="content_type" :label="t('files.type')" width="150" />
+        <el-table-column :label="t('files.size')" width="110">
           <template #default="{ row }">{{ sizeText(row.size) }}</template>
         </el-table-column>
-        <el-table-column prop="created_by" label="上传人" width="110" />
-        <el-table-column label="时间" width="170">
+        <el-table-column prop="created_by" :label="t('files.uploader')" width="110" />
+        <el-table-column :label="t('files.time')" width="170">
           <template #default="{ row }">{{ fmt(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="130">
+        <el-table-column :label="t('files.actions')" width="130">
           <template #default="{ row }">
-            <el-button link @click="download(row)">下载</el-button>
+            <el-button link @click="download(row)">{{ t("files.download") }}</el-button>
             <el-button v-if="canEdit" link type="danger"
-                       @click="remove(row)">删除</el-button>
+                       @click="remove(row)">{{ t("files.delete") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -38,6 +38,7 @@
 import { onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getRole, getToken } from "../api";
+import { locale, t } from "../i18n";
 
 const canEdit = ["editor", "approver", "admin"].includes(getRole());
 const rows = ref([]);
@@ -47,7 +48,7 @@ const uploading = ref(false);
 function fmt(v) {
   if (!v) return "-";
   const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? v : d.toLocaleString("zh-CN");
+  return Number.isNaN(d.getTime()) ? v : d.toLocaleString(locale.value === "en" ? "en-US" : "zh-CN");
 }
 function sizeText(n) {
   if (n < 1024) return `${n} B`;
@@ -86,7 +87,7 @@ async function upload({ file }) {
       }
       throw new Error(msg);
     }
-    ElMessage.success("已上传");
+    ElMessage.success(t("files.uploaded"));
     await load();
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -114,9 +115,11 @@ async function download(row) {
 
 async function remove(row) {
   try {
-    await ElMessageBox.confirm(`删除文件「${row.name}」？`, "删除确认");
+    await ElMessageBox.confirm(
+      `${t("files.deleteConfirmPrefix")}${row.name}${t("files.deleteConfirmSuffix")}`,
+      t("files.deleteTitle"));
     await api.del(`/files/${row.id}`);
-    ElMessage.success("已删除");
+    ElMessage.success(t("files.deleted"));
     await load();
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));

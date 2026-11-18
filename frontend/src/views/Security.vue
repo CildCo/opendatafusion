@@ -3,52 +3,54 @@
     <div class="toolbar">
       <div class="spacer" />
       <el-tag size="small" :type="totpEnabled ? 'success' : 'info'">
-        {{ totpEnabled ? "已启用双因子" : "未启用双因子" }}
+        {{ totpEnabled ? t("sec.totpEnabled") : t("sec.totpDisabled") }}
       </el-tag>
     </div>
 
     <el-card shadow="never" class="card">
-      <template #header><span>修改密码</span></template>
+      <template #header><span>{{ t("sec.changePassword") }}</span></template>
       <el-form label-width="100px" style="max-width: 520px">
-        <el-form-item label="当前密码">
+        <el-form-item :label="t('sec.currentPassword')">
           <el-input v-model="oldPassword" type="password" show-password />
         </el-form-item>
-        <el-form-item label="新密码">
+        <el-form-item :label="t('sec.newPassword')">
           <el-input v-model="newPassword" type="password" show-password />
         </el-form-item>
-        <el-form-item label="确认新密码">
+        <el-form-item :label="t('sec.confirmPassword')">
           <el-input v-model="confirm" type="password" show-password />
         </el-form-item>
         <el-button type="primary" :loading="saving" @click="changePassword">
-          更新密码
+          {{ t("sec.updatePassword") }}
         </el-button>
       </el-form>
     </el-card>
 
     <el-card shadow="never" class="card">
-      <template #header><span>双因子认证 (TOTP)</span></template>
+      <template #header><span>{{ t("sec.totpTitle") }}</span></template>
       <div v-if="!totpEnabled">
         <p class="hint">
-          使用 Microsoft Authenticator / Google Authenticator 扫描或手动输入密钥。
+          {{ t("sec.totpHint") }}
         </p>
         <el-button v-if="!secret" size="small" @click="setup">
-          生成密钥
+          {{ t("sec.generateSecret") }}
         </el-button>
         <div v-if="secret" class="setup">
           <el-tag effect="plain" class="mono">{{ secret }}</el-tag>
-          <el-button link @click="copy(uri)">复制 otpauth 链接</el-button>
-          <el-input v-model="code" size="small" placeholder="输入 6 位验证码"
+          <el-button link @click="copy(uri)">{{ t("sec.copyUri") }}</el-button>
+          <el-input v-model="code" size="small"
+                    :placeholder="t('sec.codePlaceholder')"
                     style="width: 220px" />
           <el-button type="primary" size="small" @click="enable">
-            启用
+            {{ t("sec.enable") }}
           </el-button>
         </div>
       </div>
       <div v-else class="setup">
-        <el-input v-model="code" size="small" placeholder="输入 6 位验证码"
+        <el-input v-model="code" size="small"
+                  :placeholder="t('sec.codePlaceholder')"
                   style="width: 220px" />
         <el-button type="danger" size="small" @click="disable">
-          停用双因子
+          {{ t("sec.disableTotp") }}
         </el-button>
       </div>
     </el-card>
@@ -59,6 +61,7 @@
 import { onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { api, errMsg, setToken } from "../api";
+import { t } from "../i18n";
 
 const oldPassword = ref("");
 const newPassword = ref("");
@@ -80,11 +83,11 @@ async function load() {
 
 async function changePassword() {
   if (!oldPassword.value || !newPassword.value) {
-    ElMessage.error("请填写密码");
+    ElMessage.error(t("sec.fillPassword"));
     return;
   }
   if (newPassword.value !== confirm.value) {
-    ElMessage.error("两次新密码不一致");
+    ElMessage.error(t("sec.mismatch"));
     return;
   }
   saving.value = true;
@@ -94,7 +97,7 @@ async function changePassword() {
     });
     if (r.token) setToken(r.token);
     oldPassword.value = newPassword.value = confirm.value = "";
-    ElMessage.success("密码已更新，其他会话已失效");
+    ElMessage.success(t("sec.passwordUpdated"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -117,7 +120,7 @@ async function enable() {
     await api.post("/auth/totp/enable", { code: code.value });
     totpEnabled.value = true;
     code.value = "";
-    ElMessage.success("双因子已启用");
+    ElMessage.success(t("sec.totpEnabledMsg"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -128,7 +131,7 @@ async function disable() {
     await api.post("/auth/totp/disable", { code: code.value });
     totpEnabled.value = false;
     secret.value = uri.value = code.value = "";
-    ElMessage.success("双因子已停用");
+    ElMessage.success(t("sec.totpDisabledMsg"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -137,9 +140,9 @@ async function disable() {
 async function copy(text) {
   try {
     await navigator.clipboard.writeText(text);
-    ElMessage.success("已复制");
+    ElMessage.success(t("sec.copied"));
   } catch (e) {
-    ElMessage.error("复制失败");
+    ElMessage.error(t("sec.copyFailed"));
   }
 }
 

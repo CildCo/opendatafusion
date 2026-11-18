@@ -5,17 +5,17 @@
       <el-input v-model="name" size="small" style="width: 220px"
                 @change="rename" />
       <el-tag size="small" :type="published ? 'success' : 'info'">
-        {{ published ? "已发布" : "草稿" }}
+        {{ published ? t("dedit.published") : t("dedit.draft") }}
       </el-tag>
       <div class="spacer" />
-      <el-button size="small" @click="save">保存</el-button>
-      <el-button size="small" @click="validate">校验</el-button>
-      <el-button size="small" :loading="loadingData" @click="refresh">刷新数据</el-button>
-      <el-button size="small" type="primary" @click="publish">发布</el-button>
-      <el-button size="small" @click="versionsOpen = true">版本</el-button>
+      <el-button size="small" @click="save">{{ t("dedit.save") }}</el-button>
+      <el-button size="small" @click="validate">{{ t("dedit.validate") }}</el-button>
+      <el-button size="small" :loading="loadingData" @click="refresh">{{ t("dedit.refreshData") }}</el-button>
+      <el-button size="small" type="primary" @click="publish">{{ t("dedit.publish") }}</el-button>
+      <el-button size="small" @click="versionsOpen = true">{{ t("dedit.versions") }}</el-button>
       <el-button size="small" :disabled="!published"
                  @click="$router.push(`/dashboards/${id}/run`)">
-        运行
+        {{ t("dedit.run") }}
       </el-button>
       <ShareDialog kind="dashboards" :asset-id="id"
                    :published="published" />
@@ -23,29 +23,29 @@
 
     <div class="body">
       <aside class="palette">
-        <div class="label">组件</div>
-        <el-button v-for="t in types" :key="t.type" size="small"
-                   class="add" @click="add(t)">
-          {{ t.label }}
+        <div class="label">{{ t("dedit.components") }}</div>
+        <el-button v-for="ty in types" :key="ty.type" size="small"
+                   class="add" @click="add(ty)">
+          {{ ty.label }}
         </el-button>
-        <div class="label" style="margin-top: 14px">筛选参数</div>
+        <div class="label" style="margin-top: 14px">{{ t("dedit.filterParams") }}</div>
         <div v-for="(p, i) in content.params" :key="i" class="param-row">
-          <el-input v-model="p.name" size="small" placeholder="name"
+          <el-input v-model="p.name" size="small" :placeholder="t('dedit.paramNamePlaceholder')"
                     @change="resetParams" />
           <el-select v-model="p.type" size="small" style="width: 88px"
                      @change="resetParams">
-            <el-option v-for="t in paramTypes" :key="t" :value="t"
-                       :label="t" />
+            <el-option v-for="pt in paramTypes" :key="pt" :value="pt"
+                       :label="pt" />
           </el-select>
-          <el-input v-model="p.default" size="small" placeholder="默认值"
+          <el-input v-model="p.default" size="small" :placeholder="t('dedit.defaultValue')"
                     @change="resetParams" />
           <el-button link type="danger" size="small"
                      @click="removeParam(i)">×</el-button>
         </div>
         <el-button size="small" class="add" @click="addParam">
-          + 参数
+          {{ t("dedit.addParam") }}
         </el-button>
-        <p class="hint">拖动组件标题移动，右下角缩放。</p>
+        <p class="hint">{{ t("dedit.dragHint") }}</p>
       </aside>
 
       <main class="canvas">
@@ -64,20 +64,20 @@
       <aside class="config">
         <template v-if="selected">
           <div class="config-head">
-            <h4>{{ selected.type }} 配置</h4>
-            <el-button link type="danger" @click="removeWidget">删除</el-button>
+            <h4>{{ selected.type }} {{ t("dedit.configSuffix") }}</h4>
+            <el-button link type="danger" @click="removeWidget">{{ t("dedit.delete") }}</el-button>
           </div>
           <el-form label-width="76px" size="small">
-            <el-form-item label="标题">
+            <el-form-item :label="t('dedit.title')">
               <el-input v-model="selected.title" />
             </el-form-item>
             <template v-if="selected.type !== 'text'">
-              <el-form-item label="筛选">
+              <el-form-item :label="t('dedit.filter')">
                 <div class="filter-list">
                   <div v-for="(f, i) in selected.filters || []" :key="i"
                        class="filter-row">
                     <el-select v-model="f.column" size="small" filterable
-                               allow-create placeholder="列"
+                               allow-create :placeholder="t('dedit.column')"
                                style="width: 96px">
                       <el-option v-for="c in filterColumns" :key="c"
                                  :value="c" :label="c" />
@@ -88,7 +88,7 @@
                                  :label="op" />
                     </el-select>
                     <el-select v-model="f.param" size="small"
-                               placeholder="参数" style="width: 84px">
+                               :placeholder="t('dedit.param')" style="width: 84px">
                       <el-option v-for="p in content.params" :key="p.name"
                                  :value="p.name" :label="p.name" />
                     </el-select>
@@ -97,14 +97,14 @@
                   </div>
                   <el-button link size="small"
                              :disabled="!content.params.length"
-                             @click="addFilter">+ 条件</el-button>
+                             @click="addFilter">{{ t("dedit.addCondition") }}</el-button>
                 </div>
               </el-form-item>
               <el-form-item v-if="['line','bar','pie','table'].includes(selected.type)"
-                            label="点击联动">
+                            :label="t('dedit.clickLinkage')">
                 <div v-if="selected.emit" class="filter-row">
                   <el-select v-model="selected.emit.param" size="small"
-                             placeholder="参数" style="width: 92px">
+                             :placeholder="t('dedit.param')" style="width: 92px">
                     <el-option v-for="p in content.params" :key="p.name"
                                :value="p.name" :label="p.name" />
                   </el-select>
@@ -114,7 +114,7 @@
                                :label="selected.dimension" />
                   </el-select>
                   <el-select v-else v-model="selected.emit.from" size="small"
-                             filterable allow-create placeholder="列"
+                             filterable allow-create :placeholder="t('dedit.column')"
                              style="width: 92px">
                     <el-option v-for="c in filterColumns" :key="c" :value="c"
                                :label="c" />
@@ -124,11 +124,11 @@
                 </div>
                 <el-button v-else link size="small"
                            :disabled="!content.params.length"
-                           @click="enableEmit">启用</el-button>
+                           @click="enableEmit">{{ t("dedit.enable") }}</el-button>
               </el-form-item>
             </template>
             <template v-if="['card','line','bar','pie'].includes(selected.type)">
-              <el-form-item label="指标">
+              <el-form-item :label="t('dedit.metric')">
                 <el-select v-model="selected.metric_id" filterable clearable
                            style="width: 100%" @change="loadMetric">
                   <el-option v-for="m in metrics" :key="m.id" :value="m.id"
@@ -136,14 +136,14 @@
                 </el-select>
               </el-form-item>
               <el-form-item v-if="['line','bar','pie'].includes(selected.type)"
-                            label="维度">
+                            :label="t('dedit.dimension')">
                 <el-select v-model="selected.dimension" filterable
                            style="width: 100%" @change="syncEmit">
                   <el-option v-for="d in metricDims" :key="d" :value="d"
                              :label="d" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="数值列">
+              <el-form-item :label="t('dedit.valueColumn')">
                 <el-select v-model="selected.value_column" filterable
                            clearable style="width: 100%">
                   <el-option v-for="c in valueOptions" :key="c" :value="c"
@@ -152,7 +152,7 @@
               </el-form-item>
             </template>
             <template v-if="selected.type === 'table'">
-              <el-form-item label="数据集">
+              <el-form-item :label="t('dedit.dataset')">
                 <el-select v-model="selected.dataset_id" filterable clearable
                            style="width: 100%"
                            @change="selected.metric_id = null">
@@ -160,7 +160,7 @@
                              :label="d.name" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="指标">
+              <el-form-item :label="t('dedit.metric')">
                 <el-select v-model="selected.metric_id" filterable clearable
                            style="width: 100%"
                            @change="selected.dataset_id = null">
@@ -168,15 +168,15 @@
                              :label="m.name" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="行数">
+              <el-form-item :label="t('dedit.rowCount')">
                 <el-input-number v-model="selected.limit" :min="1"
                                  :max="10000" />
               </el-form-item>
             </template>
-            <el-form-item v-if="selected.type === 'text'" label="文本">
+            <el-form-item v-if="selected.type === 'text'" :label="t('dedit.text')">
               <el-input v-model="selected.text" type="textarea" :rows="4" />
             </el-form-item>
-            <el-form-item label="位置">
+            <el-form-item :label="t('dedit.layout')">
               <div class="layout">
                 <el-input-number v-model="selected.x" :min="0"
                                  :max="content.columns - 1" />
@@ -188,20 +188,20 @@
             </el-form-item>
           </el-form>
         </template>
-        <el-empty v-else description="添加或选择组件" :image-size="60" />
+        <el-empty v-else :description="t('dedit.emptyWidgets')" :image-size="60" />
       </aside>
     </div>
 
-    <el-drawer v-model="versionsOpen" title="版本" size="480px"
+    <el-drawer v-model="versionsOpen" :title="t('dedit.versions')" size="480px"
                @open="loadVersions">
       <el-table :data="versions" size="small">
-        <el-table-column prop="version" label="版本" width="70" />
-        <el-table-column prop="status" label="状态" width="100" />
-        <el-table-column prop="created_by" label="创建人" />
-        <el-table-column label="操作" width="90">
+        <el-table-column prop="version" :label="t('dedit.version')" width="70" />
+        <el-table-column prop="status" :label="t('dedit.status')" width="100" />
+        <el-table-column prop="created_by" :label="t('dedit.createdBy')" />
+        <el-table-column :label="t('dedit.actions')" width="90">
           <template #default="{ row }">
             <el-button link :disabled="row.current || row.status === 'draft'"
-                       @click="rollback(row)">回滚</el-button>
+                       @click="rollback(row)">{{ t("dedit.rollback") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -214,6 +214,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 import DashboardGrid from "../studio/dashboard/DashboardGrid.vue";
 import DashboardFilters from "../studio/dashboard/DashboardFilters.vue";
 import ShareDialog from "../studio/share/ShareDialog.vue";
@@ -237,14 +238,14 @@ const loadingData = ref(false);
 const versions = ref([]);
 const versionsOpen = ref(false);
 const dirty = ref(false);
-const types = [
-  { type: "card", label: "指标卡" },
-  { type: "line", label: "折线图" },
-  { type: "bar", label: "柱状图" },
-  { type: "pie", label: "饼图" },
-  { type: "table", label: "表格" },
-  { type: "text", label: "文本" },
-];
+const types = computed(() => [
+  { type: "card", label: t("dedit.typeCard") },
+  { type: "line", label: t("dedit.typeLine") },
+  { type: "bar", label: t("dedit.typeBar") },
+  { type: "pie", label: t("dedit.typePie") },
+  { type: "table", label: t("dedit.typeTable") },
+  { type: "text", label: t("dedit.text") },
+]);
 
 const metricDims = computed(
   () => metricContent.value?.dimensions || []);
@@ -283,26 +284,26 @@ async function load() {
   if (content.value.widgets.length) await refresh();
 }
 
-function add(t) {
+function add(ty) {
   const y = content.value.widgets.reduce(
     (m, w) => Math.max(m, w.y + w.h), 0);
   const widget = {
     id: `w_${Date.now()}_${content.value.widgets.length}`,
-    type: t.type,
-    title: t.label,
-    x: 0, y, w: t.type === "card" || t.type === "text" ? 3 : 6,
-    h: t.type === "card" || t.type === "text" ? 2 : 4,
+    type: ty.type,
+    title: ty.label,
+    x: 0, y, w: ty.type === "card" || ty.type === "text" ? 3 : 6,
+    h: ty.type === "card" || ty.type === "text" ? 2 : 4,
     filters: [],
   };
-  if (["card", "line", "bar", "pie"].includes(t.type)) {
+  if (["card", "line", "bar", "pie"].includes(ty.type)) {
     widget.metric_id = metrics.value[0]?.id || null;
-    if (["line", "bar", "pie"].includes(t.type)) widget.dimension = "";
+    if (["line", "bar", "pie"].includes(ty.type)) widget.dimension = "";
   }
-  if (t.type === "table") {
+  if (ty.type === "table") {
     widget.dataset_id = datasets.value[0]?.id || null;
     widget.limit = 100;
   }
-  if (t.type === "text") widget.text = "文本";
+  if (ty.type === "text") widget.text = t("dedit.text");
   content.value.widgets.push(widget);
   selected.value = widget;
   dirty.value = true;
@@ -436,7 +437,7 @@ async function save() {
   try {
     await api.put(`/dashboards/${id}/draft`, { content: content.value });
     dirty.value = false;
-    ElMessage.success("已保存草稿");
+    ElMessage.success(t("dedit.savedDraft"));
     return true;
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -456,7 +457,7 @@ async function validate() {
   try {
     const r = await api.post(`/dashboards/${id}/validate`,
                              { content: content.value });
-    if (r.valid) ElMessage.success("校验通过");
+    if (r.valid) ElMessage.success(t("dedit.validated"));
     else ElMessage.error(r.errors.map((e) => e.message).join("; "));
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -469,7 +470,7 @@ async function publish() {
   try {
     await api.applyChange("publish_dashboard", id);
     await load();
-    ElMessage.success("已发布");
+    ElMessage.success(t("dedit.published"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -481,7 +482,9 @@ async function loadVersions() {
 
 async function rollback(row) {
   try {
-    await ElMessageBox.confirm(`回滚到版本 ${row.version}？`, "回滚确认");
+    await ElMessageBox.confirm(
+      t("dedit.rollbackConfirm").replace("{version}", row.version),
+      t("dedit.rollbackTitle"));
     await api.applyChange("rollback_dashboard", id, { version: row.version });
     await load();
     await loadVersions();

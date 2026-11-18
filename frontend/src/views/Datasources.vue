@@ -1,9 +1,9 @@
 <template>
   <div class="page">
     <div class="toolbar">
-      <el-input v-model="q" placeholder="搜索名称 / 类型" clearable
+      <el-input v-model="q" :placeholder="t('ds.searchPlaceholder')" clearable
                 style="width: 240px" :prefix-icon="Search" />
-      <el-select v-model="kind" clearable placeholder="全部类型" style="width: 150px">
+      <el-select v-model="kind" clearable :placeholder="t('ds.allKinds')" style="width: 150px">
         <el-option value="postgres" label="PostgreSQL" />
         <el-option value="mysql" label="MySQL" />
         <el-option value="mariadb" label="MariaDB" />
@@ -14,36 +14,36 @@
         <el-option value="mssql" label="SQL Server" />
         <el-option value="clickhouse" label="ClickHouse" />
         <el-option value="trino" label="Trino / Iceberg" />
-        <el-option value="file" label="本地文件 (CSV/Excel/Parquet/JSON)" />
+        <el-option value="file" :label="t('ds.fileKind')" />
       </el-select>
       <div class="spacer" />
-      <el-button @click="load" :loading="loading">刷新</el-button>
-      <el-button type="primary" @click="openCreate">新建数据源</el-button>
+      <el-button @click="load" :loading="loading">{{ t("ds.refresh") }}</el-button>
+      <el-button type="primary" @click="openCreate">{{ t("ds.new") }}</el-button>
     </div>
 
     <el-card shadow="never" class="card">
       <el-table :data="paged" size="small" v-loading="loading">
-        <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="name" label="名称" min-width="140" />
-        <el-table-column prop="kind" label="类型" width="120">
+        <el-table-column prop="id" :label="t('ds.colId')" width="70" />
+        <el-table-column prop="name" :label="t('ds.colName')" min-width="140" />
+        <el-table-column prop="kind" :label="t('ds.colKind')" width="120">
           <template #default="{ row }">
             <el-tag size="small" effect="plain">{{ row.kind }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="dsn" label="连接串（脱敏）" min-width="320" />
-        <el-table-column label="操作" width="320" fixed="right">
+        <el-table-column prop="dsn" :label="t('ds.colDsn')" min-width="320" />
+        <el-table-column :label="t('ds.colActions')" width="320" fixed="right">
           <template #default="{ row }">
-            <el-button link @click="test(row)">测试</el-button>
-            <el-button link @click="sync(row)">同步元数据</el-button>
-            <el-button link @click="showTables(row)">表</el-button>
-            <el-button link @click="openEdit(row)">编辑</el-button>
-            <el-button link type="danger" @click="remove(row)">删除</el-button>
+            <el-button link @click="test(row)">{{ t("ds.test") }}</el-button>
+            <el-button link @click="sync(row)">{{ t("ds.sync") }}</el-button>
+            <el-button link @click="showTables(row)">{{ t("ds.tablesButton") }}</el-button>
+            <el-button link @click="openEdit(row)">{{ t("ds.edit") }}</el-button>
+            <el-button link type="danger" @click="remove(row)">{{ t("ds.delete") }}</el-button>
             <el-button v-if="row.kind === 'trino'" link
-                       @click="openMaintain(row)">湖仓维护</el-button>
+                       @click="openMaintain(row)">{{ t("ds.maintain") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" description="还没有数据源" />
+      <el-empty v-if="!loading && !filtered.length" :description="t('ds.noDatasources')" />
       <div class="pager">
         <el-pagination v-model:current-page="page" :page-size="pageSize"
                        :total="filtered.length" layout="total, prev, pager, next"
@@ -51,29 +51,29 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="editOpen" title="编辑数据源" width="560px">
+    <el-dialog v-model="editOpen" :title="t('ds.editTitle')" width="560px">
       <el-form label-width="90px">
-        <el-form-item label="名称" required>
+        <el-form-item :label="t('ds.name')" required>
           <el-input v-model="editForm.name" />
         </el-form-item>
-        <el-form-item label="连接串">
+        <el-form-item :label="t('ds.dsn')">
           <el-input v-model="editForm.dsn" type="textarea" :rows="3"
                     :placeholder="editPlaceholder" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="editOpen = false">取消</el-button>
+        <el-button @click="editOpen = false">{{ t("ds.cancel") }}</el-button>
         <el-button type="primary" :loading="savingEdit"
-                   @click="saveEdit">保存</el-button>
+                   @click="saveEdit">{{ t("ds.save") }}</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="dialog" title="新建数据源" width="560px">
+    <el-dialog v-model="dialog" :title="t('ds.new')" width="560px">
       <el-form label-width="90px">
-        <el-form-item label="名称" required>
-          <el-input v-model="form.name" placeholder="例如：生产 PG" />
+        <el-form-item :label="t('ds.name')" required>
+          <el-input v-model="form.name" :placeholder="t('ds.namePlaceholder')" />
         </el-form-item>
-        <el-form-item label="类型" required>
+        <el-form-item :label="t('ds.colKind')" required>
           <el-select v-model="form.kind" style="width: 100%">
             <el-option value="postgres" label="PostgreSQL" />
             <el-option value="mysql" label="MySQL" />
@@ -85,62 +85,62 @@
             <el-option value="mssql" label="SQL Server" />
             <el-option value="clickhouse" label="ClickHouse" />
         <el-option value="trino" label="Trino / Iceberg" />
-            <el-option value="file" label="本地文件 (CSV/Excel/Parquet/JSON)" />
+            <el-option value="file" :label="t('ds.fileKind')" />
           </el-select>
         </el-form-item>
-        <el-form-item label="连接串" required>
+        <el-form-item :label="t('ds.dsn')" required>
           <el-input v-model="form.dsn" type="textarea" :rows="3"
                     :placeholder="dsnPlaceholder" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialog = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="create">保存</el-button>
+        <el-button @click="dialog = false">{{ t("ds.cancel") }}</el-button>
+        <el-button type="primary" :loading="saving" @click="create">{{ t("ds.save") }}</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="maintainOpen" title="湖仓维护" width="520px">
+    <el-dialog v-model="maintainOpen" :title="t('ds.maintain')" width="520px">
       <el-form label-width="110px">
-        <el-form-item label="模式">
+        <el-form-item :label="t('ds.schema')">
           <el-input v-model="maintain.schema"
-                    placeholder="留空使用数据源默认模式，例如 odf_bench" />
+                    :placeholder="t('ds.schemaPlaceholder')" />
         </el-form-item>
-        <el-form-item label="表">
+        <el-form-item :label="t('ds.table')">
           <el-input v-model="maintain.tables"
-                    placeholder="留空维护该模式的全部表，多个用逗号分隔" />
+                    :placeholder="t('ds.tablesPlaceholder')" />
         </el-form-item>
-        <el-form-item label="合并小文件">
+        <el-form-item :label="t('ds.optimize')">
           <el-switch v-model="maintain.optimize" />
         </el-form-item>
-        <el-form-item label="清理快照">
+        <el-form-item :label="t('ds.expire')">
           <el-switch v-model="maintain.expire" />
         </el-form-item>
-        <el-form-item label="保留时长">
+        <el-form-item :label="t('ds.retention')">
           <el-input v-model="maintain.retention" placeholder="7d" />
         </el-form-item>
       </el-form>
       <el-table v-if="maintain.results.length" :data="maintain.results"
                 size="small">
-        <el-table-column prop="table" label="表" />
-        <el-table-column prop="optimize" label="合并" />
-        <el-table-column prop="expire" label="快照" />
+        <el-table-column prop="table" :label="t('ds.table')" />
+        <el-table-column prop="optimize" :label="t('ds.optimizeCol')" />
+        <el-table-column prop="expire" :label="t('ds.snapshotCol')" />
       </el-table>
       <template #footer>
-        <el-button @click="maintainOpen = false">关闭</el-button>
+        <el-button @click="maintainOpen = false">{{ t("ds.close") }}</el-button>
         <el-button type="primary" :loading="maintain.running"
-                   @click="runMaintain">执行</el-button>
+                   @click="runMaintain">{{ t("ds.execute") }}</el-button>
       </template>
     </el-dialog>
 
-    <el-drawer v-model="tablesDrawer" :title="'表 · ' + current.name" size="520px">
+    <el-drawer v-model="tablesDrawer" :title="`${t('ds.table')} · ${current.name}`" size="520px">
       <el-table :data="tables" size="small">
         <el-table-column prop="schema" label="Schema" width="100" />
-        <el-table-column prop="table" label="表" />
-        <el-table-column label="字段数" width="90">
+        <el-table-column prop="table" :label="t('ds.table')" />
+        <el-table-column :label="t('ds.columnCount')" width="90">
           <template #default="{ row }">{{ (row.columns || []).length }}</template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!tables.length" description="尚未同步，请先点“同步元数据”" />
+      <el-empty v-if="!tables.length" :description="t('ds.noTables')" />
     </el-drawer>
   </div>
 </template>
@@ -150,6 +150,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 
 const rows = ref([]);
 const tables = ref([]);
@@ -178,13 +179,21 @@ const placeholders = {
   sqlite: "sqlite:////data/odf/app.db",
   oracle: "oracle://user:pass@host:1521/service",
   mssql: "mssql://user:pass@host:1433/db",
-  clickhouse: "clickhouse://user:pass@host:8123/db（TLS 用 8443）",
-  trino: "trino://user@host:8080/iceberg/schema（https 用 trino+https://）",
-  file: "/data/odf/files/sales.csv 或 file:///data/odf/files/orders.xlsx",
+  clickhouse: "clickhouse://user:pass@host:8123/db",
+  trino: "trino://user@host:8080/iceberg/schema",
+  file: "",
 };
-const dsnPlaceholder = computed(() => placeholders[form.kind] || "连接串");
+const localizedPlaceholders = {
+  clickhouse: "ds.phClickhouse",
+  trino: "ds.phTrino",
+  file: "ds.phFile",
+};
+const dsnPlaceholder = computed(() => {
+  const key = localizedPlaceholders[form.kind];
+  return key ? t(key) : (placeholders[form.kind] || t("ds.dsn"));
+});
 const editPlaceholder = computed(() =>
-  "留空保持原连接串；当前为 " + (editRow.value.dsn || ""));
+  t("ds.editPlaceholderPrefix") + (editRow.value.dsn || ""));
 
 const filtered = computed(() =>
   rows.value.filter((r) => {
@@ -238,7 +247,7 @@ async function runMaintain() {
       retention: maintain.retention,
     });
     maintain.results = out.results || [];
-    ElMessage.success(`维护完成：${out.schema} · ${maintain.results.length} 张表`);
+    ElMessage.success(`${t("ds.maintainDone")}${out.schema} · ${maintain.results.length} ${t("ds.tableUnit")}`);
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -255,7 +264,7 @@ function openEdit(row) {
 
 async function saveEdit() {
   if (!editForm.name) {
-    ElMessage.warning("名称必填");
+    ElMessage.warning(t("ds.nameRequired"));
     return;
   }
   savingEdit.value = true;
@@ -265,7 +274,7 @@ async function saveEdit() {
     await api.put(`/datasources/${editRow.value.id}`, body);
     editOpen.value = false;
     await load();
-    ElMessage.success("已保存");
+    ElMessage.success(t("ds.saved"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -276,14 +285,14 @@ async function saveEdit() {
 async function remove(row) {
   try {
     await ElMessageBox.confirm(
-      `删除数据源 ${row.name}？其数据集、标签和质量规则会一并删除。`,
-      "删除数据源", { type: "warning" });
+      `${t("ds.deleteConfirmPrefix")}${row.name}${t("ds.deleteConfirmSuffix")}`,
+      t("ds.deleteTitle"), { type: "warning" });
   } catch (e) {
     return;
   }
   try {
     await api.del(`/datasources/${row.id}`);
-    ElMessage.success("已删除");
+    ElMessage.success(t("ds.deleted"));
     await load();
   } catch (e) {
     const text = errMsg(e);
@@ -293,14 +302,14 @@ async function remove(row) {
     }
     try {
       await ElMessageBox.confirm(
-        `${text}。确定要连同依赖数据一起删除吗？`, "数据源正在使用",
+        `${text}${t("ds.forceConfirmSuffix")}`, t("ds.inUseTitle"),
         { type: "warning" });
     } catch (cancel) {
       return;
     }
     try {
       await api.del(`/datasources/${row.id}?force=true`);
-      ElMessage.success("已删除");
+      ElMessage.success(t("ds.deleted"));
       await load();
     } catch (forceError) {
       ElMessage.error(errMsg(forceError));
@@ -310,7 +319,7 @@ async function remove(row) {
 
 async function create() {
   if (!form.name || !form.dsn) {
-    ElMessage.warning("名称和连接串必填");
+    ElMessage.warning(t("ds.nameDsnRequired"));
     return;
   }
   saving.value = true;
@@ -318,7 +327,7 @@ async function create() {
     await api.post("/datasources", form);
     dialog.value = false;
     await load();
-    ElMessage.success("已创建");
+    ElMessage.success(t("ds.created"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -328,7 +337,7 @@ async function create() {
 async function test(row) {
   try {
     const r = await api.post(`/datasources/${row.id}/test`);
-    ElMessage[r.ok ? "success" : "error"](r.ok ? "连接正常" : "连接失败");
+    ElMessage[r.ok ? "success" : "error"](r.ok ? t("ds.connOk") : t("ds.connFailed"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -336,7 +345,7 @@ async function test(row) {
 async function sync(row) {
   try {
     const r = await api.post(`/datasources/${row.id}/sync`);
-    ElMessage.success(`已同步 ${r.tables} 张表`);
+    ElMessage.success(`${t("ds.synced")}${r.tables} ${t("ds.tableUnit")}`);
   } catch (e) {
     ElMessage.error(errMsg(e));
   }

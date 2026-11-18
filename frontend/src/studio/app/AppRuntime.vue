@@ -7,9 +7,9 @@
         <el-select v-if="p.type === 'bool'" v-model="values[p.name]"
                    size="small" style="width: 110px"
                    @change="$emit('update:params', { ...values })">
-          <el-option label="全部" :value="''" />
-          <el-option label="是" :value="true" />
-          <el-option label="否" :value="false" />
+          <el-option :label="t('acomp.all')" :value="''" />
+          <el-option :label="t('acomp.yes')" :value="true" />
+          <el-option :label="t('acomp.no')" :value="false" />
         </el-select>
         <el-input v-else v-model="values[p.name]" size="small"
                   style="width: 150px"
@@ -17,7 +17,7 @@
                   @change="$emit('update:params', { ...values })" />
       </div>
       <el-button type="primary" size="small" @click="$emit('refresh')">
-        查询
+        {{ t("acomp.query") }}
       </el-button>
     </div>
     <div v-for="c in page.components" :key="c.id" class="component">
@@ -40,12 +40,15 @@
                            :prop="col" :label="col" min-width="110"
                            show-overflow-tooltip />
         </el-table>
-        <div class="count">共 {{ data?.[c.id]?.row_count || 0 }} 行</div>
+        <div class="count">
+          {{ t("acomp.total") }} {{ data?.[c.id]?.row_count || 0 }}
+          {{ t("acomp.rows") }}
+        </div>
       </template>
     </div>
     <el-empty v-if="!page.components?.length"
-              description="还没有组件，从左侧添加" />
-    <el-drawer v-model="detailOpen" title="详情" size="420px">
+              :description="t('acomp.noComponents')" />
+    <el-drawer v-model="detailOpen" :title="t('acomp.detail')" size="420px">
       <el-descriptions :column="1" border>
         <el-descriptions-item v-for="(v, k) in detailRow" :key="k"
                               :label="k">{{ v }}</el-descriptions-item>
@@ -56,6 +59,7 @@
 
 <script setup>
 import { reactive, ref, watch } from "vue";
+import { t } from "../../i18n";
 import AppForm from "./AppForm.vue";
 
 const props = defineProps({

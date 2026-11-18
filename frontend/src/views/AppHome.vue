@@ -1,44 +1,44 @@
 <template>
   <div class="page">
     <div class="toolbar">
-      <el-input v-model="q" placeholder="搜索应用名 / Key" clearable
+      <el-input v-model="q" :placeholder="t('apps.search')" clearable
                 style="width: 260px" />
       <div class="spacer" />
-      <el-button @click="load" :loading="loading">刷新</el-button>
-      <el-button type="primary" @click="create">新建应用</el-button>
+      <el-button @click="load" :loading="loading">{{ t("apps.refresh") }}</el-button>
+      <el-button type="primary" @click="create">{{ t("apps.new") }}</el-button>
     </div>
     <el-card shadow="never">
       <el-table :data="filtered" size="small" v-loading="loading">
-        <el-table-column prop="name" label="名称" min-width="180" />
-        <el-table-column prop="key" label="Key" min-width="240">
+        <el-table-column prop="name" :label="t('apps.name')" min-width="180" />
+        <el-table-column prop="key" :label="t('apps.key')" min-width="240">
           <template #default="{ row }">
             <span class="mono">{{ row.key }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="110">
+        <el-table-column :label="t('apps.status')" width="110">
           <template #default="{ row }">
             <el-tag :type="row.published ? 'success' : 'info'" size="small">
-              {{ row.published ? "已发布" : "草稿" }}
+              {{ row.published ? t("apps.published") : t("apps.draft") }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="230">
+        <el-table-column :label="t('apps.actions')" width="230">
           <template #default="{ row }">
             <el-button link @click="$router.push(`/apps/${row.id}`)">
-              编辑
+              {{ t("apps.edit") }}
             </el-button>
             <el-button link type="danger" @click="remove(row)">
-              删除
+              {{ t("apps.delete") }}
             </el-button>
             <el-button link :disabled="!row.published"
                        @click="$router.push(`/apps/${row.id}/run`)">
-              运行
+              {{ t("apps.run") }}
             </el-button>
           </template>
         </el-table-column>
       </el-table>
       <el-empty v-if="!loading && !filtered.length"
-                description="还没有数据应用" />
+                :description="t('apps.empty')" />
     </el-card>
   </div>
 </template>
@@ -48,6 +48,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 
 const router = useRouter();
 const rows = ref([]);
@@ -60,14 +61,14 @@ const filtered = computed(() => rows.value.filter(
 async function remove(row) {
   try {
     await ElMessageBox.confirm(
-      `删除应用 ${row.name}？该资产的历史版本与分享链接会一并删除。`,
-      "删除确认", { type: "warning" });
+      t("apps.deleteConfirm").replace("{name}", row.name),
+      t("apps.deleteTitle"), { type: "warning" });
   } catch (e) {
     return;
   }
   try {
     await api.del(`/apps/${row.id}`);
-    ElMessage.success("已删除");
+    ElMessage.success(t("apps.deleted"));
     await load();
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -87,8 +88,8 @@ async function load() {
 
 async function create() {
   try {
-    const { value } = await ElMessageBox.prompt("应用名称", "新建应用", {
-      inputPattern: /\S+/, inputErrorMessage: "名称必填",
+    const { value } = await ElMessageBox.prompt(t("apps.namePrompt"), t("apps.new"), {
+      inputPattern: /\S+/, inputErrorMessage: t("apps.nameRequired"),
     });
     const r = await api.post("/apps", { name: value });
     router.push(`/apps/${r.id}`);
