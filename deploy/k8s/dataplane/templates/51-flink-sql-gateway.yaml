@@ -36,6 +36,8 @@ spec:
     metadata:
       labels:
         app: flink-sql-gateway
+      annotations:
+        checksum/s3: "${S3_CONFIG_SUM}"
     spec:
       containers:
         - name: sql-gateway
