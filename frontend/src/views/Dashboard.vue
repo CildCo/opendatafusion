@@ -11,7 +11,7 @@
       </div>
     </header>
 
-    <section class="ledger" aria-label="运营数字">
+    <section class="ledger" :aria-label="label('运营数字')">
       <div v-for="s in primaryStats" :key="s.key" class="ledger-cell">
         <span class="cell-label">{{ label(s.label) }}</span>
         <strong :class="{ alert: s.key === 'failed_24h' && s.value > 0 }">
@@ -89,24 +89,24 @@
             </div>
             <div class="exception-actions">
               <button class="inline-action" type="button"
-                      @click="$router.push('/ops')">打开运维中心 →</button>
+                      @click="$router.push('/ops')">{{ label("打开运维中心 →") }}</button>
               <button v-if="alerts.length > 1" class="quiet-action"
                       type="button" @click="$router.push('/alerts')">
-                另有 {{ alerts.length - 1 }} 条
+                {{ locale === "en" ? (alerts.length - 1) + " more" : "另有 " + (alerts.length - 1) + " 条" }}
               </button>
             </div>
           </template>
-          <div v-else class="quiet-state">没有未处理告警</div>
+          <div v-else class="quiet-state">{{ label("没有未处理告警") }}</div>
         </section>
 
         <section class="panel schedule-panel">
           <header class="panel-head">
             <div>
-              <h3>计划窗口</h3>
-              <span>已启用 cron 的管道</span>
+              <h3>{{ label("计划窗口") }}</h3>
+              <span>{{ label("已启用 cron 的管道") }}</span>
             </div>
             <button class="text-action" type="button"
-                    @click="$router.push('/pipelines')">全部</button>
+                    @click="$router.push('/pipelines')">{{ label("全部") }}</button>
           </header>
           <div v-if="scheduled.length" class="schedule-list">
             <router-link v-for="p in scheduled" :key="p.id"
@@ -115,15 +115,15 @@
               <span class="mono">{{ p.cron }}</span>
             </router-link>
           </div>
-          <div v-else class="quiet-state">暂无启用调度的管道</div>
+          <div v-else class="quiet-state">{{ label("暂无启用调度的管道") }}</div>
         </section>
       </aside>
     </div>
 
     <footer class="inventory-line">
-      <span>资产概览</span>
+      <span>{{ label("资产概览") }}</span>
       <span v-for="s in secondaryStats" :key="s.key">
-        {{ s.label }} <b>{{ s.value }}</b>
+        {{ label(s.label) }} <b>{{ s.value }}</b>
       </span>
     </footer>
   </div>
@@ -167,6 +167,13 @@ const WORD_EN = {
   "失败": "Failed", "成功": "Succeeded", "时间": "Time", "作业": "Job",
   "状态": "Status", "输入": "In", "输出": "Out", "错误": "Errors",
   "资产概览": "Assets", "计划窗口": "Schedule window", "暂无": "None",
+  "运营数字": "Operations figures", "排队": "Queued", "跳过": "Skipped",
+  "严重": "Critical", "警告": "Warning", "流程": "Flow", "滞后": "Lag",
+  "游标年龄": "Cursor age", "打开运维中心 →": "Open Operations →",
+  "没有未处理告警": "No open alerts",
+  "已启用 cron 的管道": "Pipelines with cron enabled",
+  "暂无启用调度的管道": "No scheduled pipelines",
+  "打开运维中心查看详情": "Open Operations for details",
 };
 function label(text) {
   return locale.value === "en" ? (WORD_EN[text] || text) : text;
@@ -209,7 +216,7 @@ function alertClass(severity) {
   return severity === "critical" ? "bad" : "warn";
 }
 function alertLabel(severity) {
-  return severity === "critical" ? "严重" : "警告";
+  return label(severity === "critical" ? "严重" : "警告");
 }
 function fmtSec(v) {
   if (v === null || v === undefined) return "-";
@@ -223,12 +230,12 @@ function alertDetail(a) {
     return d.message || d.error || d.impact;
   }
   const parts = [];
-  if (d.flow_id !== undefined) parts.push("流程 #" + d.flow_id);
-  if (d.lag_s !== undefined) parts.push("滞后 " + fmtSec(d.lag_s));
+  if (d.flow_id !== undefined) parts.push(label("流程") + " #" + d.flow_id);
+  if (d.lag_s !== undefined) parts.push(label("滞后") + " " + fmtSec(d.lag_s));
   if (d.cursor_age_s !== undefined) {
-    parts.push("游标年龄 " + fmtSec(d.cursor_age_s));
+    parts.push(label("游标年龄") + " " + fmtSec(d.cursor_age_s));
   }
-  return parts.join(" · ") || "打开运维中心查看详情";
+  return parts.join(" · ") || label("打开运维中心查看详情");
 }
 function timeOnly(value) {
   if (!value) return "-";

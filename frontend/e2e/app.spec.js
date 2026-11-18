@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 async function login(page) {
+  await page.addInitScript(() => localStorage.setItem("odf_locale", "zh"));
   await page.goto("/ui/#/login");
   await page.locator(".el-form-item").filter({ hasText: "用户名" })
     .locator("input").fill("e2eadmin");
