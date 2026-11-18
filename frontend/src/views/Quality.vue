@@ -21,10 +21,11 @@
         <el-table-column label="数据集" min-width="160">
           <template #default="{ row }">{{ datasetName(row.dataset_id) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button link @click="run(row)">执行</el-button>
             <el-button link @click="showResults(row)">结果</el-button>
+            <el-button link type="danger" @click="removeRule(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -122,7 +123,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
 import { api, errMsg } from "../api";
 
@@ -167,6 +168,23 @@ async function load() {
     ElMessage.error(errMsg(e));
   } finally {
     loading.value = false;
+  }
+}
+
+async function removeRule(row) {
+  try {
+    await ElMessageBox.confirm(
+      `删除规则 ${row.name}？历史结果会一并删除。`, "删除规则",
+      { type: "warning" });
+  } catch (e) {
+    return;
+  }
+  try {
+    await api.del(`/quality/rules/${row.id}`);
+    ElMessage.success("已删除");
+    await load();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
   }
 }
 
