@@ -26,6 +26,7 @@ class FlinkSqlGateway:
         self._client = client or httpx.Client(
             base_url=base_url.rstrip("/"), timeout=timeout)
         self._max_polls = max_polls
+        self._max_pages = 50
         self._rest_url = rest_url.rstrip("/")
 
     def execute(self, statement: str, properties: dict | None = None,
@@ -55,12 +56,38 @@ class FlinkSqlGateway:
                 time.sleep(0.2)
             if not attached:
                 return {"job_id": self._job_id(result)}
-            return result
+            return self._collect_pages(result)
         finally:
             try:
                 self._client.delete("/v1/sessions/%s" % session_id)
             except httpx.HTTPError:
                 pass
+
+    def _collect_pages(self, result: dict) -> dict:
+        """Flink returns the first page as columns with an empty data list and
+        puts the rows behind nextResultUri. The result thread fills pages
+        asynchronously, so an empty page before the first row means "not yet",
+        while an empty page after rows means the current result set is done."""
+        results = result.get("results")
+        if not isinstance(results, dict):
+            return result
+        data = results.setdefault("data", [])
+        pages = 0
+        while result.get("nextResultUri") and pages < self._max_pages:
+            response = self._client.get(result["nextResultUri"])
+            response.raise_for_status()
+            page = response.json()
+            rows = (page.get("results") or {}).get("data") or []
+            if rows:
+                data.extend(rows)
+            elif data:
+                break
+            else:
+                time.sleep(0.2)
+            result["nextResultUri"] = page.get("nextResultUri")
+            pages += 1
+        result.pop("nextResultUri", None)
+        return result
 
     @staticmethod
     def _job_id(result: dict) -> str:

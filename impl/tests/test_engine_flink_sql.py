@@ -154,3 +154,72 @@ def test_cancel_sends_patch():
     assert seen["method"] == "PATCH"
     assert seen["path"] == "/jobs/j1"
     assert b"cancel" in seen["query"]
+
+
+def test_execute_follows_next_result_pages():
+    def handler(request):
+        path = request.url.path
+        if path == "/v1/sessions":
+            return httpx.Response(200, json={"sessionHandle": "s1"})
+        if path == "/v1/sessions/s1/statements":
+            return httpx.Response(200, json={"operationHandle": "o1"})
+        if path == "/v1/sessions/s1/operations/o1/result/0":
+            return httpx.Response(200, json={
+                "resultType": "PAYLOAD",
+                "results": {"columns": [{"name": "n"}], "data": []},
+                "nextResultUri": "/v1/sessions/s1/operations/o1/result/1",
+            })
+        if path == "/v1/sessions/s1/operations/o1/result/1":
+            return httpx.Response(200, json={
+                "resultType": "PAYLOAD",
+                "results": {"columns": [{"name": "n"}], "data": [[1]]},
+            })
+        if request.method == "DELETE":
+            return httpx.Response(200, json={})
+        return httpx.Response(404)
+
+    out = FlinkSqlGateway("http://gateway",
+                          client=_client(handler)).execute("select 1")
+    assert out["results"]["data"] == [[1]]
+    assert "nextResultUri" not in out
+
+
+def test_execute_waits_for_rows_behind_empty_pages(monkeypatch):
+    monkeypatch.setattr("odf.engine.flink_sql.time.sleep", lambda _s: None)
+    pages = {
+        "/v1/sessions/s1/operations/o1/result/1": {
+            "resultType": "PAYLOAD",
+            "results": {"columns": [{"name": "n"}], "data": []},
+            "nextResultUri": "/v1/sessions/s1/operations/o1/result/2"},
+        "/v1/sessions/s1/operations/o1/result/2": {
+            "resultType": "PAYLOAD",
+            "results": {"columns": [{"name": "n"}], "data": [[7]]},
+            "nextResultUri": "/v1/sessions/s1/operations/o1/result/3"},
+        "/v1/sessions/s1/operations/o1/result/3": {
+            "resultType": "PAYLOAD",
+            "results": {"columns": [{"name": "n"}], "data": []},
+            "nextResultUri": "/v1/sessions/s1/operations/o1/result/4"},
+    }
+
+    def handler(request):
+        path = request.url.path
+        if path == "/v1/sessions":
+            return httpx.Response(200, json={"sessionHandle": "s1"})
+        if path == "/v1/sessions/s1/statements":
+            return httpx.Response(200, json={"operationHandle": "o1"})
+        if path == "/v1/sessions/s1/operations/o1/result/0":
+            return httpx.Response(200, json={
+                "resultType": "PAYLOAD",
+                "results": {"columns": [{"name": "n"}], "data": []},
+                "nextResultUri": "/v1/sessions/s1/operations/o1/result/1",
+            })
+        if path in pages:
+            return httpx.Response(200, json=pages[path])
+        if request.method == "DELETE":
+            return httpx.Response(200, json={})
+        return httpx.Response(404)
+
+    out = FlinkSqlGateway("http://gateway",
+                          client=_client(handler)).execute("select 7")
+    assert out["results"]["data"] == [[7]]
+    assert "nextResultUri" not in out
