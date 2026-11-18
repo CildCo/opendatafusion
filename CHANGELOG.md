@@ -4,7 +4,7 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [1.1.0] - 2026-10-27
+## [1.1.0] - 2026-11-18
 
 ### Added
 
@@ -26,6 +26,28 @@ All notable changes are documented here. The format follows
   Debezium, Flink, monitoring, ingress and least-privilege identities, plus an
   idempotent installer and an acceptance script.
 - Quality rules now run against Trino-backed datasets.
+- Flink Kubernetes Operator and cert-manager in the data plane installer,
+  with Grafana dashboards for platform health, engine jobs and the lakehouse.
+- Console management for project members, API access keys and Iceberg table
+  properties; catalog tags can be removed and lakehouse maintenance accepts a
+  schema.
+
+### Fixed
+
+- Metadata resync updates datasets in place, so quality rules, tags and
+  standard mappings survive a refresh.
+- Two-factor setup accepts an empty request body, and the dashboard counts
+  published interfaces instead of the retired legacy records.
+- Engine profiles no longer return storage credentials, and gateway failures
+  return a fixed message instead of an internal URL.
+- Workbench row limiting keeps the outer `ORDER BY`, which SQL Server and
+  Oracle reject inside a derived table.
+
+### Changed
+
+- Element Plus runs with the Chinese locale and the bundled assets are rebuilt.
+- CI runs the frontend job on Node 24; dependencies and GitHub Actions are
+  refreshed, and the integration suite uses the archived Bitnami LDAP image.
 
 ### Documentation
 
