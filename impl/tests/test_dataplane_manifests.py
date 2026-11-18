@@ -259,13 +259,14 @@ def test_installer_points_nessie_at_its_database():
 
 def test_flink_operator_install_is_idempotent():
     script = (BASE / "install.sh").read_text(encoding="utf-8")
-    assert "flinkdeployments.flink.apache.org" in script
+    assert re.search(r"kubectl get crd flinkdeployments\.flink\.apache\.org",
+                     script)
     assert "flink-kubernetes-operator" in script
     assert "helm upgrade --install flink-kubernetes-operator" in script
     assert '--version "$FLINK_OPERATOR_VERSION"' in script
     assert '--set image.repository="$FLINK_OPERATOR_IMAGE"' in script
     # The chart webhooks need cert-manager, so the installer provisions it.
-    assert "certificates.cert-manager.io" in script
+    assert re.search(r"kubectl get crd certificates\.cert-manager\.io", script)
     assert "helm upgrade --install cert-manager jetstack/cert-manager" in script
     assert "crds.enabled=true" in script
 
