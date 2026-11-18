@@ -223,3 +223,70 @@ def test_execute_waits_for_rows_behind_empty_pages(monkeypatch):
                           client=_client(handler)).execute("select 7")
     assert out["results"]["data"] == [[7]]
     assert "nextResultUri" not in out
+
+
+def test_execute_runs_every_statement_in_one_session():
+    seen = []
+
+    def handler(request):
+        path = request.url.path
+        if path == "/v1/sessions":
+            return httpx.Response(200, json={"sessionHandle": "s1"})
+        if path == "/v1/sessions/s1/statements":
+            body = json.loads(request.content)
+            seen.append(body["statement"])
+            return httpx.Response(200, json={
+                "operationHandle": "o%d" % len(seen)})
+        if "/operations/o" in path and path.endswith("/result/0"):
+            value = "ok-%s" % path.split("/operations/")[1].split("/")[0]
+            return httpx.Response(200, json={
+                "resultType": "PAYLOAD",
+                "results": {"columns": [{"name": "result"}],
+                            "data": [{"kind": "INSERT", "fields": [value]}]},
+            })
+        if request.method == "DELETE":
+            return httpx.Response(200, json={})
+        return httpx.Response(404)
+
+    out = FlinkSqlGateway("http://gateway", client=_client(handler)).execute(
+        "create table a (x int);\ncreate table b (y int);\nselect 1")
+    assert seen == ["create table a (x int)",
+                    "create table b (y int)", "select 1"]
+    assert out["results"]["data"] == [
+        {"kind": "INSERT", "fields": ["ok-o3"]}]
+
+
+def test_detached_script_returns_the_last_job_id():
+    job_id = "0123456789abcdef0123456789abcdef"
+    seen = []
+
+    def handler(request):
+        path = request.url.path
+        if path == "/v1/sessions":
+            body = json.loads(request.content)
+            assert body["properties"]["execution.attached"] == "false"
+            return httpx.Response(200, json={"sessionHandle": "s1"})
+        if path == "/v1/sessions/s1/statements":
+            seen.append(json.loads(request.content)["statement"])
+            return httpx.Response(200, json={
+                "operationHandle": "o%d" % len(seen)})
+        if path.endswith("/result/0"):
+            if "insert" in seen[-1]:
+                return httpx.Response(200, json={
+                    "resultType": "PAYLOAD",
+                    "results": {"columns": [{"name": "job id"}],
+                                "data": [{"kind": "INSERT",
+                                          "fields": [job_id]}]}})
+            return httpx.Response(200, json={
+                "resultType": "PAYLOAD",
+                "results": {"columns": [{"name": "result"}],
+                            "data": [{"kind": "INSERT", "fields": ["OK"]}]}})
+        if request.method == "DELETE":
+            return httpx.Response(200, json={})
+        return httpx.Response(404)
+
+    out = FlinkSqlGateway("http://gateway", client=_client(handler)).execute(
+        "create table src (x int); create table sink (x int); "
+        "insert into sink select x from src", attached=False)
+    assert out == {"job_id": job_id}
+    assert seen[-1].startswith("insert into sink")
