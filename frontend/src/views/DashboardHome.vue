@@ -22,10 +22,13 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="170">
+        <el-table-column label="操作" width="230">
           <template #default="{ row }">
             <el-button link @click="$router.push(`/dashboards/${row.id}`)">
               编辑
+            </el-button>
+            <el-button link type="danger" @click="remove(row)">
+              删除
             </el-button>
             <el-button link :disabled="!row.published"
                        @click="$router.push(`/dashboards/${row.id}/run`)">
@@ -52,6 +55,23 @@ const loading = ref(false);
 const filtered = computed(() => rows.value.filter(
   (r) => !q.value || (r.name + r.key).toLowerCase()
     .includes(q.value.toLowerCase())));
+
+async function remove(row) {
+  try {
+    await ElMessageBox.confirm(
+      `删除看板 ${row.name}？该资产的历史版本与分享链接会一并删除。`,
+      "删除确认", { type: "warning" });
+  } catch (e) {
+    return;
+  }
+  try {
+    await api.del(`/dashboards/${row.id}`);
+    ElMessage.success("已删除");
+    await load();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
 
 async function load() {
   loading.value = true;

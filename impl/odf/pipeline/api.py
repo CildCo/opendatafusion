@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from odf.assets.service import (create_asset, get_asset, list_assets,
-                                list_versions, update_asset, update_draft)
+from odf.assets.service import (create_asset, delete_asset_of, get_asset,
+                                list_assets, list_versions, update_asset,
+                                update_draft)
 from odf.db import get_session
 from odf.models import AssetVersion, Job
 from odf.pipeline.cursors import list_cursors, set_cursor
@@ -122,6 +123,17 @@ def update(asset_id: int, body: PipelineUpdateIn,
     write_audit(s, claims["sub"], "update_pipeline", str(a.id),
                 {"name": a.name, "cron": a.cron})
     return {"id": a.id, "name": a.name, "cron": a.cron}
+
+
+@router.delete("/pipelines/{asset_id}", status_code=204)
+def delete(asset_id: int, s: Session = Depends(get_session),
+           claims: dict = Depends(require_editor)):
+    try:
+        delete_asset_of(s, asset_id, claims["project_id"], "pipeline")
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    write_audit(s, claims["sub"], "delete_pipeline", str(asset_id), {})
+    return None
 
 
 @router.put("/pipelines/{asset_id}/draft")

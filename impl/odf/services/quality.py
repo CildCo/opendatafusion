@@ -295,3 +295,14 @@ def list_results(session, rule_id: int, project_id: int | None = None):
         raise ValueError("rule not found")
     return (session.query(QualityResult).filter_by(rule_id=rule_id)
             .order_by(QualityResult.id.desc()).limit(100).all())
+
+
+def delete_rule(session, project_id: int, rule_id: int) -> None:
+    rule = (session.query(QualityRule)
+            .filter_by(id=rule_id, project_id=project_id).first())
+    if not rule:
+        raise ValueError("rule not found")
+    session.query(QualityResult).filter_by(rule_id=rule_id).delete(
+        synchronize_session=False)
+    session.delete(rule)
+    session.commit()

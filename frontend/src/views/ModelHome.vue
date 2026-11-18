@@ -28,10 +28,13 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="110">
+        <el-table-column label="操作" width="170">
           <template #default="{ row }">
             <el-button link @click="$router.push(`/${tab}/${row.id}`)">
               编辑
+            </el-button>
+            <el-button link type="danger" @click="remove(row)">
+              删除
             </el-button>
           </template>
         </el-table-column>
@@ -56,6 +59,23 @@ const loading = ref(false);
 const filtered = computed(() => rows.value.filter(
   (r) => !q.value || (r.name + r.key).toLowerCase()
     .includes(q.value.toLowerCase())));
+
+async function remove(row) {
+  try {
+    await ElMessageBox.confirm(
+      `删除模型 ${row.name}？该资产的历史版本与分享链接会一并删除。`,
+      "删除确认", { type: "warning" });
+  } catch (e) {
+    return;
+  }
+  try {
+    await api.del(`/${tab.value}/${row.id}`);
+    ElMessage.success("已删除");
+    await load();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
 
 async function load() {
   loading.value = true;

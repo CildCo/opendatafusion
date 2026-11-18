@@ -18,6 +18,13 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="操作" width="90" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="danger" @click.stop="remove(row)">
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
       </el-table>
       <el-empty v-if="!loading && !rows.length" description="还没有管道" />
     </el-card>
@@ -27,7 +34,7 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 
 const rows = ref([]);
@@ -42,6 +49,23 @@ async function load() {
     ElMessage.error(errMsg(e));
   } finally {
     loading.value = false;
+  }
+}
+
+async function remove(row) {
+  try {
+    await ElMessageBox.confirm(
+      `删除管道 ${row.name}？版本、运行记录和血缘会一并删除。`,
+      "删除管道", { type: "warning" });
+  } catch (e) {
+    return;
+  }
+  try {
+    await api.del(`/pipelines/${row.id}`);
+    ElMessage.success("已删除");
+    await load();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
   }
 }
 

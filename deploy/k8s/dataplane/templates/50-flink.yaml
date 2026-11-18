@@ -46,12 +46,17 @@ spec:
               while read -r url; do
                 [ -z "$url" ] && continue
                 file="/libs/$(basename "$url")"
-                [ -f "$file" ] && continue
-                curl -fsSL --retry 3 --retry-delay 2 --max-time 600 -o "$file" "$url"
+                # Download beside the target and rename only after a complete
+                # transfer, so an interrupted install cannot leave a truncated
+                # jar that later installs keep skipping.
+                curl -fsSL --retry 5 --retry-delay 2 --max-time 1800 \
+                  -o "$file.part" "$url"
+                mv "$file.part" "$file"
               done < /etc/jars/urls.txt
               if [ -n "${FLINK_SQL_RUNNER_URL}" ]; then
-                curl -fsSL --retry 3 --retry-delay 2 --max-time 600 \
-                  -o /libs/sql-runner.jar "${FLINK_SQL_RUNNER_URL}"
+                curl -fsSL --retry 5 --retry-delay 2 --max-time 1800 \
+                  -o /libs/sql-runner.jar.part "${FLINK_SQL_RUNNER_URL}"
+                mv /libs/sql-runner.jar.part /libs/sql-runner.jar
               fi
           volumeMounts:
             - name: libs

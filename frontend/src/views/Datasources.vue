@@ -36,6 +36,8 @@
             <el-button link @click="test(row)">测试</el-button>
             <el-button link @click="sync(row)">同步元数据</el-button>
             <el-button link @click="showTables(row)">表</el-button>
+            <el-button link @click="openEdit(row)">编辑</el-button>
+            <el-button link type="danger" @click="remove(row)">删除</el-button>
             <el-button v-if="row.kind === 'trino'" link
                        @click="openMaintain(row)">湖仓维护</el-button>
           </template>
@@ -48,6 +50,23 @@
                        small />
       </div>
     </el-card>
+
+    <el-dialog v-model="editOpen" title="编辑数据源" width="560px">
+      <el-form label-width="90px">
+        <el-form-item label="名称" required>
+          <el-input v-model="editForm.name" />
+        </el-form-item>
+        <el-form-item label="连接串">
+          <el-input v-model="editForm.dsn" type="textarea" :rows="3"
+                    :placeholder="editPlaceholder" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editOpen = false">取消</el-button>
+        <el-button type="primary" :loading="savingEdit"
+                   @click="saveEdit">保存</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="dialog" title="新建数据源" width="560px">
       <el-form label-width="90px">
@@ -128,7 +147,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
 import { api, errMsg } from "../api";
 
@@ -137,6 +156,10 @@ const tables = ref([]);
 const loading = ref(false);
 const saving = ref(false);
 const dialog = ref(false);
+const editOpen = ref(false);
+const savingEdit = ref(false);
+const editRow = ref({});
+const editForm = reactive({ name: "", dsn: "" });
 const tablesDrawer = ref(false);
 const current = ref({});
 const q = ref("");
@@ -160,6 +183,8 @@ const placeholders = {
   file: "/data/odf/files/sales.csv 或 file:///data/odf/files/orders.xlsx",
 };
 const dsnPlaceholder = computed(() => placeholders[form.kind] || "连接串");
+const editPlaceholder = computed(() =>
+  "留空保持原连接串；当前为 " + (editRow.value.dsn || ""));
 
 const filtered = computed(() =>
   rows.value.filter((r) => {
@@ -218,6 +243,68 @@ async function runMaintain() {
     ElMessage.error(errMsg(e));
   } finally {
     maintain.running = false;
+  }
+}
+
+function openEdit(row) {
+  editRow.value = row;
+  editForm.name = row.name;
+  editForm.dsn = "";
+  editOpen.value = true;
+}
+
+async function saveEdit() {
+  if (!editForm.name) {
+    ElMessage.warning("名称必填");
+    return;
+  }
+  savingEdit.value = true;
+  try {
+    const body = { name: editForm.name };
+    if (editForm.dsn.trim()) body.dsn = editForm.dsn.trim();
+    await api.put(`/datasources/${editRow.value.id}`, body);
+    editOpen.value = false;
+    await load();
+    ElMessage.success("已保存");
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    savingEdit.value = false;
+  }
+}
+
+async function remove(row) {
+  try {
+    await ElMessageBox.confirm(
+      `删除数据源 ${row.name}？其数据集、标签和质量规则会一并删除。`,
+      "删除数据源", { type: "warning" });
+  } catch (e) {
+    return;
+  }
+  try {
+    await api.del(`/datasources/${row.id}`);
+    ElMessage.success("已删除");
+    await load();
+  } catch (e) {
+    const text = errMsg(e);
+    if (!text.includes("force=true")) {
+      ElMessage.error(text);
+      return;
+    }
+    try {
+      await ElMessageBox.confirm(
+        `${text}。确定要连同依赖数据一起删除吗？`, "数据源正在使用",
+        { type: "warning" });
+    } catch (cancel) {
+      return;
+    }
+    try {
+      await api.del(`/datasources/${row.id}?force=true`);
+      ElMessage.success("已删除");
+      await load();
+    } catch (forceError) {
+      ElMessage.error(errMsg(forceError));
+    }
   }
 }
 
