@@ -44,9 +44,17 @@ VALUES = {
     "NESSIE_NODEPORT": "30082",
     "S3_NODEPORT": "30084",
     "DEBEZIUM_NODEPORT": "30085",
+    "FLINK_SQL_RUNNER_URL": "https://example.invalid/sql-runner.jar",
+    "FLINK_OPERATOR_VERSION": "1.13.0",
+    "FLINK_OPERATOR_IMAGE": "apache/flink-kubernetes-operator",
+    "CERT_MANAGER_VERSION": "v1.19.6",
 }
 
 _PLACEHOLDER = re.compile(r"\$\{([A-Z_][A-Z0-9_]*)\}")
+
+# Grafana dashboard inputs are resolved by Grafana when it loads the
+# dashboard, not by envsubst. They must survive rendering unchanged.
+GRAFANA_INPUTS = {"DS_PROMETHEUS"}
 
 
 def render(path):
@@ -73,6 +81,7 @@ def test_templates_exist():
                      "25-nessie-postgres.yaml", "20-nessie.yaml", "30-trino.yaml", "40-kafka.yaml",
                      "41-cdc-postgres.yaml", "42-debezium.yaml",
                      "50-flink.yaml", "51-flink-sql-gateway.yaml",
+                     "57-flink-deployment.yaml",
                      "60-control-plane-rbac.yaml", "61-tenancy-rbac.yaml",
                      "62-spark-operator-rbac.yaml",
                      "70-monitoring.yaml", "75-network-policy.yaml",
@@ -93,7 +102,8 @@ def test_no_unresolved_placeholders():
     for path in _all_templates():
         text = render(path)
         unknown = [m.group(1) for m in _PLACEHOLDER.finditer(text)
-                   if m.group(1) not in VALUES]
+                   if m.group(1) not in VALUES
+                   and m.group(1) not in GRAFANA_INPUTS]
         assert not unknown, "%s: %s" % (path.name, unknown)
 
 
@@ -245,3 +255,81 @@ def test_installer_points_nessie_at_its_database():
     assert "jdbc:postgresql://nessie-postgres.catalog.svc:5432/nessie" in script
     assert "quarkus.flyway.migrate-at-start=true" in script
     assert "25-nessie-postgres.yaml" in script
+
+
+def test_flink_operator_install_is_idempotent():
+    script = (BASE / "install.sh").read_text(encoding="utf-8")
+    assert re.search(r"kubectl get crd flinkdeployments\.flink\.apache\.org",
+                     script)
+    assert "flink-kubernetes-operator" in script
+    assert "helm upgrade --install flink-kubernetes-operator" in script
+    assert '--version "$FLINK_OPERATOR_VERSION"' in script
+    assert '--set image.repository="$FLINK_OPERATOR_IMAGE"' in script
+    # The chart webhooks need cert-manager, so the installer provisions it.
+    assert re.search(r"kubectl get crd certificates\.cert-manager\.io", script)
+    assert "helm upgrade --install cert-manager jetstack/cert-manager" in script
+    assert "crds.enabled=true" in script
+
+
+def test_values_example_declares_the_flink_operator():
+    text = (BASE / "values.env.example").read_text(encoding="utf-8")
+    assert "FLINK_OPERATOR_VERSION=" in text
+    assert "FLINK_OPERATOR_IMAGE=" in text
+    assert "CERT_MANAGER_VERSION=" in text
+    assert "FLINK_SQL_RUNNER_URL=" in text
+
+
+def test_flink_deployment_is_managed_by_the_operator():
+    docs = documents(TEMPLATES / "57-flink-deployment.yaml")
+    deployment = [d for d in docs if d["kind"] == "FlinkDeployment"][0]
+    assert deployment["apiVersion"] == "flink.apache.org/v1beta1"
+    spec = deployment["spec"]
+    assert spec["image"] == VALUES["IMAGE_FLINK"]
+    assert spec["flinkVersion"] == "v1_20"
+    config = spec["flinkConfiguration"]
+    assert config["state.checkpoints.dir"] == (
+        "s3://%s/checkpoints" % VALUES["LAKE_BUCKET"])
+    assert config["state.savepoints.dir"] == (
+        "s3://%s/savepoints" % VALUES["LAKE_BUCKET"])
+    assert config["restart-strategy.type"] == "fixed-delay"
+    assert spec["job"]["jarURI"].endswith("/sql-runner.jar")
+    assert spec["job"]["upgradeMode"] == "savepoint"
+    assert spec["job"]["state"] == "running"
+
+
+def test_flink_deployment_uses_the_shared_secret_and_volumes():
+    docs = documents(TEMPLATES / "57-flink-deployment.yaml")
+    deployment = [d for d in docs if d["kind"] == "FlinkDeployment"][0]
+    pod = deployment["spec"]["podTemplate"]["spec"]
+    env = {item["name"]: item["valueFrom"]["secretKeyRef"]
+           for item in pod["containers"][0]["env"]}
+    assert env["AWS_ACCESS_KEY_ID"]["name"] == "lakehouse-s3"
+    assert env["AWS_ACCESS_KEY_ID"]["key"] == "access-key"
+    assert env["AWS_SECRET_ACCESS_KEY"]["name"] == "lakehouse-s3"
+    assert env["AWS_SECRET_ACCESS_KEY"]["key"] == "secret-key"
+    claims = {volume["persistentVolumeClaim"]["claimName"]
+              for volume in pod["volumes"]
+              if "persistentVolumeClaim" in volume}
+    assert claims == {"flink-libs", "flink-plugins"}
+
+
+def test_flink_deployment_moves_the_cdc_topic_into_iceberg():
+    docs = documents(TEMPLATES / "57-flink-deployment.yaml")
+    configmap = [d for d in docs if d["kind"] == "ConfigMap"][0]
+    sql = configmap["data"]["events.sql"]
+    assert "'connector' = 'kafka'" in sql
+    assert "'topic' = 'odf.public.events'" in sql
+    assert "'format' = 'debezium-json'" in sql
+    assert "iceberg.odf_check.events" in sql
+
+
+def test_spark_operator_watches_every_namespace():
+    script = (BASE / "install.sh").read_text(encoding="utf-8")
+    assert "spark.jobNamespaces={}" in script
+
+
+def test_property_script_matches_the_platform_copy():
+    from odf.lakehouse.properties import SCRIPT
+
+    path = BASE / "scripts" / "set_properties.py"
+    assert path.read_text(encoding="utf-8") == SCRIPT

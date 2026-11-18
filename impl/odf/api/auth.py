@@ -38,6 +38,12 @@ class TotpIn(BaseModel):
     code: str
 
 
+class TotpSetupIn(BaseModel):
+    # The setup call carries no code while 2FA is still off; the client sends
+    # an empty object, so the field must default rather than be required.
+    code: str = ""
+
+
 def _login_guard(s, username, request):
     host = request.client.host if request.client else ""
     try:
@@ -145,7 +151,7 @@ def change_password(body: PasswordIn,
 
 
 @router.post("/auth/totp/setup")
-def totp_setup(body: TotpIn | None = None,
+def totp_setup(body: TotpSetupIn | None = None,
                s: Session = Depends(get_session),
                claims: dict = Depends(require_user)):
     u = s.get(User, int(claims["sub"]))
