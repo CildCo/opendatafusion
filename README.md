@@ -119,6 +119,7 @@ development, see [frontend/README.md](frontend/README.md).
 | [Performance](docs/PERFORMANCE.md) | Metrics, pools, load tests and benchmark results |
 | [Benchmarks](docs/BENCHMARKS.md) | 30GB multi-source results and cache experiments |
 | [Testing](docs/TESTING.md) | Unit, integration, browser and full-matrix tests |
+| [User guide](docs/USER_GUIDE.md) | Every console page and action |
 
 ## Development
 
