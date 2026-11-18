@@ -82,7 +82,7 @@ services:
       - "58080:8080"
 
   openldap:
-    image: bitnami/openldap:latest
+    image: bitnamilegacy/openldap:latest
     profiles: ["idp", "full"]
     environment:
       LDAP_ROOT: dc=example,dc=org
