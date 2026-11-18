@@ -335,15 +335,22 @@ def test_property_script_matches_the_platform_copy():
     assert path.read_text(encoding="utf-8") == SCRIPT
 
 
-def test_catalog_and_query_engines_run_redundant_replicas():
-    for name, path in (("nessie", "20-nessie.yaml"),
-                       ("trino", "30-trino.yaml")):
-        deploy = [d for d in documents(TEMPLATES / path)
-                  if d.get("kind") == "Deployment"][0]
-        assert deploy["spec"]["replicas"] >= 2, name
-        pdbs = [d for d in documents(TEMPLATES / path)
-                if d.get("kind") == "PodDisruptionBudget"]
-        assert pdbs and pdbs[0]["spec"]["minAvailable"] == 1, name
+def test_catalog_runs_redundant_replicas():
+    deploy = [d for d in documents(TEMPLATES / "20-nessie.yaml")
+              if d.get("kind") == "Deployment"][0]
+    assert deploy["spec"]["replicas"] >= 2
+    pdbs = [d for d in documents(TEMPLATES / "20-nessie.yaml")
+            if d.get("kind") == "PodDisruptionBudget"]
+    assert pdbs and pdbs[0]["spec"]["minAvailable"] == 1
+
+
+def test_trino_keeps_one_coordinator_with_sticky_routing():
+    deploy = [d for d in documents(TEMPLATES / "30-trino.yaml")
+              if d.get("kind") == "Deployment"][0]
+    assert deploy["spec"]["replicas"] == 1
+    service = [d for d in documents(TEMPLATES / "30-trino.yaml")
+               if d.get("kind") == "Service"][0]
+    assert service["spec"]["sessionAffinity"] == "ClientIP"
 
 
 def test_ingress_serves_tls_from_the_cluster_issuer():

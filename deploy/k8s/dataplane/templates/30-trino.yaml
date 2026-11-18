@@ -47,7 +47,11 @@ metadata:
   labels:
     app: trino
 spec:
-  replicas: 2
+  # Trino coordinators keep query state in memory, so a Service cannot
+  # round-robin between them: follow-up statement requests would 404 on the
+  # other pod. Run one coordinator per catalog deployment; real coordinator
+  # HA needs a second node and a load balancer with session affinity.
+  replicas: 1
   selector:
     matchLabels:
       app: trino
@@ -124,6 +128,7 @@ metadata:
   name: trino
   namespace: trino
 spec:
+  sessionAffinity: ClientIP
   selector:
     app: trino
   ports:
@@ -131,14 +136,3 @@ spec:
       port: 8080
       targetPort: http
 
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: trino
-  namespace: trino
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: trino
