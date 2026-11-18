@@ -49,6 +49,10 @@ spec:
                 [ -f "$file" ] && continue
                 curl -fsSL --retry 3 --retry-delay 2 --max-time 600 -o "$file" "$url"
               done < /etc/jars/urls.txt
+              if [ -n "${FLINK_SQL_RUNNER_URL}" ]; then
+                curl -fsSL --retry 3 --retry-delay 2 --max-time 600 \
+                  -o /libs/sql-runner.jar "${FLINK_SQL_RUNNER_URL}"
+              fi
           volumeMounts:
             - name: libs
               mountPath: /libs

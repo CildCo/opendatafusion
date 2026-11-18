@@ -198,6 +198,21 @@ catalog-level properties), so it is set through Spark:
 ALTER TABLE <catalog>.<schema>.<table> SET TBLPROPERTIES ('gc.enabled' = 'true')
 ```
 
+`POST /api/v1/lakehouse/tables/{table}/properties` submits that statement as a
+Spark job instead of running the SQL by hand:
+
+```json
+{"datasource_id": 3, "schema_name": "odf_p1",
+ "properties": {"gc.enabled": "true"}}
+```
+
+The response is `{"job_id", "name", "table", "properties"}`; `table` is the
+fully qualified `catalog.schema.table`. The job runs the file named by
+`ODF_LAKEHOUSE_PROPERTY_SCRIPT` (default
+`local:///opt/odf-spark-jars/set_properties.py`), so the operator must place
+`set_properties.py` at that path inside the Spark driver. An invalid identifier
+or property returns 400; a submission failure returns 503.
+
 With Nessie, history is squashed on the main branch, so a table usually has a
 single snapshot and expiry has nothing to reclaim. The procedure runs and
 returns `ok`; a table with real history would see files removed.

@@ -152,7 +152,43 @@ else
     >/dev/null 2>&1 || die "cannot reach the spark-operator chart repo"
   helm upgrade --install spark-operator spark-operator/spark-operator \
     --namespace spark-operator --version "$SPARK_OPERATOR_VERSION" \
-    --set webhook.enable=true --wait --timeout 10m
+    --set webhook.enable=true --set 'spark.jobNamespaces={}' \
+    --wait --timeout 10m
+fi
+
+# The Flink operator chart backs its admission webhooks with cert-manager
+# Issuer and Certificate resources, so cert-manager has to be ready first.
+say "cert-manager"
+if kubectl get crd certificates.cert-manager.io >/dev/null 2>&1 \
+   && kubectl -n cert-manager get deploy cert-manager-webhook \
+        >/dev/null 2>&1; then
+  echo "already installed"
+else
+  helm repo add jetstack https://charts.jetstack.io --force-update \
+    >/dev/null 2>&1 || die "cannot reach the cert-manager chart repo"
+  helm upgrade --install cert-manager jetstack/cert-manager \
+    --namespace cert-manager --create-namespace \
+    --version "$CERT_MANAGER_VERSION" --set crds.enabled=true \
+    --wait --timeout 10m
+fi
+
+say "flink operator"
+if kubectl get crd flinkdeployments.flink.apache.org >/dev/null 2>&1 \
+   && kubectl -n flink-operator get deploy flink-kubernetes-operator \
+        >/dev/null 2>&1; then
+  echo "already installed"
+else
+  helm repo add flink-operator-repo \
+    "https://downloads.apache.org/flink/flink-kubernetes-operator-${FLINK_OPERATOR_VERSION}/" \
+    --force-update >/dev/null 2>&1 \
+    || die "cannot reach the flink-operator chart repo"
+  helm upgrade --install flink-kubernetes-operator \
+    flink-operator-repo/flink-kubernetes-operator \
+    --namespace flink-operator --create-namespace \
+    --version "$FLINK_OPERATOR_VERSION" \
+    --set image.repository="$FLINK_OPERATOR_IMAGE" \
+    --set image.tag="$FLINK_OPERATOR_VERSION" \
+    --wait --timeout 10m
 fi
 
 say "object storage"
@@ -193,6 +229,10 @@ kubectl -n stream rollout status deploy/flink-taskmanager --timeout=10m
 apply_tpl "$TEMPLATES/51-flink-sql-gateway.yaml"
 kubectl -n stream rollout status deploy/flink-sql-gateway --timeout=10m
 
+say "flink deployment"
+apply_tpl "$TEMPLATES/57-flink-deployment.yaml"
+echo "watch: kubectl -n stream get flinkdeployment odf-events-cdc"
+
 say "spark operator permissions"
 apply_tpl "$TEMPLATES/62-spark-operator-rbac.yaml"
 
@@ -221,6 +261,7 @@ apply_tpl "$TEMPLATES/80-ingress.yaml"
 
 say "monitoring"
 apply_tpl "$TEMPLATES/70-monitoring.yaml"
+apply_tpl "$TEMPLATES/72-grafana-dashboards.yaml"
 kubectl -n monitoring rollout status deploy/prometheus --timeout=10m || true
 kubectl -n monitoring rollout status deploy/grafana --timeout=10m || true
 
@@ -232,4 +273,5 @@ echo "node IP:        $(kubectl get nodes -o jsonpath='{.items[0].status.address
 echo "SQL gateway:    http://<node-ip>:${SQL_GATEWAY_NODEPORT}/v1/info"
 echo "Trino:          kubectl -n trino port-forward svc/trino 8080:8080"
 echo "Flink UI:       kubectl -n stream port-forward svc/flink-jobmanager 8081:8081"
+echo "Flink job:      kubectl -n stream get flinkdeployment odf-events-cdc"
 echo "Grafana:        kubectl -n monitoring port-forward svc/grafana 3000:3000"

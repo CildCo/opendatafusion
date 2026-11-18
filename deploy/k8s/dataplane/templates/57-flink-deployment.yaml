@@ -1,0 +1,131 @@
+# The operator runs this script in application mode. The SQL runner jar and
+# the connector jars come from the flink-libs volume; the SQL file is mounted
+# from a ConfigMap.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: odf-events-sql
+  namespace: stream
+data:
+  events.sql: |
+    -- The column list mirrors the CDC payload; adjust it to the events table.
+    CREATE TABLE kafka_events (
+      id BIGINT,
+      event_id STRING,
+      user_id BIGINT,
+      event_type STRING,
+      ts TIMESTAMP(3),
+      properties STRING
+    ) WITH (
+      'connector' = 'kafka',
+      'topic' = 'odf.public.events',
+      'properties.bootstrap.servers' = 'kafka.stream.svc.cluster.local:9092',
+      'properties.group.id' = 'odf-events-iceberg',
+      'scan.startup.mode' = 'earliest-offset',
+      'format' = 'debezium-json',
+      'debezium-json.schema-include' = 'true'
+    );
+
+    CREATE CATALOG iceberg WITH (
+      'type' = 'iceberg',
+      'catalog-type' = 'rest',
+      'uri' = 'http://nessie.catalog.svc:19120/iceberg',
+      'warehouse' = 'warehouse',
+      'io-impl' = 'org.apache.iceberg.aws.s3.S3FileIO',
+      's3.endpoint' = 'http://seaweedfs-s3.storage.svc:8333',
+      's3.path-style-access' = 'true',
+      's3.region' = 'us-east-1'
+    );
+
+    CREATE DATABASE IF NOT EXISTS iceberg.odf_check;
+
+    CREATE TABLE IF NOT EXISTS iceberg.odf_check.events (
+      id BIGINT,
+      event_id STRING,
+      user_id BIGINT,
+      event_type STRING,
+      ts TIMESTAMP(3),
+      properties STRING,
+      PRIMARY KEY (id) NOT ENFORCED
+    ) WITH (
+      'format-version' = '2',
+      'write.upsert.enabled' = 'true'
+    );
+
+    INSERT INTO iceberg.odf_check.events
+    SELECT id, event_id, user_id, event_type, ts, properties
+    FROM kafka_events;
+---
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: odf-events-cdc
+  namespace: stream
+spec:
+  image: ${IMAGE_FLINK}
+  flinkVersion: v1_20
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "2"
+    state.backend.type: hashmap
+    execution.checkpointing.interval: 30s
+    execution.checkpointing.mode: EXACTLY_ONCE
+    state.checkpoints.dir: s3://${LAKE_BUCKET}/checkpoints
+    state.savepoints.dir: s3://${LAKE_BUCKET}/savepoints
+    state.checkpoints.num-retained: "3"
+    restart-strategy.type: fixed-delay
+    restart-strategy.fixed-delay.attempts: "10"
+    restart-strategy.fixed-delay.delay: 10s
+    s3.endpoint: http://seaweedfs-s3.storage.svc:8333
+    s3.path.style.access: "true"
+    s3.region: us-east-1
+  jobManager:
+    resource:
+      cpu: 1
+      memory: "2048m"
+  taskManager:
+    resource:
+      cpu: 1
+      memory: "2048m"
+  podTemplate:
+    spec:
+      containers:
+        - name: flink-main-container
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: lakehouse-s3
+                  key: access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: lakehouse-s3
+                  key: secret-key
+          volumeMounts:
+            - name: flink-libs
+              mountPath: /opt/flink/lib
+              readOnly: true
+            - name: flink-plugins
+              mountPath: /opt/flink/plugins
+              readOnly: true
+            - name: sql
+              mountPath: /opt/flink/usrlib/events.sql
+              subPath: events.sql
+              readOnly: true
+      volumes:
+        - name: flink-libs
+          persistentVolumeClaim:
+            claimName: flink-libs
+        - name: flink-plugins
+          persistentVolumeClaim:
+            claimName: flink-plugins
+        - name: sql
+          configMap:
+            name: odf-events-sql
+  job:
+    jarURI: local:///opt/flink/lib/sql-runner.jar
+    entryClass: org.apache.flink.examples.SqlRunner
+    args: ["/opt/flink/usrlib/events.sql"]
+    parallelism: 1
+    upgradeMode: savepoint
+    state: running

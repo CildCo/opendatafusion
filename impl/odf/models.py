@@ -549,6 +549,7 @@ class EngineJob(Base):
     max_attempts: Mapped[int] = mapped_column(Integer, default=2)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     result_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    sync_failures: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  default=now)
     started_at: Mapped[datetime | None] = mapped_column(

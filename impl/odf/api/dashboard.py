@@ -5,7 +5,7 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from odf.db import get_session
-from odf.models import (Alert, Asset, Datasource, Flow, FlowRun, Interface,
+from odf.models import (Alert, Asset, Datasource, Flow, FlowRun,
                         Job, PipelineNodeRun, QualityRule)
 from odf.services.auth import require_user
 
@@ -93,8 +93,11 @@ def dashboard(s: Session = Depends(get_session),
                          .filter(Datasource.project_id == project_id).scalar(),
         "flows": s.query(func.count(Flow.id))
                   .filter(Flow.project_id == project_id).scalar(),
-        "interfaces": s.query(func.count(Interface.id))
-                       .filter(Interface.project_id == project_id).scalar(),
+        "interfaces": s.query(func.count(Asset.id))
+                       .filter(Asset.project_id == project_id,
+                               Asset.type == "api",
+                               Asset.published_version_id.isnot(None))
+                       .scalar(),
         "quality_rules": s.query(func.count(QualityRule.id))
                           .filter(QualityRule.project_id == project_id).scalar(),
         "open_alerts": s.query(func.count(Alert.id))

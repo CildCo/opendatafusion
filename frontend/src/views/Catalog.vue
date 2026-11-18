@@ -52,12 +52,16 @@
           <template #header>
             <div class="card-head">
               <span>{{ detail.schema }}.{{ detail.table }}</span>
-              <el-button link @click="tagDialog = true">打标签</el-button>
+              <span>
+                <el-button v-if="isLakehouse" link
+                           @click="openProperties">表属性</el-button>
+                <el-button link @click="tagDialog = true">打标签</el-button>
+              </span>
             </div>
           </template>
           <div class="meta">
             <el-tag v-for="t in detail.tags || []" :key="t" size="small"
-                    type="info">{{ t }}</el-tag>
+                    type="info" closable @close="detachTag(t)">{{ t }}</el-tag>
             <span v-if="!(detail.tags || []).length" class="muted">暂无标签</span>
           </div>
           <el-table :data="detail.columns || []" size="small" style="margin-top: 12px">
@@ -114,6 +118,26 @@
         <el-button type="primary" @click="attachTag">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="propsOpen" title="Iceberg 表属性" width="600px">
+      <p class="muted" style="margin-top: 0">
+        通过 Spark 作业写入表属性，提交后可在「计算引擎」查看作业进度。
+      </p>
+      <div v-for="(row, i) in props.rows" :key="i" class="prop-row">
+        <el-input v-model="row.key" placeholder="gc.enabled" size="small" />
+        <el-input v-model="row.value" placeholder="true" size="small" />
+        <el-button link type="danger" size="small"
+                   @click="props.rows.splice(i, 1)">删除</el-button>
+      </div>
+      <el-button link @click="props.rows.push({ key: '', value: '' })">
+        + 属性
+      </el-button>
+      <template #footer>
+        <el-button @click="propsOpen = false">取消</el-button>
+        <el-button type="primary" :loading="props.saving"
+                   @click="saveProperties">提交</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -121,7 +145,7 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { Coin, Folder, Grid, Right, Search } from "@element-plus/icons-vue";
-import { api, errMsg } from "../api";
+import { api, errMsg, getProject } from "../api";
 
 const datasources = ref([]);
 const datasets = ref([]);
@@ -135,6 +159,14 @@ const search = reactive({ tables: [], columns: [] });
 const treeRef = ref();
 const tagDialog = ref(false);
 const newTag = ref("");
+const allTags = ref([]);
+const propsOpen = ref(false);
+const props = reactive({ saving: false, rows: [{ key: "", value: "" }] });
+
+const isLakehouse = computed(() => {
+  const ds = datasources.value.find((d) => d.id === detail.value.datasource_id);
+  return ds && ds.kind === "trino";
+});
 
 const tree = computed(() => {
   const byDs = {};
@@ -218,9 +250,10 @@ async function load() {
   try {
     datasources.value = await api.get("/datasources");
     datasets.value = await api.get("/catalog/datasets");
-    const l = await api.get("/catalog/lineage?project_id=1");
+    const l = await api.get(`/catalog/lineage?project_id=${getProject() || 1}`);
     edges.value = l.edges;
     columnEdges.value = l.column_edges || [];
+    await loadTags();
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -241,14 +274,64 @@ async function onNode(data) {
 async function attachTag() {
   if (!newTag.value) return;
   try {
-    const t = await api.post("/catalog/tags", { project_id: 1, name: newTag.value });
+    const t = await api.post("/catalog/tags", { project_id: getProject() || 1, name: newTag.value });
     await api.post("/catalog/tags/attach", { dataset_id: detail.value.id, tag_id: t.id });
     tagDialog.value = false;
     newTag.value = "";
     detail.value = await api.datasetDetail(detail.value.id);
+    await loadTags();
     ElMessage.success("已打标签");
   } catch (e) {
     ElMessage.error(errMsg(e));
+  }
+}
+
+async function loadTags() {
+  try {
+    allTags.value = await api.get("/catalog/tags");
+  } catch {
+    allTags.value = [];
+  }
+}
+
+async function detachTag(name) {
+  const tag = allTags.value.find((t) => t.name === name);
+  if (!tag) return;
+  try {
+    await api.post("/catalog/tags/detach",
+                   { dataset_id: detail.value.id, tag_id: tag.id });
+    detail.value = await api.datasetDetail(detail.value.id);
+    ElMessage.success("已移除标签");
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+function openProperties() {
+  props.rows = [{ key: "gc.enabled", value: "true" }];
+  propsOpen.value = true;
+}
+
+async function saveProperties() {
+  const properties = Object.fromEntries(
+    props.rows.filter((r) => r.key.trim())
+      .map((r) => [r.key.trim(), r.value]));
+  if (!Object.keys(properties).length) {
+    ElMessage.warning("请填写属性");
+    return;
+  }
+  props.saving = true;
+  try {
+    const out = await api.post(
+      `/lakehouse/tables/${encodeURIComponent(detail.value.table)}/properties`,
+      { datasource_id: detail.value.datasource_id,
+        schema_name: detail.value.schema, properties });
+    propsOpen.value = false;
+    ElMessage.success(`属性作业已提交 #${out.job_id}`);
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    props.saving = false;
   }
 }
 
@@ -287,6 +370,12 @@ onMounted(load);
   font-size: 12px;
 }
 .search-group { margin-bottom: 10px; }
+.prop-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
 .hit { cursor: pointer; margin: 4px 6px 0 0; }
 .column-lineage { border-top: 1px dashed #e5e7eb; margin-top: 10px; }
 .col-edge {
