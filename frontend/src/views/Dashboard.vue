@@ -56,7 +56,7 @@
           <el-table-column :label="label('状态')" width="96">
             <template #default="{ row }">
               <span class="state" :class="runClass(row.status)">
-                {{ runLabel(row.status) }}
+                {{ label(runLabel(row.status)) }}
               </span>
             </template>
           </el-table-column>
