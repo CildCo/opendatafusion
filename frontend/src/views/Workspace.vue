@@ -10,7 +10,14 @@
 
     <el-card shadow="never">
       <el-form label-width="110px" style="max-width: 680px">
-        <el-form-item label="品牌名称">
+        <el-form-item :label="locale === 'en' ? 'Interface language' : '界面语言'">
+          <el-select :model-value="locale" style="width: 200px"
+                     @change="changeLocale">
+            <el-option value="zh" label="简体中文" />
+            <el-option value="en" label="English" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="locale === 'en' ? 'Brand name' : '品牌名称'">
           <el-input v-model="form.brand_name" maxlength="64" />
         </el-form-item>
         <el-form-item label="主题色">
@@ -56,6 +63,11 @@
 import { onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { api, errMsg } from "../api";
+import { locale, setLocale } from "../i18n";
+
+function changeLocale(value) {
+  setLocale(value);
+}
 
 const menus = [
   { path: "/dashboard", title: "概览" },

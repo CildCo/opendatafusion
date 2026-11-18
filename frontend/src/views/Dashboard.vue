@@ -2,10 +2,10 @@
   <div class="dash">
     <header class="dash-head">
       <p class="lede">
-        {{ welcome.text || "Default 工作区的数据流动、作业状态与待处理事项。" }}
+        {{ welcome.text || t("dash.subtitle") }}
       </p>
       <div class="clock">
-        <span>本地时间</span>
+        <span>{{ locale === "en" ? "Local time" : "本地时间" }}</span>
         <strong>{{ clock }}</strong>
         <small>{{ dateLabel }}</small>
       </div>
@@ -13,11 +13,11 @@
 
     <section class="ledger" aria-label="运营数字">
       <div v-for="s in primaryStats" :key="s.key" class="ledger-cell">
-        <span class="cell-label">{{ s.label }}</span>
+        <span class="cell-label">{{ label(s.label) }}</span>
         <strong :class="{ alert: s.key === 'failed_24h' && s.value > 0 }">
           {{ s.value }}
         </strong>
-        <span class="cell-note">{{ s.note }}</span>
+        <span class="cell-note">{{ label(s.note) }}</span>
       </div>
     </section>
 
@@ -25,27 +25,27 @@
       <section class="panel runs-panel">
         <header class="panel-head">
           <div>
-            <h3>运行记录</h3>
-            <span>按时间倒序，点击行进入运维中心</span>
+            <h3>{{ t("dash.runHistory") }}</h3>
+            <span>{{ t("dash.runHistoryHint") }}</span>
           </div>
-          <button class="text-action" type="button" @click="load">刷新</button>
+          <button class="text-action" type="button" @click="load">{{ t("common.refresh") }}</button>
         </header>
         <div class="filter-tabs">
           <button v-for="t in runTabs" :key="t.key" type="button"
                   :class="{ active: runFilter === t.key }"
                   @click="runFilter = t.key">
-            {{ t.label }} <span>{{ t.count }}</span>
+            {{ label(t.label) }} <span>{{ t.count }}</span>
           </button>
         </div>
         <el-table :data="filteredRuns" size="small" v-loading="loading"
-                  empty-text="当前筛选下没有运行记录"
+                  :empty-text="locale === 'en' ? 'No runs for this filter' : '当前筛选下没有运行记录'"
                   @row-click="openRun">
-          <el-table-column label="时间" width="104">
+          <el-table-column :label="label('时间')" width="104">
             <template #default="{ row }">
               <span class="mono">{{ timeOnly(row.started_at) }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="flow" label="作业" min-width="180">
+          <el-table-column prop="flow" :label="label('作业')" min-width="180">
             <template #default="{ row }">
               <div class="name-cell">
                 <span class="status-dot" :class="runClass(row.status)"></span>
@@ -53,16 +53,16 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="状态" width="96">
+          <el-table-column :label="label('状态')" width="96">
             <template #default="{ row }">
               <span class="state" :class="runClass(row.status)">
                 {{ runLabel(row.status) }}
               </span>
             </template>
           </el-table-column>
-          <el-table-column prop="in" label="输入" width="82" />
-          <el-table-column prop="out" label="输出" width="82" />
-          <el-table-column prop="err" label="错误" width="70" />
+          <el-table-column prop="in" :label="label('输入')" width="82" />
+          <el-table-column prop="out" :label="label('输出')" width="82" />
+          <el-table-column prop="err" :label="label('错误')" width="70" />
         </el-table>
       </section>
 
@@ -70,11 +70,11 @@
         <section class="panel exception-panel">
           <header class="panel-head">
             <div>
-              <h3>需要处理</h3>
-              <span>{{ alerts.length }} 条未处理告警</span>
+              <h3>{{ t("dash.toHandle") }}</h3>
+              <span>{{ alerts.length }} {{ t("dash.openAlertCount") }}</span>
             </div>
             <button class="text-action" type="button"
-                    @click="$router.push('/alerts')">全部</button>
+                    @click="$router.push('/alerts')">{{ locale === "en" ? "All" : "全部" }}</button>
           </header>
           <template v-if="exception">
             <div class="exception-copy">
@@ -134,6 +134,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { useRouter } from "vue-router";
 import { api, errMsg } from "../api";
+import { locale, t } from "../i18n";
 
 const router = useRouter();
 const loading = ref(false);
@@ -155,6 +156,21 @@ const stats = ref([
   { key: "interfaces", label: "接口", value: 0, note: "已发布" },
   { key: "quality_rules", label: "质量规则", value: 0, note: "已启用" },
 ]);
+
+const WORD_EN = {
+  "运行中": "Running", "今日失败": "Failed today", "未处理告警": "Open alerts",
+  "24h 运行": "Runs (24h)", "数据源": "Data sources", "流程": "Flows",
+  "接口": "Interfaces", "质量规则": "Quality rules", "当前作业": "Current jobs",
+  "最近 24 小时": "Last 24 hours", "需要关注": "Needs attention",
+  "全部流程": "All flows", "已连接": "Connected", "已定义": "Defined",
+  "已发布": "Published", "已启用": "Enabled", "全部": "All",
+  "失败": "Failed", "成功": "Succeeded", "时间": "Time", "作业": "Job",
+  "状态": "Status", "输入": "In", "输出": "Out", "错误": "Errors",
+  "资产概览": "Assets", "计划窗口": "Schedule window", "暂无": "None",
+};
+function label(text) {
+  return locale.value === "en" ? (WORD_EN[text] || text) : text;
+}
 
 const primaryStats = computed(() => stats.value.slice(0, 4));
 const secondaryStats = computed(() => stats.value.slice(4));
