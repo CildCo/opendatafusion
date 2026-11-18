@@ -92,6 +92,42 @@
             </el-table-column>
           </el-table>
         </el-tab-pane>
+
+        <el-tab-pane label="访问密钥" name="keys">
+          <div class="keys-head">
+            <span class="hint">
+              调用已发布接口时使用 AK/SK 签名；密钥只显示一次，请妥善保存。
+            </span>
+            <el-button size="small" type="primary" :loading="issuing"
+                       @click="issueKey">签发密钥</el-button>
+          </div>
+          <el-alert v-if="newKey" type="success" :closable="false"
+                    show-icon style="margin: 10px 0">
+            <p style="margin: 0 0 6px">新密钥已生成，请立即保存：</p>
+            <p class="mono" style="margin: 0">AK: {{ newKey.ak }}</p>
+            <p class="mono" style="margin: 0">SK: {{ newKey.sk }}</p>
+          </el-alert>
+          <el-table :data="keys" size="small" empty-text="还没有访问密钥">
+            <el-table-column prop="ak" label="Access Key" min-width="240">
+              <template #default="{ row }">
+                <span class="mono">{{ row.ak }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="110">
+              <template #default="{ row }">
+                <el-tag size="small" :type="row.enabled ? 'success' : 'info'">
+                  {{ row.enabled ? "有效" : "已吊销" }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="100">
+              <template #default="{ row }">
+                <el-button v-if="row.enabled" link type="danger"
+                           @click="revokeKey(row)">吊销</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
       </el-tabs>
     </el-card>
 
@@ -114,7 +150,7 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { api, errMsg } from "../api";
+import { api, errMsg, getProject } from "../api";
 
 const tab = ref("catalog");
 const catalog = ref([]);
@@ -126,6 +162,50 @@ const saving = ref(false);
 const requestOpen = ref(false);
 const target = ref(null);
 const note = ref("");
+const keys = ref([]);
+const newKey = ref(null);
+const issuing = ref(false);
+
+async function loadKeys() {
+  const pid = getProject() || 1;
+  try {
+    keys.value = await api.get(`/projects/${pid}/aksk`);
+  } catch (e) {
+    keys.value = [];
+  }
+}
+
+async function issueKey() {
+  const pid = getProject() || 1;
+  try {
+    await ElMessageBox.confirm(
+      "签发后密钥只显示一次，请确认你已准备好保存。", "签发访问密钥");
+  } catch (e) {
+    return;
+  }
+  issuing.value = true;
+  try {
+    newKey.value = await api.post(`/projects/${pid}/aksk`);
+    await loadKeys();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    issuing.value = false;
+  }
+}
+
+async function revokeKey(row) {
+  const pid = getProject() || 1;
+  try {
+    await ElMessageBox.confirm(`吊销密钥 ${row.ak}？`, "吊销确认",
+                               { type: "warning" });
+    await api.del(`/projects/${pid}/aksk/${encodeURIComponent(row.ak)}`);
+    await loadKeys();
+    ElMessage.success("已吊销");
+  } catch (e) {
+    if (e !== "cancel") ElMessage.error(errMsg(e));
+  }
+}
 
 function fmt(v) {
   if (!v) return "-";
@@ -150,6 +230,7 @@ async function loadAll() {
     outgoing.value = o;
     incoming.value = i;
     grants.value = g;
+    await loadKeys();
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -216,4 +297,10 @@ onMounted(loadAll);
 .spacer { flex: 1; }
 .mono { font-family: ui-monospace, monospace; font-size: 11px; }
 .hint { color: #6b7280; font-size: 12px; }
+.keys-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
 </style>

@@ -11,6 +11,9 @@ def _test_schema():
     if not (url.startswith("sqlite") or "test" in url):
         pytest.exit("refusing to create schema on a non-test database",
                     returncode=2)
+    # Each run starts from an empty schema; leftover rows from earlier runs
+    # otherwise leak into tests that assert on exact contents.
+    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     with SessionLocal() as s:
         if not s.get(Project, 1):

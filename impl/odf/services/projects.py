@@ -26,11 +26,28 @@ def list_projects_for_user(session, user):
 
 def add_member(session, project_id: int, user_id: int,
                role: str = "viewer") -> ProjectMember:
+    existing = (session.query(ProjectMember)
+                .filter_by(project_id=project_id, user_id=user_id).first())
+    if existing:
+        existing.role = role
+        session.commit()
+        session.refresh(existing)
+        return existing
     m = ProjectMember(project_id=project_id, user_id=user_id, role=role)
     session.add(m)
     session.commit()
     session.refresh(m)
     return m
+
+
+def remove_member(session, project_id: int, user_id: int) -> bool:
+    row = (session.query(ProjectMember)
+           .filter_by(project_id=project_id, user_id=user_id).first())
+    if not row:
+        return False
+    session.delete(row)
+    session.commit()
+    return True
 
 
 def list_members(session, project_id: int):

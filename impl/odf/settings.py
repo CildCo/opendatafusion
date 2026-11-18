@@ -82,6 +82,8 @@ class Settings(BaseSettings):
     lakehouse_s3_region: str = "us-east-1"
     lakehouse_s3_access_key: str = ""
     lakehouse_s3_secret_key: str = ""
+    lakehouse_property_script: str = (
+        "local:///opt/odf-spark-jars/set_properties.py")
     spark_image: str = "odf/spark-iceberg:3.5.1"
     spark_jars: str = ""
     spark_jars_dir: str = ""

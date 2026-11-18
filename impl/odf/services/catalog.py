@@ -26,11 +26,34 @@ def tag_dataset(session, dataset_id: int, tag_id: int,
         ds = session.get(Datasource, d.datasource_id)
         if not ds or ds.project_id != project_id or t.project_id != project_id:
             raise ValueError("dataset or tag is outside the project")
+    row = (session.query(DatasetTag)
+           .filter_by(dataset_id=dataset_id, tag_id=tag_id).first())
+    if row:
+        return row
     row = DatasetTag(dataset_id=dataset_id, tag_id=tag_id)
     session.add(row)
     session.commit()
     session.refresh(row)
     return row
+
+
+def untag_dataset(session, dataset_id: int, tag_id: int,
+                  project_id: int | None = None) -> bool:
+    q = session.query(DatasetTag).filter_by(dataset_id=dataset_id,
+                                            tag_id=tag_id)
+    row = q.first()
+    if not row:
+        return False
+    if project_id is not None:
+        d = session.get(Dataset, dataset_id)
+        ds = session.get(Datasource, d.datasource_id) if d else None
+        t = session.get(Tag, tag_id)
+        if (not ds or ds.project_id != project_id
+                or not t or t.project_id != project_id):
+            raise ValueError("dataset or tag is outside the project")
+    q.delete()
+    session.commit()
+    return True
 
 
 def list_datasets(session, project_id: int | None = None):

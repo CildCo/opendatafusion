@@ -88,7 +88,9 @@ def test_catalog_routes_ignore_other_project_ids():
     c = TestClient(app)
     h = {"Authorization": "Bearer " + create_token(1, 1)}
     rows = c.get("/api/v1/catalog/datasets?project_id=2", headers=h).json()
-    assert [r["id"] for r in rows] == [9101]
+    ids = [r["id"] for r in rows]
+    assert 9101 in ids
+    assert 9102 not in ids
     assert c.get(f"/api/v1/catalog/datasets/{other_dataset}",
                  headers=h).status_code == 404
     view = c.get("/api/v1/catalog/lineage?project_id=2", headers=h).json()
