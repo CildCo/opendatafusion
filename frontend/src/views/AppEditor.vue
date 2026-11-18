@@ -5,19 +5,25 @@
       <el-input v-model="name" size="small" style="width: 220px"
                 @change="rename" />
       <el-tag size="small" :type="published ? 'success' : 'info'">
-        {{ published ? "已发布" : "草稿" }}
+        {{ published ? t("aedit.published") : t("aedit.draft") }}
       </el-tag>
       <div class="spacer" />
-      <el-button size="small" @click="save">保存</el-button>
-      <el-button size="small" @click="validate">校验</el-button>
-      <el-button size="small" :loading="loadingData" @click="refresh">
-        刷新数据
+      <el-button size="small" @click="save">{{ t("aedit.save") }}</el-button>
+      <el-button size="small" @click="validate">
+        {{ t("aedit.validate") }}
       </el-button>
-      <el-button size="small" type="primary" @click="publish">发布</el-button>
-      <el-button size="small" @click="versionsOpen = true">版本</el-button>
+      <el-button size="small" :loading="loadingData" @click="refresh">
+        {{ t("aedit.refreshData") }}
+      </el-button>
+      <el-button size="small" type="primary" @click="publish">
+        {{ t("aedit.publish") }}
+      </el-button>
+      <el-button size="small" @click="versionsOpen = true">
+        {{ t("aedit.versions") }}
+      </el-button>
       <el-button size="small" :disabled="!published"
                  @click="$router.push(`/apps/${id}/run`)">
-        运行
+        {{ t("aedit.run") }}
       </el-button>
       <ShareDialog kind="apps" :asset-id="id" :published="published" />
     </div>
@@ -26,8 +32,10 @@
       <aside class="left">
         <div class="section">
           <div class="section-head">
-            <span>页面</span>
-            <el-button link size="small" @click="addPage">+ 页面</el-button>
+            <span>{{ t("aedit.pages") }}</span>
+            <el-button link size="small" @click="addPage">
+              {{ t("aedit.addPage") }}
+            </el-button>
           </div>
           <div class="pages">
             <div v-for="p in content.pages" :key="p.id" class="page-row"
@@ -35,50 +43,57 @@
                  @click="currentId = p.id">
               <span class="page-title">{{ p.title || p.id }}</span>
               <el-tag v-if="content.start_page === p.id" size="small"
-                      type="success">首页</el-tag>
+                      type="success">{{ t("aedit.homePage") }}</el-tag>
             </div>
           </div>
           <div v-if="currentPage" class="page-actions">
             <el-input v-model="currentPage.title" size="small"
-                      placeholder="页面标题" />
+                      :placeholder="t('aedit.pageTitle')" />
             <el-button link size="small" :disabled="content.start_page ===
               currentPage.id" @click="content.start_page = currentPage.id">
-              设为首页
+              {{ t("aedit.setHome") }}
             </el-button>
             <el-button link type="danger" size="small"
                        :disabled="content.pages.length <= 1"
-                       @click="removePage">删除页</el-button>
+                       @click="removePage">
+              {{ t("aedit.removePage") }}
+            </el-button>
           </div>
         </div>
 
         <div class="section" v-if="currentPage">
           <div class="section-head">
-            <span>页面参数</span>
-            <el-button link size="small" @click="addParam">+ 参数</el-button>
+            <span>{{ t("aedit.pageParams") }}</span>
+            <el-button link size="small" @click="addParam">
+              {{ t("aedit.addParam") }}
+            </el-button>
           </div>
           <div v-for="(p, i) in currentPage.params" :key="i" class="param">
             <el-input v-model="p.name" size="small" placeholder="name"
                       @change="resetParams" />
             <el-select v-model="p.type" size="small" style="width: 92px"
                        @change="resetParams">
-              <el-option v-for="t in paramTypes" :key="t" :value="t"
-                         :label="t" />
+              <el-option v-for="pty in paramTypes" :key="pty" :value="pty"
+                         :label="pty" />
             </el-select>
-            <el-input v-model="p.default" size="small" placeholder="默认值"
+            <el-input v-model="p.default" size="small"
+                      :placeholder="t('aedit.defaultValue')"
                       @change="resetParams" />
-            <el-checkbox v-model="p.required" size="small">必填</el-checkbox>
+            <el-checkbox v-model="p.required" size="small">
+              {{ t("aedit.required") }}
+            </el-checkbox>
             <el-button link type="danger" size="small"
                        @click="removeParam(i)">×</el-button>
           </div>
-          <p class="hint">参数名与数据集的参数名一致时自动传入。</p>
+          <p class="hint">{{ t("aedit.paramHint") }}</p>
         </div>
 
         <div class="section" v-if="currentPage">
-          <div class="section-head"><span>组件</span></div>
+          <div class="section-head"><span>{{ t("aedit.components") }}</span></div>
           <div class="palette">
-            <el-button v-for="t in types" :key="t.type" size="small"
-                       class="add" @click="addComponent(t.type)">
-              + {{ t.label }}
+            <el-button v-for="ct in types" :key="ct.type" size="small"
+                       class="add" @click="addComponent(ct.type)">
+              + {{ t(ct.labelKey) }}
             </el-button>
           </div>
           <div class="components">
@@ -89,7 +104,7 @@
               <span class="comp-type">{{ typeLabel(c.type) }}</span>
             </div>
             <el-empty v-if="!currentPage.components.length"
-                      description="还没有组件" :image-size="48" />
+                      :description="t('aedit.noComponents')" :image-size="48" />
           </div>
         </div>
       </aside>
@@ -104,23 +119,23 @@
       <aside class="config">
         <template v-if="selected">
           <div class="config-head">
-            <h4>{{ typeLabel(selected.type) }} 配置</h4>
+            <h4>{{ typeLabel(selected.type) }} {{ t("aedit.config") }}</h4>
             <el-button link type="danger" @click="removeComponent">
-              删除
+              {{ t("aedit.delete") }}
             </el-button>
           </div>
           <el-form label-width="76px" size="small">
-            <el-form-item label="标题">
+            <el-form-item :label="t('aedit.title')">
               <el-input v-model="selected.title" />
             </el-form-item>
             <template v-if="selected.type === 'text'">
-              <el-form-item label="文本">
+              <el-form-item :label="t('aedit.text')">
                 <el-input v-model="selected.text" type="textarea"
                           :rows="6" />
               </el-form-item>
             </template>
             <template v-if="selected.type === 'metric'">
-              <el-form-item label="指标">
+              <el-form-item :label="t('aedit.metric')">
                 <el-select v-model="selected.metric_id" filterable clearable
                            style="width: 100%"
                            @change="selectMetric(selected.metric_id)">
@@ -128,7 +143,7 @@
                              :label="m.name" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="数值列">
+              <el-form-item :label="t('aedit.valueColumn')">
                 <el-select v-model="selected.value_column" filterable clearable
                            style="width: 100%">
                   <el-option v-for="c in modelColumns" :key="c" :value="c"
@@ -137,7 +152,7 @@
               </el-form-item>
             </template>
             <template v-if="selected.type === 'form'">
-              <el-form-item label="数据集">
+              <el-form-item :label="t('aedit.dataset')">
                 <el-select v-model="selected.dataset_id" filterable
                            style="width: 100%"
                            @change="selectFormDataset(selected.dataset_id)">
@@ -145,77 +160,79 @@
                              :label="d.name" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="模式">
+              <el-form-item :label="t('aedit.mode')">
                 <el-select v-model="selected.mode" style="width: 100%"
                            @change="onFormModeChange">
-                  <el-option value="insert" label="新增" />
-                  <el-option value="update" label="更新" />
-                  <el-option value="delete" label="删除" />
+                  <el-option value="insert" :label="t('aedit.modeInsert')" />
+                  <el-option value="update" :label="t('aedit.modeUpdate')" />
+                  <el-option value="delete" :label="t('aedit.modeDelete')" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="可提交角色">
+              <el-form-item :label="t('aedit.allowRoles')">
                 <el-select :model-value="selected.allow_roles || []"
-                           multiple clearable placeholder="默认全部"
+                           multiple clearable
+                           :placeholder="t('aedit.allByDefault')"
                            style="width: 100%"
                            @update:model-value="setRoles">
                   <el-option v-for="r in formRoles" :key="r" :value="r"
-                             :label="r" />
+                             :label="t('role.' + r)" />
                 </el-select>
               </el-form-item>
               <el-form-item v-if="['update','delete'].includes(selected.mode)"
-                            label="主键">
+                            :label="t('aedit.primaryKey')">
                 <el-select v-model="selected.key" filterable
                            allow-create style="width: 100%">
                   <el-option v-for="c in formColumns" :key="c" :value="c"
                              :label="c" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="字段">
+              <el-form-item :label="t('aedit.fields')">
                 <div class="filter-list">
                   <div v-for="(f, i) in selected.fields || []" :key="i"
                        class="field-row">
                     <el-select v-model="f.column" size="small" filterable
-                               allow-create placeholder="列"
+                               allow-create :placeholder="t('aedit.column')"
                                style="width: 88px">
                       <el-option v-for="c in formColumns" :key="c" :value="c"
                                  :label="c" />
                     </el-select>
                     <el-input v-model="f.label" size="small"
-                              placeholder="标签" style="width: 70px" />
+                              :placeholder="t('aedit.label')"
+                              style="width: 70px" />
                     <el-select v-model="f.widget" size="small"
                                style="width: 84px">
                       <el-option v-for="w in formWidgets" :key="w"
                                  :value="w" :label="w" />
                     </el-select>
                     <el-checkbox v-model="f.required" size="small">
-                      必填
+                      {{ t("aedit.required") }}
                     </el-checkbox>
                     <el-button link type="danger" size="small"
                                @click="removeField(i)">×</el-button>
                     <el-input v-if="f.widget === 'select'" size="small"
                               :model-value="(f.options || []).join(',')"
-                              placeholder="选项,逗号分隔"
+                              :placeholder="t('aedit.optionsHint')"
                               @update:model-value="setOptions(f, $event)" />
                   </div>
                   <el-button link size="small" @click="addField">
-                    + 字段
+                    {{ t("aedit.addField") }}
                   </el-button>
                   <p v-if="selected.mode === 'delete'" class="hint">
-                    删除表单只能包含主键字段。
+                    {{ t("aedit.deleteFormHint") }}
                   </p>
                 </div>
               </el-form-item>
-              <el-form-item label="按钮">
+              <el-form-item :label="t('aedit.button')">
                 <el-input v-model="selected.submit_text"
-                          placeholder="提交" />
+                          :placeholder="t('aedit.submit')" />
               </el-form-item>
-              <el-form-item label="成功提示">
+              <el-form-item :label="t('aedit.successMessage')">
                 <el-input v-model="selected.success_message"
-                          placeholder="提交成功" />
+                          :placeholder="t('aedit.submitSuccess')" />
               </el-form-item>
             </template>
             <template v-if="selected.type === 'table'">
-              <el-form-item label="数据集">
+              <el-form-item :label="t('aedit.dataset')">
                 <el-select v-model="selected.dataset_id" filterable clearable
                            style="width: 100%"
                            @change="selectDataset(selected.dataset_id)">
@@ -223,7 +240,7 @@
                              :label="d.name" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="指标">
+              <el-form-item :label="t('aedit.metric')">
                 <el-select v-model="selected.metric_id" filterable clearable
                            style="width: 100%"
                            @change="selectMetric(selected.metric_id)">
@@ -231,32 +248,35 @@
                              :label="m.name" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="列">
+              <el-form-item :label="t('aedit.columns')">
                 <el-input v-model="columnsText"
-                          placeholder="留空显示全部，逗号分隔" />
+                          :placeholder="t('aedit.columnsHint')" />
               </el-form-item>
-              <el-form-item label="行数">
+              <el-form-item :label="t('aedit.rowCount')">
                 <el-input-number v-model="selected.limit" :min="1"
                                  :max="10000" />
               </el-form-item>
             </template>
           </el-form>
-          <p class="hint">组件引用已发布的数据集 / 指标；保存后发布生效。</p>
+          <p class="hint">{{ t("aedit.configHint") }}</p>
         </template>
-        <el-empty v-else description="添加或选择组件" :image-size="60" />
+        <el-empty v-else :description="t('aedit.selectComponent')"
+                  :image-size="60" />
       </aside>
     </div>
 
-    <el-drawer v-model="versionsOpen" title="版本" size="480px"
+    <el-drawer v-model="versionsOpen" :title="t('aedit.versions')" size="480px"
                @open="loadVersions">
       <el-table :data="versions" size="small">
-        <el-table-column prop="version" label="版本" width="70" />
-        <el-table-column prop="status" label="状态" width="100" />
-        <el-table-column prop="created_by" label="创建人" />
-        <el-table-column label="操作" width="90">
+        <el-table-column prop="version" :label="t('aedit.version')" width="70" />
+        <el-table-column prop="status" :label="t('aedit.status')" width="100" />
+        <el-table-column prop="created_by" :label="t('aedit.createdBy')" />
+        <el-table-column :label="t('aedit.actions')" width="90">
           <template #default="{ row }">
             <el-button link :disabled="row.current || row.status === 'draft'"
-                       @click="rollback(row)">回滚</el-button>
+                       @click="rollback(row)">
+              {{ t("aedit.rollback") }}
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -269,6 +289,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 import AppRuntime from "../studio/app/AppRuntime.vue";
 import ShareDialog from "../studio/share/ShareDialog.vue";
 
@@ -289,10 +310,10 @@ const metrics = ref([]);
 const modelColumns = ref([]);
 const paramTypes = ["string", "number", "date", "bool"];
 const types = [
-  { type: "text", label: "文本" },
-  { type: "metric", label: "指标卡" },
-  { type: "table", label: "表格" },
-  { type: "form", label: "表单" },
+  { type: "text", labelKey: "aedit.compText" },
+  { type: "metric", labelKey: "aedit.compMetric" },
+  { type: "table", labelKey: "aedit.compTable" },
+  { type: "form", labelKey: "aedit.compForm" },
 ];
 const formWidgets = ["input", "textarea", "number", "date", "select",
                      "checkbox"];
@@ -315,7 +336,8 @@ const columnsText = computed({
 });
 
 function typeLabel(type) {
-  return (types.find((t) => t.type === type) || {}).label || type;
+  const found = types.find((x) => x.type === type);
+  return found ? t(found.labelKey) : type;
 }
 
 function resetParams() {
@@ -335,7 +357,9 @@ async function load() {
   if (!content.value.pages?.length) {
     content.value = {
       start_page: "p1",
-      pages: [{ id: "p1", title: "页面 1", params: [], components: [] }],
+      pages: [{
+        id: "p1", title: t("aedit.pageN"), params: [], components: [],
+      }],
     };
   }
   if (!content.value.pages.some((p) => p.id === currentId.value)) {
@@ -387,8 +411,8 @@ async function refresh() {
 }
 
 function addPage() {
-  ElMessageBox.prompt("页面标题", "新建页面", {
-    inputPattern: /\S+/, inputErrorMessage: "标题必填",
+  ElMessageBox.prompt(t("aedit.pageTitle"), t("aedit.newPage"), {
+    inputPattern: /\S+/, inputErrorMessage: t("aedit.titleRequired"),
   }).then(({ value }) => {
     const pid = `p_${Date.now().toString(36)}`;
     content.value.pages.push({
@@ -401,8 +425,10 @@ function addPage() {
 async function removePage() {
   if (!currentPage.value || content.value.pages.length <= 1) return;
   try {
-    await ElMessageBox.confirm(`删除页面「${currentPage.value.title}」？`,
-                               "删除确认");
+    await ElMessageBox.confirm(
+      t("aedit.removePageConfirm")
+        .replace("{title}", currentPage.value.title),
+      t("aedit.deleteConfirm"));
     const pid = currentPage.value.id;
     content.value.pages = content.value.pages.filter((p) => p.id !== pid);
     if (content.value.start_page === pid) {
@@ -441,7 +467,7 @@ async function addComponent(type) {
     type,
     title: typeLabel(type),
   };
-  if (type === "text") c.text = "说明文本";
+  if (type === "text") c.text = t("aedit.defaultText");
   if (type === "metric") {
     c.metric_id = metrics.value[0]?.id || null;
     c.value_column = "";
@@ -456,8 +482,8 @@ async function addComponent(type) {
     c.mode = "insert";
     c.key = "";
     c.fields = [];
-    c.submit_text = "提交";
-    c.success_message = "提交成功";
+    c.submit_text = t("aedit.submit");
+    c.success_message = t("aedit.submitSuccess");
   }
   currentPage.value.components.push(c);
   selectedId.value = c.id;
@@ -611,7 +637,7 @@ function setOptions(field, text) {
 }
 
 async function submitForm(componentId, values) {
-  if (!(await save())) throw new Error("请先保存草稿");
+  if (!(await save())) throw new Error(t("aedit.saveFirst"));
   await api.post(`/apps/${id}/submit`, {
     component_id: componentId,
     values,
@@ -622,7 +648,7 @@ async function submitForm(componentId, values) {
 async function save() {
   try {
     await api.put(`/apps/${id}/draft`, { content: content.value });
-    ElMessage.success("已保存草稿");
+    ElMessage.success(t("aedit.savedDraft"));
     return true;
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -642,7 +668,7 @@ async function validate() {
   try {
     const r = await api.post(`/apps/${id}/validate`,
                              { content: content.value });
-    if (r.valid) ElMessage.success("校验通过");
+    if (r.valid) ElMessage.success(t("aedit.validatePassed"));
     else ElMessage.error(r.errors.map((e) => e.message).join("; "));
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -655,7 +681,7 @@ async function publish() {
   try {
     await api.applyChange("publish_app", id);
     await load();
-    ElMessage.success("已发布");
+    ElMessage.success(t("aedit.published"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -667,7 +693,9 @@ async function loadVersions() {
 
 async function rollback(row) {
   try {
-    await ElMessageBox.confirm(`回滚到版本 ${row.version}？`, "回滚确认");
+    await ElMessageBox.confirm(
+      t("aedit.rollbackConfirm").replace("{version}", row.version),
+      t("aedit.rollbackTitle"));
     await api.applyChange("rollback_app", id, { version: row.version });
     await load();
     await loadVersions();

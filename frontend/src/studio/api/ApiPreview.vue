@@ -1,8 +1,8 @@
 <template>
   <div class="preview">
     <div class="head">
-      <span>预览</span>
-      <el-button size="small" :loading="loading" @click="run">运行预览</el-button>
+      <span>{{ t("apic.preview") }}</span>
+      <el-button size="small" :loading="loading" @click="run">{{ t("apic.runPreview") }}</el-button>
     </div>
     <div v-for="p in params" :key="p.name" class="prow">
       <span>{{ p.name }}{{ p.required ? " *" : "" }}</span>
@@ -14,7 +14,7 @@
     </el-table>
     <div class="meta">
       <el-tag v-if="meta.row_count !== undefined" size="small">
-        {{ meta.row_count }} 行 · {{ meta.ms }}ms
+        {{ meta.row_count }} {{ t("apic.rowsUnit") }} · {{ meta.ms }}ms
       </el-tag>
       <span v-if="error" class="err">{{ error }}</span>
     </div>
@@ -26,6 +26,7 @@
 import { reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { api, errMsg } from "../../api";
+import { t } from "../../i18n";
 
 const props = defineProps({
   assetId: { type: Number, required: true },

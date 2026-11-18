@@ -1,18 +1,18 @@
 <template>
   <div class="preview">
     <div class="bar">
-      <span>{{ nodeId ? "预览节点 " + nodeId : "选择画布节点后预览" }}</span>
+      <span>{{ nodeId ? t("pprev.previewNode") + " " + nodeId : t("pprev.selectNodeHint") }}</span>
       <el-button size="small" :disabled="!nodeId" :loading="loading"
-                 @click="run">运行预览</el-button>
+                 @click="run">{{ t("pprev.run") }}</el-button>
     </div>
     <el-table v-if="rows.length" :data="rows" size="small" height="140">
       <el-table-column v-for="c in columns" :key="c" :prop="c" :label="c" />
     </el-table>
-    <el-empty v-else description="暂无预览结果" :image-size="60" />
+    <el-empty v-else :description="t('pprev.empty')" :image-size="60" />
     <div class="stats">
       <el-tag v-for="(s, k) in stats" :key="k" size="small"
               :type="s.status === 'success' ? 'success' : 'danger'">
-        {{ k }} · {{ s.rows }} 行 · {{ s.ms }}ms
+        {{ k }} · {{ s.rows }} {{ t("pprev.rows") }} · {{ s.ms }}ms
       </el-tag>
       <span v-if="error" class="err">{{ error }}</span>
     </div>
@@ -23,6 +23,7 @@
 import { ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { api, errMsg } from "../../api";
+import { t } from "../../i18n";
 
 const props = defineProps({
   assetId: { type: Number, required: true },

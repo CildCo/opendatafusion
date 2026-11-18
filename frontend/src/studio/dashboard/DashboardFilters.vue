@@ -5,22 +5,24 @@
       <el-select v-if="p.type === 'bool'" :model-value="value[p.name]"
                  size="small" style="width: 110px"
                  @update:model-value="set(p.name, $event)">
-        <el-option label="全部" :value="''" />
-        <el-option label="是" :value="true" />
-        <el-option label="否" :value="false" />
+        <el-option :label="t('dcomp.all')" :value="''" />
+        <el-option :label="t('dcomp.yes')" :value="true" />
+        <el-option :label="t('dcomp.no')" :value="false" />
       </el-select>
       <el-input v-else :model-value="value[p.name]" size="small"
                 style="width: 150px"
-                :placeholder="p.example || p.type || '全部'"
+                :placeholder="p.example || p.type || t('dcomp.all')"
                 @update:model-value="set(p.name, $event)" />
     </div>
     <el-button type="primary" size="small" @click="$emit('refresh')">
-      查询
+      {{ t("dcomp.query") }}
     </el-button>
   </div>
 </template>
 
 <script setup>
+import { t } from "../../i18n";
+
 const props = defineProps({
   params: { type: Array, default: () => [] },
   value: { type: Object, default: () => ({}) },

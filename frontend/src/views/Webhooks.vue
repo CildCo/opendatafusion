@@ -3,31 +3,38 @@
     <div class="toolbar">
       <el-tag size="small" type="info">HMAC Webhook</el-tag>
       <div class="spacer" />
-      <el-button size="small" @click="load" :loading="loading">刷新</el-button>
+      <el-button size="small" @click="load" :loading="loading">
+        {{ t("hooks.refresh") }}
+      </el-button>
       <el-button v-if="canEdit" type="primary" size="small"
-                 @click="openCreate">新建订阅</el-button>
+                 @click="openCreate">
+        {{ t("hooks.create") }}
+      </el-button>
     </div>
 
     <el-card shadow="never">
-      <el-table :data="rows" size="small" empty-text="还没有事件订阅">
-        <el-table-column prop="name" label="名称" min-width="140" />
-        <el-table-column prop="url" label="地址" min-width="240"
+      <el-table :data="rows" size="small" :empty-text="t('hooks.empty')">
+        <el-table-column prop="name" :label="t('hooks.colName')"
+                         min-width="140" />
+        <el-table-column prop="url" :label="t('hooks.colUrl')" min-width="240"
                          show-overflow-tooltip />
-        <el-table-column label="事件" min-width="180">
+        <el-table-column :label="t('hooks.colEvents')" min-width="180">
           <template #default="{ row }">
-            <span v-if="!row.events?.length" class="hint">全部事件</span>
+            <span v-if="!row.events?.length" class="hint">
+              {{ t("hooks.allEvents") }}
+            </span>
             <el-tag v-for="e in row.events" :key="e" size="small"
                     style="margin-right: 4px">{{ e }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="100">
+        <el-table-column :label="t('hooks.colStatus')" width="100">
           <template #default="{ row }">
             <el-tag size="small" :type="row.enabled ? 'success' : 'info'">
-              {{ row.enabled ? "启用" : "停用" }}
+              {{ row.enabled ? t("hooks.enabled") : t("hooks.disabled") }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="最近投递" width="110">
+        <el-table-column :label="t('hooks.colLastDelivery')" width="110">
           <template #default="{ row }">
             <el-tag v-if="row.last_status" size="small"
                     :type="row.last_status === 'success' ? 'success'
@@ -37,62 +44,77 @@
             <span v-else class="hint">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="230">
+        <el-table-column :label="t('hooks.colActions')" width="230">
           <template #default="{ row }">
-            <el-button link @click="showDeliveries(row)">记录</el-button>
-            <el-button v-if="canEdit" link @click="test(row)">测试</el-button>
-            <el-button v-if="canEdit" link @click="openEdit(row)">编辑</el-button>
+            <el-button link @click="showDeliveries(row)">
+              {{ t("hooks.records") }}
+            </el-button>
+            <el-button v-if="canEdit" link @click="test(row)">
+              {{ t("hooks.test") }}
+            </el-button>
+            <el-button v-if="canEdit" link @click="openEdit(row)">
+              {{ t("hooks.edit") }}
+            </el-button>
             <el-button v-if="canEdit" link type="danger"
-                       @click="remove(row)">删除</el-button>
+                       @click="remove(row)">
+              {{ t("hooks.delete") }}
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialog" :title="form.id ? '编辑订阅' : '新建订阅'"
+    <el-dialog v-model="dialog"
+               :title="form.id ? t('hooks.editTitle') : t('hooks.createTitle')"
                width="560px">
       <el-form label-width="90px">
-        <el-form-item label="名称" required>
+        <el-form-item :label="t('hooks.name')" required>
           <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item label="回调地址" required>
+        <el-form-item :label="t('hooks.url')" required>
           <el-input v-model="form.url"
                     placeholder="https://example.com/hooks/odf" />
         </el-form-item>
-        <el-form-item label="事件">
+        <el-form-item :label="t('hooks.events')">
           <el-select v-model="form.events" multiple clearable
-                     placeholder="留空订阅全部事件" style="width: 100%">
+                     :placeholder="t('hooks.eventsPlaceholder')"
+                     style="width: 100%">
             <el-option v-for="e in eventOptions" :key="e" :value="e"
                        :label="e" />
           </el-select>
         </el-form-item>
-        <el-form-item label="启用">
+        <el-form-item :label="t('hooks.enable')">
           <el-switch v-model="form.enabled" />
         </el-form-item>
-        <el-form-item v-if="!form.id" label="签名密钥">
-          <el-input v-model="form.secret" placeholder="留空自动生成" />
+        <el-form-item v-if="!form.id" :label="t('hooks.signingSecret')">
+          <el-input v-model="form.secret"
+                    :placeholder="t('hooks.secretPlaceholder')" />
         </el-form-item>
-        <el-form-item v-else label="密钥">
-          <el-checkbox v-model="form.rotate_secret">轮换签名密钥</el-checkbox>
+        <el-form-item v-else :label="t('hooks.secret')">
+          <el-checkbox v-model="form.rotate_secret">
+            {{ t("hooks.rotateSecret") }}
+          </el-checkbox>
         </el-form-item>
       </el-form>
       <el-alert v-if="createdSecret" type="success" :closable="false"
-                title="请保存签名密钥，仅显示一次">
+                :title="t('hooks.secretAlert')">
         <div class="mono">{{ createdSecret }}</div>
       </el-alert>
       <template #footer>
-        <el-button @click="dialog = false">取消</el-button>
+        <el-button @click="dialog = false">{{ t("hooks.cancel") }}</el-button>
         <el-button type="primary" :loading="saving" @click="save">
-          保存
+          {{ t("hooks.save") }}
         </el-button>
       </template>
     </el-dialog>
 
-    <el-drawer v-model="drawer" title="投递记录" size="620px"
+    <el-drawer v-model="drawer" :title="t('hooks.drawerTitle')" size="620px"
                @open="loadDeliveries">
-      <el-table :data="deliveries" size="small" empty-text="没有投递记录">
-        <el-table-column prop="event" label="事件" width="150" />
-        <el-table-column label="状态" width="90">
+      <el-table :data="deliveries" size="small"
+                :empty-text="t('hooks.emptyDeliveries')">
+        <el-table-column prop="event" :label="t('hooks.colEvent')"
+                         width="150" />
+        <el-table-column :label="t('hooks.colStatus')" width="90">
           <template #default="{ row }">
             <el-tag size="small" :type="row.status === 'success'
               ? 'success' : (row.status === 'failed' ? 'danger' : 'warning')">
@@ -100,11 +122,12 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="attempts" label="尝试" width="70" />
+        <el-table-column prop="attempts" :label="t('hooks.colAttempts')"
+                         width="70" />
         <el-table-column prop="response_status" label="HTTP" width="70" />
-        <el-table-column prop="error" label="错误" min-width="160"
-                         show-overflow-tooltip />
-        <el-table-column label="时间" width="160">
+        <el-table-column prop="error" :label="t('hooks.colError')"
+                         min-width="160" show-overflow-tooltip />
+        <el-table-column :label="t('hooks.colTime')" width="160">
           <template #default="{ row }">{{ fmt(row.created_at) }}</template>
         </el-table-column>
       </el-table>
@@ -116,6 +139,12 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getRole } from "../api";
+import { t } from "../i18n";
+
+function tr(key, vars = {}) {
+  return Object.entries(vars).reduce(
+    (s, [k, v]) => s.split(`{${k}}`).join(v ?? ""), t(key));
+}
 
 const canEdit = ["editor", "approver", "admin"].includes(getRole());
 const rows = ref([]);
@@ -169,7 +198,7 @@ function openEdit(row) {
 
 async function save() {
   if (!form.name.trim() || !form.url.trim()) {
-    ElMessage.error("名称和地址必填");
+    ElMessage.error(t("hooks.nameUrlRequired"));
     return;
   }
   saving.value = true;
@@ -193,7 +222,7 @@ async function save() {
     } else {
       dialog.value = false;
     }
-    ElMessage.success("已保存");
+    ElMessage.success(t("hooks.saved"));
     await load();
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -205,7 +234,7 @@ async function save() {
 async function test(row) {
   try {
     await api.post(`/webhooks/${row.id}/test`);
-    ElMessage.success("测试事件已排队");
+    ElMessage.success(t("hooks.testQueued"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -213,9 +242,10 @@ async function test(row) {
 
 async function remove(row) {
   try {
-    await ElMessageBox.confirm(`删除订阅「${row.name}」？`, "删除确认");
+    await ElMessageBox.confirm(
+      tr("hooks.deleteConfirm", { name: row.name }), t("hooks.deleteTitle"));
     await api.del(`/webhooks/${row.id}`);
-    ElMessage.success("已删除");
+    ElMessage.success(t("hooks.deleted"));
     await load();
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));

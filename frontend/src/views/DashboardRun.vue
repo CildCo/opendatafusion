@@ -3,19 +3,19 @@
     <div class="head">
       <el-button link @click="$router.push('/dashboards')">←</el-button>
       <span class="name">{{ name }}</span>
-      <el-tag v-if="published" size="small" type="success">已发布</el-tag>
+      <el-tag v-if="published" size="small" type="success">{{ t("dedit.published") }}</el-tag>
       <div class="spacer" />
       <el-button size="small" :loading="loading" @click="refresh">
-        刷新数据
+        {{ t("dedit.refreshData") }}
       </el-button>
       <el-button size="small" @click="$router.push(`/dashboards/${id}`)">
-        编辑
+        {{ t("dedit.edit") }}
       </el-button>
     </div>
     <div v-if="!published" class="empty">
-      <el-empty description="看板还没有发布版本">
+      <el-empty :description="t('dedit.notPublished')">
         <el-button type="primary" @click="$router.push(`/dashboards/${id}`)">
-          去编辑
+          {{ t("dedit.goEdit") }}
         </el-button>
       </el-empty>
     </div>
@@ -32,6 +32,7 @@ import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 import DashboardRuntime from "../studio/dashboard/DashboardRuntime.vue";
 
 const route = useRoute();

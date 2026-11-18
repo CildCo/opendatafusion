@@ -3,19 +3,21 @@
     <div class="head">
       <el-button link @click="$router.push('/apps')">←</el-button>
       <span class="app-name">{{ name }}</span>
-      <el-tag v-if="published" size="small" type="success">已发布</el-tag>
+      <el-tag v-if="published" size="small" type="success">
+        {{ t("aedit.published") }}
+      </el-tag>
       <div class="spacer" />
       <el-button v-if="content" size="small" @click="refresh">
-        刷新数据
+        {{ t("aedit.refreshData") }}
       </el-button>
       <el-button size="small" @click="$router.push(`/apps/${id}`)">
-        编辑
+        {{ t("aedit.edit") }}
       </el-button>
     </div>
     <div v-if="!published" class="empty">
-      <el-empty description="应用还没有发布版本">
+      <el-empty :description="t('aedit.noPublished')">
         <el-button type="primary" @click="$router.push(`/apps/${id}`)">
-          去编辑
+          {{ t("aedit.goEdit") }}
         </el-button>
       </el-empty>
     </div>
@@ -43,6 +45,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 import AppRuntime from "../studio/app/AppRuntime.vue";
 
 const route = useRoute();

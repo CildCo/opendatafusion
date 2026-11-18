@@ -1,122 +1,122 @@
 <template>
   <div class="page">
     <div class="toolbar">
-      <el-input v-model="q" placeholder="搜索规则名" clearable style="width: 220px"
+      <el-input v-model="q" :placeholder="t('quality.search')" clearable style="width: 220px"
                 :prefix-icon="Search" />
       <div class="spacer" />
-      <el-button @click="load" :loading="loading">刷新</el-button>
-      <el-button type="primary" @click="openCreate">新建规则</el-button>
+      <el-button @click="load" :loading="loading">{{ t("quality.refresh") }}</el-button>
+      <el-button type="primary" @click="openCreate">{{ t("quality.new") }}</el-button>
     </div>
 
     <el-card class="card" shadow="never">
       <el-table :data="filtered" size="small" v-loading="loading">
-        <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="name" label="名称" min-width="150" />
-        <el-table-column prop="kind" label="类型" width="120">
+        <el-table-column prop="id" :label="t('quality.id')" width="70" />
+        <el-table-column prop="name" :label="t('quality.name')" min-width="150" />
+        <el-table-column prop="kind" :label="t('quality.kind')" width="120">
           <template #default="{ row }">
             <el-tag size="small" effect="plain">{{ kindLabel(row.kind) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="column" label="字段" width="140" />
-        <el-table-column label="数据集" min-width="160">
+        <el-table-column prop="column" :label="t('quality.column')" width="140" />
+        <el-table-column :label="t('quality.dataset')" min-width="160">
           <template #default="{ row }">{{ datasetName(row.dataset_id) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column :label="t('quality.actions')" width="240" fixed="right">
           <template #default="{ row }">
-            <el-button link @click="run(row)">执行</el-button>
-            <el-button link @click="showResults(row)">结果</el-button>
-            <el-button link type="danger" @click="removeRule(row)">删除</el-button>
+            <el-button link @click="run(row)">{{ t("quality.run") }}</el-button>
+            <el-button link @click="showResults(row)">{{ t("quality.results") }}</el-button>
+            <el-button link type="danger" @click="removeRule(row)">{{ t("quality.delete") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" description="还没有质量规则" />
+      <el-empty v-if="!loading && !filtered.length" :description="t('quality.empty')" />
     </el-card>
 
-    <el-dialog v-model="dialog" title="新建质量规则" width="560px">
+    <el-dialog v-model="dialog" :title="t('quality.createTitle')" width="560px">
       <el-form label-width="100px">
-        <el-form-item label="名称" required>
+        <el-form-item :label="t('quality.name')" required>
           <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item label="数据集" required>
+        <el-form-item :label="t('quality.dataset')" required>
           <el-select v-model="form.dataset_id" style="width: 100%" filterable
                      @change="onDataset">
             <el-option v-for="d in datasets" :key="d.id" :value="d.id"
                        :label="`${d.schema}.${d.table}`" />
           </el-select>
         </el-form-item>
-        <el-form-item label="类型" required>
+        <el-form-item :label="t('quality.kind')" required>
           <el-select v-model="form.kind" style="width: 100%">
-            <el-option value="not_null" label="非空" />
-            <el-option value="unique" label="唯一" />
-            <el-option value="row_count" label="行数范围" />
-            <el-option value="range" label="数值范围" />
-            <el-option value="freshness" label="数据新鲜度" />
-            <el-option value="regex" label="正则匹配" />
-            <el-option value="accepted_values" label="枚举值" />
-            <el-option value="schema" label="字段结构" />
+            <el-option value="not_null" :label="t('quality.kindNotNull')" />
+            <el-option value="unique" :label="t('quality.kindUnique')" />
+            <el-option value="row_count" :label="t('quality.kindRowCount')" />
+            <el-option value="range" :label="t('quality.kindRange')" />
+            <el-option value="freshness" :label="t('quality.kindFreshness')" />
+            <el-option value="regex" :label="t('quality.kindRegex')" />
+            <el-option value="accepted_values" :label="t('quality.kindAcceptedValues')" />
+            <el-option value="schema" :label="t('quality.kindSchema')" />
           </el-select>
         </el-form-item>
         <el-form-item v-if="form.kind !== 'row_count' && form.kind !== 'schema'"
-                      label="字段">
+                      :label="t('quality.column')">
           <el-select v-model="form.column_name" style="width: 100%" filterable>
             <el-option v-for="c in columns" :key="c.name" :value="c.name"
                        :label="`${c.name} (${c.type})`" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="form.kind === 'freshness'" label="最大年龄(小时)">
+        <el-form-item v-if="form.kind === 'freshness'" :label="t('quality.maxAge')">
           <el-input-number v-model="form.max_age_hours" :min="1" />
         </el-form-item>
-        <el-form-item v-if="form.kind === 'regex'" label="正则">
+        <el-form-item v-if="form.kind === 'regex'" :label="t('quality.pattern')">
           <el-input v-model="form.pattern" placeholder="^[^@]+@[^@]+$" />
         </el-form-item>
-        <el-form-item v-if="form.kind === 'regex'" label="允许空值">
+        <el-form-item v-if="form.kind === 'regex'" :label="t('quality.allowNull')">
           <el-switch v-model="form.allow_null" />
         </el-form-item>
-        <el-form-item v-if="form.kind === 'accepted_values'" label="允许值">
+        <el-form-item v-if="form.kind === 'accepted_values'" :label="t('quality.allowedValues')">
           <el-input v-model="form.values_text" placeholder="ok,failed,pending" />
         </el-form-item>
-        <el-form-item v-if="form.kind === 'accepted_values'" label="允许空值">
+        <el-form-item v-if="form.kind === 'accepted_values'" :label="t('quality.allowNull')">
           <el-switch v-model="form.allow_null" />
         </el-form-item>
-        <el-form-item v-if="form.kind === 'schema'" label="期望字段">
+        <el-form-item v-if="form.kind === 'schema'" :label="t('quality.expected')">
           <el-input v-model="form.expected_text" placeholder="id,email,created_at" />
         </el-form-item>
-        <el-form-item v-if="form.kind === 'schema'" label="允许额外字段">
+        <el-form-item v-if="form.kind === 'schema'" :label="t('quality.allowExtra')">
           <el-switch v-model="form.allow_extra" />
         </el-form-item>
         <template v-if="form.kind === 'range' || form.kind === 'row_count'">
-          <el-form-item label="最小值">
+          <el-form-item :label="t('quality.min')">
             <el-input-number v-model="form.min" />
           </el-form-item>
-          <el-form-item label="最大值">
+          <el-form-item :label="t('quality.max')">
             <el-input-number v-model="form.max" />
           </el-form-item>
         </template>
       </el-form>
       <template #footer>
-        <el-button @click="dialog = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="create">保存</el-button>
+        <el-button @click="dialog = false">{{ t("quality.cancel") }}</el-button>
+        <el-button type="primary" :loading="saving" @click="create">{{ t("quality.save") }}</el-button>
       </template>
     </el-dialog>
 
-    <el-drawer v-model="resultDrawer" :title="'结果 · ' + (current.name || '')" size="640px">
+    <el-drawer v-model="resultDrawer" :title="t('quality.results') + ' · ' + (current.name || '')" size="640px">
       <el-table :data="results" size="small">
-        <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="status" label="结果" width="90">
+        <el-table-column prop="id" :label="t('quality.id')" width="70" />
+        <el-table-column prop="status" :label="t('quality.results')" width="90">
           <template #default="{ row }">
             <el-tag :type="row.status === 'pass' ? 'success' : 'danger'" size="small">
               {{ row.status }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="at" label="时间" width="200" />
-        <el-table-column label="详情">
+        <el-table-column prop="at" :label="t('quality.time')" width="200" />
+        <el-table-column :label="t('quality.detail')">
           <template #default="{ row }">
             <span class="mono">{{ JSON.stringify(row.detail) }}</span>
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!results.length" description="还没有执行结果" />
+      <el-empty v-if="!results.length" :description="t('quality.noResults')" />
     </el-drawer>
   </div>
 </template>
@@ -126,6 +126,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 
 const rows = ref([]);
 const datasets = ref([]);
@@ -149,9 +150,10 @@ const filtered = computed(() =>
 
 function kindLabel(k) {
   return {
-    not_null: "非空", unique: "唯一", row_count: "行数", range: "范围",
-    freshness: "新鲜度", regex: "正则", accepted_values: "枚举",
-    schema: "结构",
+    not_null: t("quality.tagNotNull"), unique: t("quality.tagUnique"),
+    row_count: t("quality.tagRowCount"), range: t("quality.tagRange"),
+    freshness: t("quality.tagFreshness"), regex: t("quality.tagRegex"),
+    accepted_values: t("quality.tagAcceptedValues"), schema: t("quality.tagSchema"),
   }[k] || k;
 }
 function datasetName(id) {
@@ -174,14 +176,14 @@ async function load() {
 async function removeRule(row) {
   try {
     await ElMessageBox.confirm(
-      `删除规则 ${row.name}？历史结果会一并删除。`, "删除规则",
+      t("quality.deleteConfirm").replace("{name}", row.name), t("quality.deleteTitle"),
       { type: "warning" });
   } catch (e) {
     return;
   }
   try {
     await api.del(`/quality/rules/${row.id}`);
-    ElMessage.success("已删除");
+    ElMessage.success(t("quality.deleted"));
     await load();
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -214,7 +216,7 @@ async function onDataset(id) {
 
 async function create() {
   if (!form.name || !form.dataset_id) {
-    ElMessage.warning("名称和数据集必填");
+    ElMessage.warning(t("quality.nameDatasetRequired"));
     return;
   }
   saving.value = true;
@@ -250,7 +252,7 @@ async function create() {
     });
     dialog.value = false;
     await load();
-    ElMessage.success("已创建");
+    ElMessage.success(t("quality.created"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -262,7 +264,9 @@ async function run(row) {
   try {
     const r = await api.post(`/quality/rules/${row.id}/run`);
     ElMessage[r.status === "pass" ? "success" : "warning"](
-      r.status === "pass" ? "校验通过" : `校验失败：${JSON.stringify(r.detail)}`
+      r.status === "pass"
+        ? t("quality.pass")
+        : t("quality.fail").replace("{detail}", JSON.stringify(r.detail))
     );
   } catch (e) {
     ElMessage.error(errMsg(e));

@@ -1,29 +1,31 @@
 <template>
   <div class="params">
     <div class="head">
-      <span>参数</span>
+      <span>{{ t("apic.params") }}</span>
       <el-button link type="primary" @click="params.push(newParam())">
-        + 参数
+        {{ t("apic.addParam") }}
       </el-button>
     </div>
     <div v-for="(p, i) in params" :key="i" class="param">
-      <el-input v-model="p.name" placeholder="名称" size="small" />
+      <el-input v-model="p.name" :placeholder="t('apic.namePlaceholder')" size="small" />
       <el-select v-model="p.type" size="small" style="width: 92px">
-        <el-option value="string" label="字符串" />
-        <el-option value="number" label="数字" />
-        <el-option value="date" label="日期" />
-        <el-option value="bool" label="布尔" />
+        <el-option value="string" :label="t('apic.typeString')" />
+        <el-option value="number" :label="t('apic.typeNumber')" />
+        <el-option value="date" :label="t('apic.typeDate')" />
+        <el-option value="bool" :label="t('apic.typeBool')" />
       </el-select>
-      <el-checkbox v-model="p.required" size="small">必填</el-checkbox>
-      <el-input v-model="p.default" placeholder="默认值" size="small" />
-      <el-input v-model="p.example" placeholder="示例" size="small" />
+      <el-checkbox v-model="p.required" size="small">{{ t("apic.required") }}</el-checkbox>
+      <el-input v-model="p.default" :placeholder="t('apic.defaultValue')" size="small" />
+      <el-input v-model="p.example" :placeholder="t('apic.example')" size="small" />
       <el-button link type="danger" @click="params.splice(i, 1)">×</el-button>
     </div>
-    <el-empty v-if="!params.length" description="还没有参数" :image-size="50" />
+    <el-empty v-if="!params.length" :description="t('apic.noParams')" :image-size="50" />
   </div>
 </template>
 
 <script setup>
+import { t } from "../../i18n";
+
 defineProps({ params: { type: Array, required: true } });
 function newParam() {
   return { name: "", type: "string", required: false,

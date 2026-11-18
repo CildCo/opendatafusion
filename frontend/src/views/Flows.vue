@@ -1,187 +1,187 @@
 <template>
   <div class="page">
     <div class="toolbar">
-      <el-input v-model="q" placeholder="搜索流程名" clearable style="width: 220px"
+      <el-input v-model="q" :placeholder="t('flows.searchPlaceholder')" clearable style="width: 220px"
                 :prefix-icon="Search" />
-      <el-select v-model="statusFilter" clearable placeholder="全部状态" style="width: 140px">
-        <el-option :value="1" label="启用" />
-        <el-option :value="0" label="停用" />
+      <el-select v-model="statusFilter" clearable :placeholder="t('flows.allStatus')" style="width: 140px">
+        <el-option :value="1" :label="t('flows.enabled')" />
+        <el-option :value="0" :label="t('flows.disabled')" />
       </el-select>
       <div class="spacer" />
-      <el-button @click="load" :loading="loading">刷新</el-button>
-      <el-button type="primary" @click="openCreate">新建流程</el-button>
+      <el-button @click="load" :loading="loading">{{ t("flows.refresh") }}</el-button>
+      <el-button type="primary" @click="openCreate">{{ t("flows.newFlow") }}</el-button>
     </div>
 
     <el-card class="card" shadow="never">
       <el-table :data="paged" size="small" v-loading="loading"
                 @row-click="openDetail" row-class-name="clickable">
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="name" label="名称" min-width="160" />
-        <el-table-column prop="cron" label="调度" width="150" />
-        <el-table-column prop="version" label="版本" width="80" />
-        <el-table-column prop="status" label="状态" width="90">
+        <el-table-column prop="name" :label="t('flows.name')" min-width="160" />
+        <el-table-column prop="cron" :label="t('flows.schedule')" width="150" />
+        <el-table-column prop="version" :label="t('flows.version')" width="80" />
+        <el-table-column prop="status" :label="t('flows.status')" width="90">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
-              {{ row.status === 1 ? "启用" : "停用" }}
+              {{ row.status === 1 ? t("flows.enabled") : t("flows.disabled") }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column :label="t('flows.actions')" width="240" fixed="right">
           <template #default="{ row }">
             <el-button link @click.stop="toggle(row)">
-              {{ row.status === 1 ? "停用" : "启用" }}
+              {{ row.status === 1 ? t("flows.disabled") : t("flows.enabled") }}
             </el-button>
-            <el-button link :disabled="row.status !== 1" @click.stop="run(row)">运行</el-button>
-            <el-button link @click.stop="openDetail(row)">详情</el-button>
+            <el-button link :disabled="row.status !== 1" @click.stop="run(row)">{{ t("flows.run") }}</el-button>
+            <el-button link @click.stop="openDetail(row)">{{ t("flows.details") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" description="还没有流程" />
+      <el-empty v-if="!loading && !filtered.length" :description="t('flows.empty')" />
       <div class="pager">
         <el-pagination v-model:current-page="page" :page-size="pageSize"
                        :total="filtered.length" layout="total, prev, pager, next" small />
       </div>
     </el-card>
 
-    <el-dialog v-model="dialog" title="新建流程" width="680px">
+    <el-dialog v-model="dialog" :title="t('flows.newFlow')" width="680px">
       <el-form label-width="110px">
-        <el-form-item label="名称" required>
-          <el-input v-model="form.name" placeholder="例如：访客信息同步" />
+        <el-form-item :label="t('flows.name')" required>
+          <el-input v-model="form.name" :placeholder="t('flows.namePlaceholder')" />
         </el-form-item>
-        <el-form-item label="调度">
+        <el-form-item :label="t('flows.schedule')">
           <el-select v-model="form.cronPreset" style="width: 200px" @change="onCronPreset">
-            <el-option value="0 */5 * * * ?" label="每 5 分钟" />
-            <el-option value="0 0 * * * ?" label="每小时" />
-            <el-option value="0 0 2 * * ?" label="每天 02:00" />
-            <el-option value="custom" label="自定义" />
+            <el-option value="0 */5 * * * ?" :label="t('flows.every5')" />
+            <el-option value="0 0 * * * ?" :label="t('flows.hourly')" />
+            <el-option value="0 0 2 * * ?" :label="t('flows.daily2')" />
+            <el-option value="custom" :label="t('flows.custom')" />
           </el-select>
           <el-input v-if="form.cronPreset === 'custom'" v-model="form.cron"
                     style="width: 220px; margin-left: 10px"
                     placeholder="0 */5 * * * ?" />
         </el-form-item>
-        <el-divider content-position="left">来源</el-divider>
-        <el-form-item label="数据源">
+        <el-divider content-position="left">{{ t("flows.source") }}</el-divider>
+        <el-form-item :label="t('flows.datasource')">
           <el-select v-model="form.source_ds_id" style="width: 100%"
                      @change="loadSourceTables">
             <el-option v-for="d in datasources" :key="d.id" :value="d.id"
                        :label="`${d.name} (${d.kind})`" />
           </el-select>
         </el-form-item>
-        <el-form-item label="表">
+        <el-form-item :label="t('flows.table')">
           <el-select v-model="form.source_table" style="width: 100%"
                      filterable @change="onSourceTable">
-            <el-option v-for="t in sourceTables" :key="t.table" :value="tableValue(t)"
-                       :label="`${t.schema}.${t.table}`" />
+            <el-option v-for="tbl in sourceTables" :key="tbl.table" :value="tableValue(tbl)"
+                       :label="`${tbl.schema}.${tbl.table}`" />
           </el-select>
         </el-form-item>
-        <el-divider content-position="left">目标</el-divider>
-        <el-form-item label="数据源">
+        <el-divider content-position="left">{{ t("flows.target") }}</el-divider>
+        <el-form-item :label="t('flows.datasource')">
           <el-select v-model="form.sink_ds_id" style="width: 100%"
                      @change="loadSinkTables">
             <el-option v-for="d in datasources" :key="d.id" :value="d.id"
                        :label="`${d.name} (${d.kind})`" />
           </el-select>
         </el-form-item>
-        <el-form-item label="表">
+        <el-form-item :label="t('flows.table')">
           <el-select v-model="form.sink_table" style="width: 100%" filterable>
-            <el-option v-for="t in sinkTables" :key="t.table" :value="tableValue(t)"
-                       :label="`${t.schema}.${t.table}`" />
+            <el-option v-for="tbl in sinkTables" :key="tbl.table" :value="tableValue(tbl)"
+                       :label="`${tbl.schema}.${tbl.table}`" />
           </el-select>
         </el-form-item>
-        <el-form-item label="主键">
+        <el-form-item :label="t('flows.pk')">
           <el-select v-model="form.pk" style="width: 100%" filterable allow-create>
             <el-option v-for="c in sourceColumns" :key="c.name" :value="c.name"
                        :label="`${c.name} (${c.type})`" />
           </el-select>
         </el-form-item>
-        <el-form-item label="增量列">
+        <el-form-item :label="t('flows.cursorColumn')">
           <el-select v-model="form.cursor_column" style="width: 100%" clearable
                      filterable allow-create>
             <el-option v-for="c in sourceColumns" :key="c.name" :value="c.name"
                        :label="`${c.name} (${c.type})`" />
           </el-select>
-          <div class="hint">留空表示全量；建议选时间或自增列</div>
+          <div class="hint">{{ t("flows.cursorHint") }}</div>
         </el-form-item>
-        <el-form-item label="批量">
+        <el-form-item :label="t('flows.batch')">
           <el-input-number v-model="form.batch" :min="1" :step="100" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialog = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="create">保存</el-button>
+        <el-button @click="dialog = false">{{ t("flows.cancel") }}</el-button>
+        <el-button type="primary" :loading="saving" @click="create">{{ t("flows.save") }}</el-button>
       </template>
     </el-dialog>
 
-    <el-drawer v-model="drawer" :title="current.name || '流程详情'" size="720px">
+    <el-drawer v-model="drawer" :title="current.name || t('flows.flowDetail')" size="720px">
       <el-tabs v-model="tab">
-        <el-tab-pane label="概览" name="overview">
+        <el-tab-pane :label="t('flows.overview')" name="overview">
           <el-descriptions :column="2" border>
-            <el-descriptions-item label="流程 ID">{{ current.id }}</el-descriptions-item>
-            <el-descriptions-item label="状态">
+            <el-descriptions-item :label="t('flows.flowId')">{{ current.id }}</el-descriptions-item>
+            <el-descriptions-item :label="t('flows.status')">
               <el-tag :type="current.status === 1 ? 'success' : 'info'" size="small">
-                {{ current.status === 1 ? "启用" : "停用" }}
+                {{ current.status === 1 ? t("flows.enabled") : t("flows.disabled") }}
               </el-tag>
             </el-descriptions-item>
-            <el-descriptions-item label="调度">{{ current.cron }}</el-descriptions-item>
-            <el-descriptions-item label="当前版本">{{ current.version }}</el-descriptions-item>
-            <el-descriptions-item label="来源" :span="2">
-              {{ dag.source_table }} ← 数据源 {{ dag.source_ds_id }}
+            <el-descriptions-item :label="t('flows.schedule')">{{ current.cron }}</el-descriptions-item>
+            <el-descriptions-item :label="t('flows.currentVersion')">{{ current.version }}</el-descriptions-item>
+            <el-descriptions-item :label="t('flows.source')" :span="2">
+              {{ dag.source_table }} ← {{ t("flows.datasource") }} {{ dag.source_ds_id }}
             </el-descriptions-item>
-            <el-descriptions-item label="目标" :span="2">
-              {{ dag.sink_table }} ← 数据源 {{ dag.sink_ds_id }}
+            <el-descriptions-item :label="t('flows.target')" :span="2">
+              {{ dag.sink_table }} ← {{ t("flows.datasource") }} {{ dag.sink_ds_id }}
             </el-descriptions-item>
-            <el-descriptions-item label="主键">{{ dag.pk }}</el-descriptions-item>
-            <el-descriptions-item label="增量列">{{ dag.cursor_column || "全量" }}</el-descriptions-item>
+            <el-descriptions-item :label="t('flows.pk')">{{ dag.pk }}</el-descriptions-item>
+            <el-descriptions-item :label="t('flows.cursorColumn')">{{ dag.cursor_column || t("flows.fullLoad") }}</el-descriptions-item>
           </el-descriptions>
           <div class="actions">
             <el-button type="primary" :disabled="current.status !== 1" @click="run(current)">
-              运行一次
+              {{ t("flows.runOnce") }}
             </el-button>
             <el-button @click="toggle(current)">
-              {{ current.status === 1 ? "停用" : "启用" }}
+              {{ current.status === 1 ? t("flows.disabled") : t("flows.enabled") }}
             </el-button>
-            <el-button @click="refreshDetail">刷新</el-button>
+            <el-button @click="refreshDetail">{{ t("flows.refresh") }}</el-button>
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="版本" name="versions">
+        <el-tab-pane :label="t('flows.versions')" name="versions">
           <el-table :data="versions" size="small">
-            <el-table-column prop="version" label="版本" width="80" />
-            <el-table-column prop="created_by" label="创建人" width="140" />
-            <el-table-column prop="created_at" label="时间" />
-            <el-table-column label="操作" width="120">
+            <el-table-column prop="version" :label="t('flows.version')" width="80" />
+            <el-table-column prop="created_by" :label="t('flows.createdBy')" width="140" />
+            <el-table-column prop="created_at" :label="t('flows.time')" />
+            <el-table-column :label="t('flows.actions')" width="120">
               <template #default="{ row }">
                 <el-button link :disabled="row.version === current.version"
-                           @click="rollback(row)">回滚到此</el-button>
+                           @click="rollback(row)">{{ t("flows.rollback") }}</el-button>
               </template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="运行记录" name="runs">
+        <el-tab-pane :label="t('flows.runs')" name="runs">
           <el-table :data="runs" size="small">
             <el-table-column prop="id" label="ID" width="70" />
-            <el-table-column prop="status" label="状态" width="100">
+            <el-table-column prop="status" :label="t('flows.status')" width="100">
               <template #default="{ row }">
                 <el-tag :type="runType(row.status)" size="small">
                   {{ runLabel(row.status) }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="in" label="输入" width="90" />
-            <el-table-column prop="out" label="输出" width="90" />
-            <el-table-column prop="err" label="错误" width="80" />
-            <el-table-column prop="cursor" label="游标" />
+            <el-table-column prop="in" :label="t('flows.input')" width="90" />
+            <el-table-column prop="out" :label="t('flows.output')" width="90" />
+            <el-table-column prop="err" :label="t('flows.error')" width="80" />
+            <el-table-column prop="cursor" :label="t('flows.cursor')" />
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="作业队列" name="jobs">
+        <el-tab-pane :label="t('flows.jobs')" name="jobs">
           <el-table :data="jobs" size="small">
             <el-table-column prop="id" label="ID" width="70" />
-            <el-table-column prop="status" label="状态" width="100" />
-            <el-table-column prop="attempts" label="尝试" width="70" />
-            <el-table-column prop="run_at" label="计划时间" width="200" />
-            <el-table-column prop="last_error" label="最后错误" />
+            <el-table-column prop="status" :label="t('flows.status')" width="100" />
+            <el-table-column prop="attempts" :label="t('flows.attempts')" width="70" />
+            <el-table-column prop="run_at" :label="t('flows.plannedAt')" width="200" />
+            <el-table-column prop="last_error" :label="t('flows.lastError')" />
           </el-table>
         </el-tab-pane>
       </el-tabs>
@@ -194,6 +194,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 
 const rows = ref([]);
 const datasources = ref([]);
@@ -237,7 +238,11 @@ function runType(s) {
   return s === 2 ? "success" : s === 3 ? "danger" : s === 1 ? "warning" : "info";
 }
 function runLabel(s) {
-  return { 0: "排队", 1: "运行中", 2: "成功", 3: "失败", 4: "跳过" }[s] || s;
+  return {
+    0: t("flows.runQueued"), 1: t("flows.runRunning"),
+    2: t("flows.runSuccess"), 3: t("flows.runFailed"),
+    4: t("flows.runSkipped"),
+  }[s] || s;
 }
 
 async function load() {
@@ -271,9 +276,9 @@ function onCronPreset(v) {
   if (v !== "custom") form.cron = v;
 }
 
-function tableValue(t) {
-  return t.schema && t.schema !== "main" && t.schema !== "public"
-    ? `${t.schema}.${t.table}` : t.table;
+function tableValue(tbl) {
+  return tbl.schema && tbl.schema !== "main" && tbl.schema !== "public"
+    ? `${tbl.schema}.${tbl.table}` : tbl.table;
 }
 
 async function loadSourceTables() {
@@ -286,14 +291,14 @@ async function loadSinkTables() {
   form.sink_table = "";
 }
 function onSourceTable(name) {
-  const t = sourceTables.value.find((x) => tableValue(x) === name);
-  sourceColumns.value = t ? t.columns || [] : [];
+  const tbl = sourceTables.value.find((x) => tableValue(x) === name);
+  sourceColumns.value = tbl ? tbl.columns || [] : [];
   if (sourceColumns.value.length && !form.pk) form.pk = sourceColumns.value[0].name;
 }
 
 async function create() {
   if (!form.name || !form.source_table || !form.sink_table) {
-    ElMessage.warning("名称、来源表和目标表必填");
+    ElMessage.warning(t("flows.required"));
     return;
   }
   saving.value = true;
@@ -314,7 +319,7 @@ async function create() {
     });
     dialog.value = false;
     await load();
-    ElMessage.success("已创建");
+    ElMessage.success(t("flows.created"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -359,7 +364,7 @@ async function refreshDetail() {
 async function run(row) {
   try {
     await api.post(`/flows/${row.id}/runs`);
-    ElMessage.success("已加入执行队列");
+    ElMessage.success(t("flows.queued"));
     if (drawer.value && current.value.id === row.id) await pollDetail();
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -370,13 +375,13 @@ async function toggle(row) {
   const action = row.status === 1 ? "pause_flow" : "resume_flow";
   try {
     await ElMessageBox.confirm(
-      action === "pause_flow" ? "停用后调度将不再触发，确认？" : "启用后会按 cron 调度，确认？",
-      "变更确认", { type: "warning" }
+      action === "pause_flow" ? t("flows.confirmPause") : t("flows.confirmResume"),
+      t("flows.confirmChange"), { type: "warning" }
     );
     await api.applyChange(action, row.id);
     await load();
     if (drawer.value) await pollDetail();
-    ElMessage.success("已生效");
+    ElMessage.success(t("flows.applied"));
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));
   }
@@ -384,10 +389,12 @@ async function toggle(row) {
 
 async function rollback(row) {
   try {
-    await ElMessageBox.confirm(`回滚到版本 ${row.version}？`, "回滚确认", { type: "warning" });
+    await ElMessageBox.confirm(
+      t("flows.confirmRollback").replace("{version}", row.version),
+      t("flows.rollbackTitle"), { type: "warning" });
     await api.applyChange("rollback_flow", current.value.id, { version: row.version });
     await pollDetail();
-    ElMessage.success("已回滚");
+    ElMessage.success(t("flows.rolledBack"));
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));
   }

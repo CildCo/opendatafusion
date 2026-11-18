@@ -1,14 +1,14 @@
 <template>
   <div class="visual">
     <el-form label-width="86px" size="small">
-      <el-form-item label="数据源">
+      <el-form-item :label="t('apic.datasource')">
         <el-select v-model="q.datasource_id" style="width: 100%"
                    @change="loadTables(true)">
           <el-option v-for="d in datasources" :key="d.id" :value="d.id"
                      :label="d.name" />
         </el-select>
       </el-form-item>
-      <el-form-item label="表">
+      <el-form-item :label="t('apic.table')">
         <el-select v-model="q.table" filterable style="width: 100%"
                    @change="pickTable">
           <el-option v-for="t in tables" :key="tableValue(t)"
@@ -17,24 +17,24 @@
       </el-form-item>
     </el-form>
 
-    <h4>字段</h4>
+    <h4>{{ t("apic.fields") }}</h4>
     <div v-for="(s, i) in q.select" :key="i" class="row">
       <el-select v-model="s.column" filterable style="width: 160px">
         <el-option v-for="c in columns" :key="c" :value="c" :label="c" />
         <el-option value="*" label="*" />
       </el-select>
-      <el-select v-model="s.agg" clearable placeholder="聚合"
+      <el-select v-model="s.agg" clearable :placeholder="t('apic.aggregate')"
                  style="width: 100px">
         <el-option v-for="a in aggs" :key="a" :value="a" :label="a" />
       </el-select>
-      <el-input v-model="s.as" placeholder="别名" style="width: 120px" />
+      <el-input v-model="s.as" :placeholder="t('apic.alias')" style="width: 120px" />
       <el-button link type="danger" @click="q.select.splice(i, 1)">×</el-button>
     </div>
     <el-button link type="primary" @click="q.select.push({ column: '' })">
-      + 字段
+      {{ t("apic.addField") }}
     </el-button>
 
-    <h4>过滤</h4>
+    <h4>{{ t("apic.filters") }}</h4>
     <div v-for="(f, i) in q.filters" :key="i" class="row">
       <el-select v-model="f.column" filterable style="width: 140px">
         <el-option v-for="c in columns" :key="c" :value="c" :label="c" />
@@ -43,26 +43,26 @@
         <el-option v-for="o in ops" :key="o" :value="o" :label="o" />
       </el-select>
       <el-input v-if="f.op === 'in'" :model-value="inText(f)"
-                placeholder="用逗号分隔"
+                :placeholder="t('apic.commaSeparated')"
                 style="width: 160px"
                 @update:model-value="setIn(f, $event)" />
       <el-select v-else-if="!isNull(f.op)" v-model="f.param" clearable
-                 placeholder="参数" style="width: 120px">
+                 :placeholder="t('apic.param')" style="width: 120px">
         <el-option v-for="p in params" :key="p.name" :value="p.name"
                    :label="p.name" />
       </el-select>
       <el-input v-if="!isNull(f.op) && !f.param"
-                v-model="f.value" placeholder="固定值" style="width: 120px" />
+                v-model="f.value" :placeholder="t('apic.fixedValue')" style="width: 120px" />
       <el-button link type="danger" @click="q.filters.splice(i, 1)">×</el-button>
     </div>
     <el-button link type="primary"
                @click="q.filters.push({ column: '', op: '=', value: '' })">
-      + 过滤
+      {{ t("apic.addFilter") }}
     </el-button>
 
-    <h4>分组 / 排序 / 行数</h4>
+    <h4>{{ t("apic.groupSortLimit") }}</h4>
     <el-select v-model="q.group_by" multiple filterable
-               placeholder="分组字段" style="width: 100%">
+               :placeholder="t('apic.groupFields')" style="width: 100%">
       <el-option v-for="c in columns" :key="c" :value="c" :label="c" />
     </el-select>
     <div v-for="(o, i) in q.order_by" :key="i" class="row" style="margin-top: 8px">
@@ -70,17 +70,17 @@
         <el-option v-for="c in orderColumns" :key="c" :value="c" :label="c" />
       </el-select>
       <el-select v-model="o.dir" style="width: 100px">
-        <el-option value="asc" label="升序" />
-        <el-option value="desc" label="降序" />
+        <el-option value="asc" :label="t('apic.asc')" />
+        <el-option value="desc" :label="t('apic.desc')" />
       </el-select>
       <el-button link type="danger" @click="q.order_by.splice(i, 1)">×</el-button>
     </div>
     <el-button link type="primary"
                @click="q.order_by.push({ column: '', dir: 'asc' })">
-      + 排序
+      {{ t("apic.addSort") }}
     </el-button>
     <el-form label-width="86px" size="small" style="margin-top: 12px">
-      <el-form-item label="最大行数">
+      <el-form-item :label="t('apic.maxRows')">
         <el-input-number v-model="q.limit" :min="1" :max="10000" />
       </el-form-item>
     </el-form>
@@ -90,6 +90,7 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { api } from "../../api";
+import { t } from "../../i18n";
 
 const props = defineProps({
   content: { type: Object, required: true },

@@ -26,11 +26,12 @@
         </el-checkbox>
       </el-form-item>
     </el-form>
-    <el-alert v-if="!allowed" title="当前角色无提交权限" type="info"
+    <el-alert v-if="!allowed" :title="t('acomp.noPermission')" type="info"
               :closable="false" />
     <el-button v-else :type="component.mode === 'delete' ? 'danger' : 'primary'"
                size="small" :loading="loading" @click="submit">
-      {{ component.submit_text || (component.mode === "delete" ? "删除" : "提交") }}
+      {{ component.submit_text
+        || (component.mode === "delete" ? t("acomp.delete") : t("acomp.submit")) }}
     </el-button>
   </div>
 </template>
@@ -39,6 +40,7 @@
 import { computed, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { getRole } from "../../api";
+import { t } from "../../i18n";
 
 const props = defineProps({
   component: { type: Object, required: true },
@@ -79,11 +81,13 @@ async function submit() {
   for (const f of props.component.fields || []) {
     const v = values[f.column];
     if (f.required && (v === "" || v === null || v === undefined)) {
-      ElMessage.error(`请填写 ${f.label || f.column}`);
+      ElMessage.error(t("acomp.requiredField")
+        .replace("{field}", f.label || f.column));
       return;
     }
     if (f.widget === "select" && v && !(f.options || []).includes(v)) {
-      ElMessage.error(`${f.label || f.column} 选项无效`);
+      ElMessage.error(t("acomp.invalidOption")
+        .replace("{field}", f.label || f.column));
       return;
     }
   }
@@ -91,8 +95,8 @@ async function submit() {
   loading.value = true;
   if (props.component.mode === "delete") {
     try {
-      await ElMessageBox.confirm("确认删除这条记录？此操作不可撤销。",
-                                 "删除确认", { type: "warning" });
+      await ElMessageBox.confirm(t("acomp.deleteConfirm"),
+                                 t("acomp.deleteTitle"), { type: "warning" });
     } catch (e) {
       loading.value = false;
       return;
@@ -100,10 +104,11 @@ async function submit() {
   }
   try {
     await props.onSubmit(props.component.id, { ...values });
-    ElMessage.success(props.component.success_message || "提交成功");
+    ElMessage.success(props.component.success_message
+      || t("acomp.submitSuccess"));
     reset();
   } catch (e) {
-    ElMessage.error(e?.message || "提交失败");
+    ElMessage.error(e?.message || t("acomp.submitFailed"));
   } finally {
     loading.value = false;
   }

@@ -1,22 +1,24 @@
 <template>
   <div class="tree">
-    <div class="head">{{ title }}</div>
+    <div class="head">{{ title || t("tree.title") }}</div>
     <div v-for="p in items" :key="p.id" class="item"
          :class="{ active: p.id === activeId }" @click="$emit('select', p)">
       <span class="name">{{ p.name }}</span>
       <el-tag size="small" :type="p.enabled ? 'success' : 'info'">
-        {{ p.enabled ? "启用" : "停用" }}
+        {{ p.enabled ? t("tree.enabled") : t("tree.disabled") }}
       </el-tag>
     </div>
-    <el-empty v-if="!items.length" description="暂无管道" :image-size="60" />
+    <el-empty v-if="!items.length" :description="t('tree.empty')" :image-size="60" />
   </div>
 </template>
 
 <script setup>
+import { t } from "../i18n";
+
 defineProps({
   items: { type: Array, default: () => [] },
   activeId: { type: Number, default: null },
-  title: { type: String, default: "数据管道" },
+  title: { type: String, default: "" },
 });
 defineEmits(["select"]);
 </script>

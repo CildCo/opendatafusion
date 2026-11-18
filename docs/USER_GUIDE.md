@@ -11,6 +11,8 @@ This guide walks through every console page and action in order. The console shi
 
 Roles: viewers read, editors create and change assets, approvers approve changes, and admins also manage users, membership and keys.
 
+The console runs in Simplified Chinese and English. Switch from the login page, the header button, or Workspace settings → Interface language; the choice is remembered in the browser and Element Plus follows it.
+
 ## 2. Overview
 
 Cards summarise data sources, flows, interfaces, quality rules, 24-hour runs and open alerts for the current project, followed by recent runs and unhandled alerts.

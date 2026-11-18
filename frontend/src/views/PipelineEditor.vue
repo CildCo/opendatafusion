@@ -24,56 +24,56 @@
   </StudioShell>
   <VersionDrawer v-model="versionsOpen" :asset-id="id" @changed="load" />
   <PublishDialog v-model="publishDialog" @confirm="publish" />
-  <el-dialog v-model="cursorsOpen" title="增量游标" width="680px">
+  <el-dialog v-model="cursorsOpen" :title="t('ped.cursorsTitle')" width="680px">
     <el-alert type="warning" :closable="false" show-icon
-              title="修改游标会改变下一次增量读取的起点，请确认后再保存。"
+              :title="t('ped.cursorsHint')"
               style="margin-bottom: 14px" />
     <el-table :data="cursors.sources" size="small">
-      <el-table-column prop="node_id" label="节点" width="90" />
-      <el-table-column prop="table" label="表" min-width="120" />
-      <el-table-column prop="cursor_column" label="游标列" width="120" />
-      <el-table-column label="当前游标" min-width="260">
+      <el-table-column prop="node_id" :label="t('ped.colNode')" width="90" />
+      <el-table-column prop="table" :label="t('ped.colTable')" min-width="120" />
+      <el-table-column prop="cursor_column" :label="t('ped.colCursorColumn')" width="120" />
+      <el-table-column :label="t('ped.colCurrentCursor')" min-width="260">
         <template #default="{ row }">
           <el-input v-model="row.edit" size="small"
-                    placeholder="留空表示清除" />
+                    :placeholder="t('ped.clearCursorPlaceholder')" />
         </template>
       </el-table-column>
       <el-table-column label="" width="80">
         <template #default="{ row }">
-          <el-button link type="primary" @click="saveCursor(row)">保存</el-button>
+          <el-button link type="primary" @click="saveCursor(row)">{{ t('ped.save') }}</el-button>
         </template>
       </el-table-column>
     </el-table>
-    <el-empty v-if="!cursors.sources.length" description="没有 source 节点"
+    <el-empty v-if="!cursors.sources.length" :description="t('ped.noSourceNodes')"
               :image-size="60" />
   </el-dialog>
 
-  <el-dialog v-model="backfillOpen" title="历史回填" width="540px">
+  <el-dialog v-model="backfillOpen" :title="t('ped.backfillTitle')" width="540px">
     <el-alert type="info" :closable="false" show-icon
-              title="从起始游标重放已发布管道；不会改动生产游标。结束游标可留空表示读到末尾。"
+              :title="t('ped.backfillHint')"
               style="margin-bottom: 14px" />
     <el-form label-width="96px">
-      <el-form-item label="起始游标" required>
+      <el-form-item :label="t('ped.startCursor')" required>
         <el-input v-model="backfillForm.start_cursor"
-                  placeholder="例如 2026-01-01 或 1000" />
+                  :placeholder="t('ped.startCursorPlaceholder')" />
       </el-form-item>
-      <el-form-item label="结束游标">
+      <el-form-item :label="t('ped.endCursor')">
         <el-input v-model="backfillForm.end_cursor"
-                  placeholder="可选，包含该值" />
+                  :placeholder="t('ped.endCursorPlaceholder')" />
       </el-form-item>
-      <el-form-item label="批大小">
+      <el-form-item :label="t('ped.batchSize')">
         <el-input-number v-model="backfillForm.batch" :min="1"
-                         :max="100000" placeholder="使用管道设置" />
+                         :max="100000" :placeholder="t('ped.batchPlaceholder')" />
       </el-form-item>
-      <el-form-item label="最大批数">
+      <el-form-item :label="t('ped.maxBatches')">
         <el-input-number v-model="backfillForm.max_batches" :min="1"
                          :max="1000" />
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="backfillOpen = false">取消</el-button>
+      <el-button @click="backfillOpen = false">{{ t('ped.cancel') }}</el-button>
       <el-button type="primary" :loading="backfilling"
-                 @click="startBackfill">开始回填</el-button>
+                 @click="startBackfill">{{ t('ped.startBackfill') }}</el-button>
     </template>
   </el-dialog>
 </template>
@@ -83,6 +83,7 @@ import { onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 import StudioShell from "../studio/StudioShell.vue";
 import AssetTree from "../studio/AssetTree.vue";
 import PipelineCanvas from "../studio/pipeline/PipelineCanvas.vue";
@@ -167,7 +168,7 @@ async function save() {
     const c = currentContent();
     await api.put(`/pipelines/${id}/draft`, { content: c });
     dirty.value = false;
-    ElMessage.success("已保存草稿");
+    ElMessage.success(t("ped.draftSaved"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -179,7 +180,7 @@ async function validate() {
   try {
     const c = currentContent();
     const r = await api.post(`/pipelines/${id}/validate`, { content: c });
-    if (r.valid) ElMessage.success("校验通过");
+    if (r.valid) ElMessage.success(t("ped.validationPassed"));
     else ElMessage.error(r.errors.map(
       (e) => `${e.node_id || "-"}: ${e.message}`).join("; "));
   } catch (e) {
@@ -193,7 +194,7 @@ async function renameSave(name) {
     const a = await api.put(`/pipelines/${id}`, { name });
     title.value = a.name;
     savedTitle.value = a.name;
-    ElMessage.success("名称已保存");
+    ElMessage.success(t("ped.nameSaved"));
   } catch (e) {
     title.value = savedTitle.value;
     ElMessage.error(errMsg(e));
@@ -204,7 +205,7 @@ async function saveSchedule(value) {
   try {
     const a = await api.put(`/pipelines/${id}`, { cron: value });
     cron.value = a.cron || "";
-    ElMessage.success(a.cron ? "调度已保存" : "已取消调度");
+    ElMessage.success(a.cron ? t("ped.scheduleSaved") : t("ped.scheduleCleared"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -212,7 +213,7 @@ async function saveSchedule(value) {
 
 function preview() {
   if (!selected.value) {
-    ElMessage.info("先选中画布上的节点");
+    ElMessage.info(t("ped.selectNodeFirst"));
     return;
   }
   previewRef.value?.run();
@@ -224,7 +225,7 @@ async function publish() {
     await api.applyChange("publish_pipeline", id);
     publishDialog.value = false;
     await load();
-    ElMessage.success("已发布");
+    ElMessage.success(t("ped.published"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -233,7 +234,7 @@ async function publish() {
 async function run() {
   try {
     const r = await api.post(`/pipelines/${id}/run`);
-    ElMessage.success(`已入队 job ${r.job_id}`);
+    ElMessage.success(`${t("ped.queuedJob")} ${r.job_id}`);
     pollJob(r.job_id);
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -261,7 +262,7 @@ async function saveCursor(row) {
     });
     cursors.cursors = r.cursors || {};
     row.cursor = r.cursors?.[row.node_id] || null;
-    ElMessage.success(`游标已更新：${row.node_id}`);
+    ElMessage.success(`${t("ped.cursorUpdated")}${row.node_id}`);
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -269,7 +270,7 @@ async function saveCursor(row) {
 
 async function startBackfill() {
   if (!backfillForm.start_cursor) {
-    ElMessage.warning("起始游标必填");
+    ElMessage.warning(t("ped.startCursorRequired"));
     return;
   }
   backfilling.value = true;
@@ -281,7 +282,7 @@ async function startBackfill() {
       max_batches: backfillForm.max_batches,
     });
     backfillOpen.value = false;
-    ElMessage.success(`回填已入队 job ${r.job_id}`);
+    ElMessage.success(`${t("ped.backfillQueued")} ${r.job_id}`);
     pollJob(r.job_id);
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -298,7 +299,7 @@ async function pollJob(jobId) {
       const j = jobs.find((x) => x.id === jobId);
       if (j && (j.status === "success" || j.status === "failed")) {
         ElMessage[j.status === "success" ? "success" : "error"](
-          `job ${jobId}: ${j.status}`);
+          `${t("ped.jobLabel")} ${jobId}: ${j.status}`);
         return;
       }
     } catch (e) {
@@ -312,7 +313,7 @@ async function toggle() {
     await api.applyChange(
       enabled.value ? "pause_pipeline" : "resume_pipeline", id);
     await load();
-    ElMessage.success("已更新");
+    ElMessage.success(t("ped.updated"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }

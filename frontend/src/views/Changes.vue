@@ -1,62 +1,76 @@
 <template>
   <div class="page">
     <div class="toolbar">
-      <el-select v-model="status" clearable placeholder="全部状态" style="width: 150px"
+      <el-select v-model="status" clearable
+                 :placeholder="t('changes.allStatus')" style="width: 150px"
                  @change="load">
-        <el-option value="proposed" label="待批准" />
-        <el-option value="applied" label="已执行" />
+        <el-option value="proposed" :label="t('changes.statusProposed')" />
+        <el-option value="applied" :label="t('changes.statusApplied')" />
       </el-select>
       <div class="spacer" />
-      <el-button @click="load" :loading="loading">刷新</el-button>
-      <el-button type="primary" @click="openCreate">发起变更</el-button>
+      <el-button @click="load" :loading="loading">
+        {{ t("changes.refresh") }}
+      </el-button>
+      <el-button type="primary" @click="openCreate">
+        {{ t("changes.create") }}
+      </el-button>
     </div>
 
     <el-card class="card" shadow="never">
       <el-table :data="rows" size="small" v-loading="loading">
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="action" label="动作" width="170">
+        <el-table-column prop="action" :label="t('changes.colAction')"
+                         width="170">
           <template #default="{ row }">{{ actionLabel(row.action) }}</template>
         </el-table-column>
-        <el-table-column prop="target" label="目标" width="100" />
-        <el-table-column prop="actor" label="发起人" width="130" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="target" :label="t('changes.colTarget')"
+                         width="100" />
+        <el-table-column prop="actor" :label="t('changes.colActor')"
+                         width="130" />
+        <el-table-column prop="status" :label="t('changes.colStatus')"
+                         width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 'applied' ? 'success' : 'warning'" size="small">
-              {{ row.status === "applied" ? "已执行" : "待批准" }}
+              {{ row.status === "applied"
+                ? t("changes.statusApplied") : t("changes.statusProposed") }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="时间" width="200" />
-        <el-table-column label="操作" width="260" fixed="right">
+        <el-table-column prop="created_at" :label="t('changes.colTime')"
+                         width="200" />
+        <el-table-column :label="t('changes.colActions')" width="260"
+                         fixed="right">
           <template #default="{ row }">
             <el-button link :disabled="row.status !== 'proposed'" @click="approve(row)">
-              批准
+              {{ t("changes.approve") }}
             </el-button>
             <el-button link :disabled="row.status !== 'proposed'" @click="apply(row)">
-              执行
+              {{ t("changes.apply") }}
             </el-button>
             <el-button link :disabled="row.status !== 'proposed'" @click="approveAndApply(row)">
-              批准并执行
+              {{ t("changes.approveAndApply") }}
             </el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !rows.length" description="还没有变更" />
+      <el-empty v-if="!loading && !rows.length"
+                :description="t('changes.empty')" />
     </el-card>
 
-    <el-dialog v-model="dialog" title="发起变更" width="560px">
+    <el-dialog v-model="dialog" :title="t('changes.dialogTitle')"
+               width="560px">
       <el-form label-width="90px">
-        <el-form-item label="动作" required>
+        <el-form-item :label="t('changes.action')" required>
           <el-select v-model="form.action" style="width: 100%" @change="onAction">
-            <el-option value="run_flow" label="运行流程" />
-            <el-option value="pause_flow" label="停用流程" />
-            <el-option value="resume_flow" label="启用流程" />
-            <el-option value="rollback_flow" label="回滚流程" />
-            <el-option value="publish_interface" label="发布接口" />
-            <el-option value="revoke_interface" label="下线接口" />
+            <el-option value="run_flow" :label="t('changes.actionRunFlow')" />
+            <el-option value="pause_flow" :label="t('changes.actionPauseFlow')" />
+            <el-option value="resume_flow" :label="t('changes.actionResumeFlow')" />
+            <el-option value="rollback_flow" :label="t('changes.actionRollbackFlow')" />
+            <el-option value="publish_interface" :label="t('changes.actionPublishInterface')" />
+            <el-option value="revoke_interface" :label="t('changes.actionRevokeInterface')" />
           </el-select>
         </el-form-item>
-        <el-form-item label="目标" required>
+        <el-form-item :label="t('changes.target')" required>
           <el-select v-if="isFlowAction" v-model="form.target" style="width: 100%" filterable>
             <el-option v-for="f in flows" :key="f.id" :value="f.id"
                        :label="`${f.name} (#${f.id})`" />
@@ -66,19 +80,22 @@
                        :label="`${i.name} (#${i.id})`" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="form.action === 'rollback_flow'" label="版本">
+        <el-form-item v-if="form.action === 'rollback_flow'"
+                      :label="t('changes.version')">
           <el-select v-model="form.version" style="width: 100%">
             <el-option v-for="v in versions" :key="v.version" :value="v.version"
-                       :label="`版本 ${v.version}`" />
+                       :label="tr('changes.versionLabel', { version: v.version })" />
           </el-select>
         </el-form-item>
-        <el-form-item label="备注">
+        <el-form-item :label="t('changes.note')">
           <el-input v-model="form.note" type="textarea" :rows="2" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialog = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="create">提交</el-button>
+        <el-button @click="dialog = false">{{ t("changes.cancel") }}</el-button>
+        <el-button type="primary" :loading="saving" @click="create">
+          {{ t("changes.submit") }}
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -88,6 +105,12 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
+
+function tr(key, vars = {}) {
+  return Object.entries(vars).reduce(
+    (s, [k, v]) => s.split(`{${k}}`).join(v ?? ""), t(key));
+}
 
 const rows = ref([]);
 const flows = ref([]);
@@ -108,9 +131,12 @@ const isFlowAction = computed(() =>
 
 function actionLabel(a) {
   return {
-    run_flow: "运行流程", pause_flow: "停用流程", resume_flow: "启用流程",
-    rollback_flow: "回滚流程", publish_interface: "发布接口",
-    revoke_interface: "下线接口",
+    run_flow: t("changes.actionRunFlow"),
+    pause_flow: t("changes.actionPauseFlow"),
+    resume_flow: t("changes.actionResumeFlow"),
+    rollback_flow: t("changes.actionRollbackFlow"),
+    publish_interface: t("changes.actionPublishInterface"),
+    revoke_interface: t("changes.actionRevokeInterface"),
   }[a] || a;
 }
 
@@ -147,7 +173,7 @@ async function onAction() {
 
 async function create() {
   if (!form.target) {
-    ElMessage.warning("请选择目标");
+    ElMessage.warning(t("changes.selectTarget"));
     return;
   }
   saving.value = true;
@@ -161,7 +187,7 @@ async function create() {
     });
     dialog.value = false;
     await load();
-    ElMessage.success("已提交");
+    ElMessage.success(t("changes.submitted"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -173,7 +199,7 @@ async function approve(row) {
   try {
     const a = await api.post(`/changes/${row.id}/approve`, {});
     tokens[row.id] = a.approval_token;
-    ElMessage.success("已批准，可执行");
+    ElMessage.success(t("changes.approvedCanApply"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -182,14 +208,14 @@ async function approve(row) {
 async function apply(row) {
   const token = tokens[row.id];
   if (!token) {
-    ElMessage.warning("请先批准该变更");
+    ElMessage.warning(t("changes.approveFirst"));
     return;
   }
   try {
     await api.post(`/changes/${row.id}/apply?approval_token=${encodeURIComponent(token)}`, {});
     delete tokens[row.id];
     await load();
-    ElMessage.success("已执行");
+    ElMessage.success(t("changes.appliedMsg"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -200,7 +226,7 @@ async function approveAndApply(row) {
     const a = await api.post(`/changes/${row.id}/approve`, {});
     await api.post(`/changes/${row.id}/apply?approval_token=${encodeURIComponent(a.approval_token)}`, {});
     await load();
-    ElMessage.success("已批准并执行");
+    ElMessage.success(t("changes.approvedAndApplied"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }

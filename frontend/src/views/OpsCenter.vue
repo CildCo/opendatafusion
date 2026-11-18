@@ -3,9 +3,9 @@
     <div class="toolbar">
       <el-tag size="small" effect="plain">{{ projectLabel }}</el-tag>
       <div class="spacer" />
-      <span class="updated">更新于 {{ updated || "-" }}</span>
-      <el-switch v-model="auto" active-text="自动刷新" size="small" />
-      <el-button size="small" :loading="loading" @click="load">刷新</el-button>
+      <span class="updated">{{ t("ops.updatedAt") }} {{ updated || "-" }}</span>
+      <el-switch v-model="auto" :active-text="t('ops.autoRefresh')" size="small" />
+      <el-button size="small" :loading="loading" @click="load">{{ t("ops.refresh") }}</el-button>
     </div>
 
     <div class="cards">
@@ -18,81 +18,84 @@
 
     <el-card shadow="never" class="panel">
       <el-tabs v-model="tab">
-        <el-tab-pane label="概览" name="overview">
-          <div class="section-title">最近失败任务</div>
+        <el-tab-pane :label="t('ops.tabOverview')" name="overview">
+          <div class="section-title">{{ t("ops.recentFailures") }}</div>
           <el-table :data="summary.recent_failures || []" size="small"
-                    empty-text="没有失败任务">
-            <el-table-column prop="id" label="任务" width="80" />
-            <el-table-column prop="target_name" label="对象" min-width="140" />
-            <el-table-column prop="target_type" label="类型" width="90" />
-            <el-table-column prop="attempts" label="尝试" width="70" />
-            <el-table-column prop="last_error" label="错误" min-width="260"
+                    :empty-text="t('ops.emptyFailures')">
+            <el-table-column prop="id" :label="t('ops.job')" width="80" />
+            <el-table-column prop="target_name" :label="t('ops.target')" min-width="140" />
+            <el-table-column prop="target_type" :label="t('ops.type')" width="90" />
+            <el-table-column prop="attempts" :label="t('ops.attempts')" width="70" />
+            <el-table-column prop="last_error" :label="t('ops.error')" min-width="260"
                              show-overflow-tooltip />
-            <el-table-column prop="finished_at" label="结束时间" width="180">
+            <el-table-column prop="finished_at" :label="t('ops.finishedAt')" width="180">
               <template #default="{ row }">{{ fmt(row.finished_at) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="90">
+            <el-table-column :label="t('ops.actions')" width="90">
               <template #default="{ row }">
                 <el-button v-if="canOperate" link type="primary"
                            @click="retry(row)">
-                  重试
+                  {{ t("ops.retry") }}
                 </el-button>
               </template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="任务" name="jobs">
+        <el-tab-pane :label="t('ops.tabJobs')" name="jobs">
           <div class="filters">
-            <el-select v-model="jobStatus" clearable placeholder="全部状态"
+            <el-select v-model="jobStatus" clearable
+                       :placeholder="t('ops.allStatuses')"
                        size="small" style="width: 140px" @change="loadJobs">
               <el-option v-for="s in statuses" :key="s" :value="s"
                          :label="s" />
             </el-select>
-            <el-button size="small" @click="loadJobs">查询</el-button>
+            <el-button size="small" @click="loadJobs">{{ t("ops.query") }}</el-button>
           </div>
-          <el-table :data="jobs" size="small" empty-text="没有任务">
-            <el-table-column prop="id" label="任务" width="80" />
-            <el-table-column prop="target_name" label="对象" min-width="160" />
-            <el-table-column prop="asset_type" label="资产类型" width="100" />
-            <el-table-column label="状态" width="100">
+          <el-table :data="jobs" size="small" :empty-text="t('ops.emptyJobs')">
+            <el-table-column prop="id" :label="t('ops.job')" width="80" />
+            <el-table-column prop="target_name" :label="t('ops.target')" min-width="160" />
+            <el-table-column prop="asset_type" :label="t('ops.assetType')" width="100" />
+            <el-table-column :label="t('ops.status')" width="100">
               <template #default="{ row }">
                 <el-tag size="small" :type="jobTone(row.status)">
                   {{ row.status }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="尝试" width="90">
+            <el-table-column :label="t('ops.attempts')" width="90">
               <template #default="{ row }">
                 {{ row.attempts }}/{{ row.max_attempts }}
               </template>
             </el-table-column>
-            <el-table-column prop="last_error" label="错误" min-width="220"
+            <el-table-column prop="last_error" :label="t('ops.error')" min-width="220"
                              show-overflow-tooltip />
-            <el-table-column prop="run_at" label="计划时间" width="180">
+            <el-table-column prop="run_at" :label="t('ops.scheduledAt')" width="180">
               <template #default="{ row }">{{ fmt(row.run_at) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="90">
+            <el-table-column :label="t('ops.actions')" width="90">
               <template #default="{ row }">
                 <el-button v-if="canOperate && row.status === 'failed'"
                            link type="primary" @click="retry(row)">
-                  重试
+                  {{ t("ops.retry") }}
                 </el-button>
               </template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="告警" name="alerts">
+        <el-tab-pane :label="t('ops.tabAlerts')" name="alerts">
           <div class="filters">
-            <el-select v-model="alertStatus" clearable placeholder="全部状态"
+            <el-select v-model="alertStatus" clearable
+                       :placeholder="t('ops.allStatuses')"
                        size="small" style="width: 130px"
                        @change="loadAlerts">
               <el-option value="open" label="open" />
               <el-option value="acked" label="acked" />
               <el-option value="closed" label="closed" />
             </el-select>
-            <el-select v-model="alertSeverity" clearable placeholder="全部级别"
+            <el-select v-model="alertSeverity" clearable
+                       :placeholder="t('ops.allSeverities')"
                        size="small" style="width: 130px"
                        @change="loadAlerts">
               <el-option value="critical" label="critical" />
@@ -100,92 +103,92 @@
               <el-option value="info" label="info" />
             </el-select>
           </div>
-          <el-table :data="alerts" size="small" empty-text="没有告警">
+          <el-table :data="alerts" size="small" :empty-text="t('ops.emptyAlerts')">
             <el-table-column prop="id" label="ID" width="70" />
-            <el-table-column label="级别" width="100">
+            <el-table-column :label="t('ops.severity')" width="100">
               <template #default="{ row }">
                 <el-tag size="small" :type="severityTone(row.severity)">
                   {{ row.severity }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="title" label="标题" min-width="240" />
-            <el-table-column prop="status" label="状态" width="90" />
-            <el-table-column prop="created_at" label="产生时间" width="180">
+            <el-table-column prop="title" :label="t('ops.title')" min-width="240" />
+            <el-table-column prop="status" :label="t('ops.status')" width="90" />
+            <el-table-column prop="created_at" :label="t('ops.createdAt')" width="180">
               <template #default="{ row }">{{ fmt(row.created_at) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="130">
+            <el-table-column :label="t('ops.actions')" width="130">
               <template #default="{ row }">
                 <el-button v-if="canOperate && row.status === 'open'" link
-                           @click="ack(row)">确认</el-button>
+                           @click="ack(row)">{{ t("ops.ack") }}</el-button>
                 <el-button v-if="canOperate && row.status !== 'closed'" link
-                           type="danger" @click="close(row)">关闭</el-button>
+                           type="danger" @click="close(row)">{{ t("ops.close") }}</el-button>
               </template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="健康" name="health">
+        <el-tab-pane :label="t('ops.tabHealth')" name="health">
           <div class="filters">
             <el-tag v-for="(v, k) in health.counts" :key="k" size="small"
                     :type="healthTone(k)">
               {{ k }} {{ v }}
             </el-tag>
-            <el-button size="small" @click="loadHealth">刷新</el-button>
+            <el-button size="small" @click="loadHealth">{{ t("ops.refresh") }}</el-button>
           </div>
-          <div class="section-title">流程健康</div>
+          <div class="section-title">{{ t("ops.flowHealth") }}</div>
           <el-table :data="health.flows || []" size="small"
-                    empty-text="没有流程">
-            <el-table-column prop="name" label="流程" min-width="180" />
-            <el-table-column label="状态" width="100">
+                    :empty-text="t('ops.emptyFlows')">
+            <el-table-column prop="name" :label="t('ops.flow')" min-width="180" />
+            <el-table-column :label="t('ops.status')" width="100">
               <template #default="{ row }">
                 <el-tag size="small" :type="healthTone(row.status)">
                   {{ row.status }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="延迟" width="110">
+            <el-table-column :label="t('ops.lag')" width="110">
               <template #default="{ row }">
                 {{ row.lag_s == null ? "-" : row.lag_s + "s" }}
               </template>
             </el-table-column>
-            <el-table-column prop="empty_rounds" label="空轮次" width="90" />
-            <el-table-column label="游标年龄" width="120">
+            <el-table-column prop="empty_rounds" :label="t('ops.emptyRounds')" width="90" />
+            <el-table-column :label="t('ops.cursorAge')" width="120">
               <template #default="{ row }">
                 {{ row.cursor_age_s == null ? "-" : row.cursor_age_s + "s" }}
               </template>
             </el-table-column>
           </el-table>
-          <div class="section-title" style="margin-top: 16px">最近健康事件</div>
+          <div class="section-title" style="margin-top: 16px">{{ t("ops.recentHealthEvents") }}</div>
           <el-table :data="health.events || []" size="small"
-                    empty-text="没有健康事件">
-            <el-table-column prop="flow_id" label="流程" width="90" />
-            <el-table-column prop="kind" label="类型" width="130" />
-            <el-table-column label="级别" width="100">
+                    :empty-text="t('ops.emptyHealthEvents')">
+            <el-table-column prop="flow_id" :label="t('ops.flow')" width="90" />
+            <el-table-column prop="kind" :label="t('ops.type')" width="130" />
+            <el-table-column :label="t('ops.severity')" width="100">
               <template #default="{ row }">
                 <el-tag size="small" :type="severityTone(row.severity)">
                   {{ row.severity }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="at" label="时间" width="180">
+            <el-table-column prop="at" :label="t('ops.time')" width="180">
               <template #default="{ row }">{{ fmt(row.at) }}</template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="接口调用" name="api">
-          <el-table :data="apiStats" size="small" empty-text="暂无调用">
-            <el-table-column prop="api_name" label="接口" min-width="180" />
+        <el-tab-pane :label="t('ops.tabApi')" name="api">
+          <el-table :data="apiStats" size="small" :empty-text="t('ops.emptyApi')">
+            <el-table-column prop="api_name" :label="t('ops.api')" min-width="180" />
             <el-table-column prop="key" label="Key" min-width="200" />
             <el-table-column prop="ak" label="AK" min-width="160" />
-            <el-table-column prop="count" label="调用" width="80" />
-            <el-table-column prop="errors" label="错误" width="80" />
-            <el-table-column prop="avg_ms" label="平均耗时" width="100" />
+            <el-table-column prop="count" :label="t('ops.calls')" width="80" />
+            <el-table-column prop="errors" :label="t('ops.error')" width="80" />
+            <el-table-column prop="avg_ms" :label="t('ops.avgLatency')" width="100" />
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="时间线" name="timeline">
+        <el-tab-pane :label="t('ops.tabTimeline')" name="timeline">
           <el-timeline v-if="timeline.length">
             <el-timeline-item v-for="(x, i) in timeline" :key="i"
                               :timestamp="fmt(x.at)"
@@ -195,31 +198,34 @@
               <span class="target">{{ x.target }}</span>
             </el-timeline-item>
           </el-timeline>
-          <el-empty v-else description="没有运维事件" />
+          <el-empty v-else :description="t('ops.emptyTimeline')" />
         </el-tab-pane>
 
-        <el-tab-pane v-if="isAdmin" label="审计" name="audit">
+        <el-tab-pane v-if="isAdmin" :label="t('ops.tabAudit')" name="audit">
           <div class="filters">
-            <el-input v-model="auditActor" size="small" placeholder="操作人"
+            <el-input v-model="auditActor" size="small"
+                      :placeholder="t('ops.actor')"
                       clearable style="width: 140px" />
-            <el-input v-model="auditAction" size="small" placeholder="动作"
+            <el-input v-model="auditAction" size="small"
+                      :placeholder="t('ops.action')"
                       clearable style="width: 160px" />
-            <el-input v-model="auditQ" size="small" placeholder="关键字"
+            <el-input v-model="auditQ" size="small"
+                      :placeholder="t('ops.keyword')"
                       clearable style="width: 180px" />
-            <el-button size="small" @click="loadAudit">查询</el-button>
+            <el-button size="small" @click="loadAudit">{{ t("ops.query") }}</el-button>
           </div>
-          <el-table :data="audit" size="small" empty-text="没有审计记录">
+          <el-table :data="audit" size="small" :empty-text="t('ops.emptyAudit')">
             <el-table-column prop="id" label="ID" width="80" />
-            <el-table-column prop="actor" label="操作人" width="120" />
-            <el-table-column prop="action" label="动作" width="170" />
-            <el-table-column prop="target" label="对象" width="120" />
-            <el-table-column prop="detail" label="详情" min-width="260"
+            <el-table-column prop="actor" :label="t('ops.actor')" width="120" />
+            <el-table-column prop="action" :label="t('ops.action')" width="170" />
+            <el-table-column prop="target" :label="t('ops.target')" width="120" />
+            <el-table-column prop="detail" :label="t('ops.detail')" min-width="260"
                              show-overflow-tooltip>
               <template #default="{ row }">
                 {{ JSON.stringify(row.detail) }}
               </template>
             </el-table-column>
-            <el-table-column prop="at" label="时间" width="180">
+            <el-table-column prop="at" :label="t('ops.time')" width="180">
               <template #default="{ row }">{{ fmt(row.at) }}</template>
             </el-table-column>
           </el-table>
@@ -233,11 +239,12 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getRole } from "../api";
+import { t } from "../i18n";
 
 const role = getRole() || "viewer";
 const isAdmin = role === "admin";
 const canOperate = ["editor", "approver", "admin"].includes(role);
-const projectLabel = "项目 1";
+const projectLabel = computed(() => t("ops.projectLabel"));
 const tab = ref("overview");
 const summary = ref({});
 const jobs = ref([]);
@@ -265,12 +272,12 @@ const cards = computed(() => {
   const assets = summary.value.assets || {};
   const unhealthy = (h.critical || 0) + (h.warning || 0);
   return [
-    { label: "排队任务", value: j.queued || 0, tone: "blue" },
-    { label: "运行中", value: j.running || 0, tone: "blue" },
-    { label: "失败任务", value: j.failed || 0, tone: "red" },
-    { label: "未处理告警", value: a.open || 0, tone: "amber" },
-    { label: "异常流程", value: unhealthy, tone: "amber" },
-    { label: "资产总数",
+    { label: t("ops.cardQueued"), value: j.queued || 0, tone: "blue" },
+    { label: t("ops.cardRunning"), value: j.running || 0, tone: "blue" },
+    { label: t("ops.cardFailed"), value: j.failed || 0, tone: "red" },
+    { label: t("ops.cardOpenAlerts"), value: a.open || 0, tone: "amber" },
+    { label: t("ops.cardUnhealthy"), value: unhealthy, tone: "amber" },
+    { label: t("ops.cardAssets"),
       value: Object.values(assets).reduce((x, y) => x + y, 0), tone: "" },
   ];
 });
@@ -346,9 +353,12 @@ async function load() {
 async function retry(row) {
   try {
     await ElMessageBox.confirm(
-      `重新执行任务 #${row.id}（${row.target_name || "-"}）？`, "重试确认");
+      t("ops.retryConfirm")
+        .replace("{id}", row.id)
+        .replace("{name}", row.target_name || "-"),
+      t("ops.retryTitle"));
     await api.post(`/ops/jobs/${row.id}/retry`);
-    ElMessage.success("已重新排队");
+    ElMessage.success(t("ops.requeued"));
     await load();
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));
@@ -358,7 +368,7 @@ async function retry(row) {
 async function ack(row) {
   try {
     await api.post(`/ops/alerts/${row.id}/ack`);
-    ElMessage.success("已确认");
+    ElMessage.success(t("ops.acked"));
     await load();
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -367,9 +377,10 @@ async function ack(row) {
 
 async function close(row) {
   try {
-    await ElMessageBox.confirm(`关闭告警「${row.title}」？`, "关闭确认");
+    await ElMessageBox.confirm(
+      t("ops.closeConfirm").replace("{title}", row.title), t("ops.closeTitle"));
     await api.post(`/ops/alerts/${row.id}/close`);
-    ElMessage.success("已关闭");
+    ElMessage.success(t("ops.closed"));
     await load();
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));
@@ -383,8 +394,8 @@ watch(auto, (on) => {
   }
   if (on) timer = setInterval(load, 30000);
 });
-watch(tab, (t) => {
-  if (t === "audit") loadAudit();
+watch(tab, (name) => {
+  if (name === "audit") loadAudit();
 });
 
 onMounted(load);

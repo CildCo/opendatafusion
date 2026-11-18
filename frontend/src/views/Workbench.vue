@@ -1,43 +1,43 @@
 <template>
   <div class="wb-page">
     <div class="head">
-      <el-tag size="small" type="info">只读</el-tag>
+      <el-tag size="small" type="info">{{ t("wb.readonly") }}</el-tag>
       <div class="spacer" />
-      <el-button size="small" @click="loadDatasources">刷新数据源</el-button>
+      <el-button size="small" @click="loadDatasources">{{ t("wb.refreshSources") }}</el-button>
     </div>
 
     <el-tabs v-model="tab" class="panel">
-      <el-tab-pane label="单源查询" name="single">
+      <el-tab-pane :label="t('wb.single')" name="single">
         <div class="toolbar">
-          <el-select v-model="datasourceId" placeholder="选择数据源"
+          <el-select v-model="datasourceId" :placeholder="t('wb.selectSource')"
                      size="small" style="width: 220px">
             <el-option v-for="d in datasources" :key="d.id" :value="d.id"
                        :label="`${d.name} (${d.kind})`" />
           </el-select>
-          <span class="hint">行数上限</span>
+          <span class="hint">{{ t("wb.limit") }}</span>
           <el-input-number v-model="limit" :min="1" :max="10000"
                            size="small" :controls="false"
                            style="width: 90px" />
           <div class="spacer" />
           <el-button type="primary" size="small" :loading="loading"
-                     @click="runSingle">执行</el-button>
+                     @click="runSingle">{{ t("wb.run") }}</el-button>
         </div>
         <SqlEditor v-model="singleSql" />
       </el-tab-pane>
 
-      <el-tab-pane label="跨源查询" name="federated">
+      <el-tab-pane :label="t('wb.federated')" name="federated">
         <div class="federation">
           <div v-for="(s, i) in sources" :key="i" class="source-row">
-            <el-input v-model="s.alias" size="small" placeholder="别名"
+            <el-input v-model="s.alias" size="small" :placeholder="t('wb.alias')"
                       style="width: 100px" />
             <el-select v-model="s.datasource_id" size="small"
-                       placeholder="数据源" style="width: 190px"
+                       :placeholder="t('wb.datasource')" style="width: 190px"
                        @change="loadTables(s.datasource_id)">
               <el-option v-for="d in datasources" :key="d.id" :value="d.id"
                          :label="d.name" />
             </el-select>
             <el-select v-model="s.table" size="small" filterable
-                       placeholder="表" style="width: 220px">
+                       :placeholder="t('wb.table')" style="width: 220px">
               <el-option v-for="t in tables[s.datasource_id] || []"
                          :key="(t.schema ? t.schema + '.' : '') + t.table"
                          :value="(t.schema ? t.schema + '.' : '') + t.table"
@@ -47,19 +47,19 @@
                        @click="removeSource(i)">×</el-button>
           </div>
           <el-button size="small" :disabled="sources.length >= 4"
-                     @click="addSource">+ 数据源</el-button>
+                     @click="addSource">+ {{ t("wb.addSource") }}</el-button>
           <span class="hint">
-            每个表会物化到 DuckDB，单源最多 2 万行；最多 4 个源。
+            {{ t("wb.fedHint") }}
           </span>
         </div>
         <div class="toolbar">
-          <span class="hint">行数上限</span>
+          <span class="hint">{{ t("wb.limit") }}</span>
           <el-input-number v-model="limit" :min="1" :max="10000"
                            size="small" :controls="false"
                            style="width: 90px" />
           <div class="spacer" />
           <el-button type="primary" size="small" :loading="loading"
-                     @click="runFederated">执行</el-button>
+                     @click="runFederated">{{ t("wb.run") }}</el-button>
         </div>
         <SqlEditor v-model="fedSql" />
       </el-tab-pane>
@@ -70,19 +70,19 @@
     </div>
     <div v-else-if="result" class="result">
       <div class="result-head">
-        <span>{{ result.row_count }} 行 · {{ result.ms }} ms</span>
+        <span>{{ result.row_count }} {{ t("wb.rows") }} · {{ result.ms }} ms</span>
         <el-tag v-if="result.truncated" size="small" type="warning">
-          已截断
+          {{ t("wb.truncated") }}
         </el-tag>
         <div class="spacer" />
-        <el-button size="small" @click="exportCsv">导出 CSV</el-button>
+        <el-button size="small" @click="exportCsv">{{ t("wb.exportCsv") }}</el-button>
       </div>
       <el-table :data="result.rows" size="small" height="380" border>
         <el-table-column v-for="c in result.columns" :key="c" :prop="c"
                          :label="c" min-width="130" show-overflow-tooltip />
       </el-table>
     </div>
-    <el-empty v-else description="执行一条查询查看结果" />
+    <el-empty v-else :description="t('wb.empty')" />
   </div>
 </template>
 
@@ -90,6 +90,7 @@
 import { onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { api, errMsg } from "../api";
+import { t } from "../i18n";
 import SqlEditor from "../studio/api/SqlEditor.vue";
 
 const tab = ref("single");
@@ -137,7 +138,7 @@ function removeSource(i) {
 
 async function runSingle() {
   if (!datasourceId.value) {
-    ElMessage.error("请选择数据源");
+    ElMessage.error(t("wb.chooseSource"));
     return;
   }
   await run("/workbench/query", {
@@ -150,7 +151,7 @@ async function runSingle() {
 async function runFederated() {
   if (sources.value.some((s) => !s.datasource_id || !s.table ||
                                  !s.alias)) {
-    ElMessage.error("请完整填写每个数据源的别名、数据源和表");
+    ElMessage.error(t("wb.fillSources"));
     return;
   }
   await run("/workbench/federated", {
