@@ -257,6 +257,7 @@ if [ "${ENABLE_EXTERNAL_SECRETS:-false}" = "true" ]; then
 fi
 
 say "ingress"
+apply_tpl "$TEMPLATES/79-certificates.yaml"
 apply_tpl "$TEMPLATES/80-ingress.yaml"
 
 say "monitoring"

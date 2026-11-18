@@ -1,0 +1,8 @@
+# Ingress TLS. A self-signed issuer keeps the data plane usable without a
+# public DNS name; swap the issuer for an ACME one when one is available.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: odf-selfsigned
+spec:
+  selfSigned: {}

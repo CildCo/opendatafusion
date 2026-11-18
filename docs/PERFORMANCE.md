@@ -192,3 +192,31 @@ Reading these numbers:
 - Parquet file sizes sit in the 64-256 MB range that Trino reads well, so no
   compaction was needed for this dataset.
 - Query times are warm-cache. A cold run adds object-store round trips.
+
+### 30 GB run (2026-11-18)
+
+Same guest (16 vCPU, 31 GB RAM, single-node k3s, SeaweedFS local-path
+volumes) but with the durable Nessie on PostgreSQL. The ingest job was
+submitted through `POST /api/v1/engine/jobs` exactly as an operator would;
+queries ran with the same Spark-free Trino path used by the console.
+
+| Measurement | 100M rows | 350M rows (30 GB target) |
+| --- | --- | --- |
+| Table size | 8.50 GB across 65 files | 29.76 GB across 181 files |
+| Ingest | 810.9 s, 123,318 rows/s | 2,626.1 s, 133,276 rows/s |
+| `count(*)` | 0.14 s | 0.63 s |
+| Group by city | 1.70 s | 14.04 s |
+| Group by day | 2.49 s | 10.77 s |
+| Top 20 users | 7.12 s | 22.45 s |
+
+Notes:
+
+- Files are 140-190 MB each, still in the range Trino reads well; no
+  compaction was needed.
+- The SeaweedFS volume held 43 GB after the run (the target table plus the
+  previous, dropped table's files) against a 50 GiB PVC, so the 30 GB target
+  is the practical ceiling of the current single-node storage; a larger volume
+  server is required to go further.
+- Throughput is bounded by the single object store and three executors; it
+  rose only 8% from 100M to 350M rows because per-executor work dominates.
+  Aggregations scale close to linearly with scanned rows.

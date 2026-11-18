@@ -1,19 +1,18 @@
-# HTTP entry points. k3s ships Traefik, so these apply without an extra
-# controller. Uncomment the cert-manager annotation and the tls block once an
-# issuer exists in the cluster.
+# Entry points served by the k3s Traefik controller. Certificates come
+# from the self-signed ClusterIssuer in 79-certificates.yaml.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: trino
   namespace: trino
   annotations:
-    # cert-manager.io/cluster-issuer: letsencrypt-prod
-    traefik.ingress.kubernetes.io/router.entrypoints: web
+    cert-manager.io/cluster-issuer: odf-selfsigned
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 spec:
   ingressClassName: traefik
-  # tls:
-  #   - hosts: ["${TRINO_HOST}"]
-  #     secretName: trino-tls
+  tls:
+    - hosts: ["${TRINO_HOST}"]
+      secretName: trino-tls
   rules:
     - host: ${TRINO_HOST}
       http:
@@ -32,13 +31,13 @@ metadata:
   name: flink-sql-gateway
   namespace: stream
   annotations:
-    # cert-manager.io/cluster-issuer: letsencrypt-prod
-    traefik.ingress.kubernetes.io/router.entrypoints: web
+    cert-manager.io/cluster-issuer: odf-selfsigned
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 spec:
   ingressClassName: traefik
-  # tls:
-  #   - hosts: ["${FLINK_HOST}"]
-  #     secretName: flink-tls
+  tls:
+    - hosts: ["${FLINK_HOST}"]
+      secretName: flink-tls
   rules:
     - host: ${FLINK_HOST}
       http:
@@ -57,13 +56,13 @@ metadata:
   name: grafana
   namespace: monitoring
   annotations:
-    # cert-manager.io/cluster-issuer: letsencrypt-prod
-    traefik.ingress.kubernetes.io/router.entrypoints: web
+    cert-manager.io/cluster-issuer: odf-selfsigned
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 spec:
   ingressClassName: traefik
-  # tls:
-  #   - hosts: ["${GRAFANA_HOST}"]
-  #     secretName: grafana-tls
+  tls:
+    - hosts: ["${GRAFANA_HOST}"]
+      secretName: grafana-tls
   rules:
     - host: ${GRAFANA_HOST}
       http:

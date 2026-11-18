@@ -6,7 +6,7 @@ metadata:
   labels:
     app: nessie
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: nessie
@@ -65,3 +65,15 @@ spec:
     - name: http
       port: 19120
       targetPort: http
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nessie
+  namespace: catalog
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: nessie
