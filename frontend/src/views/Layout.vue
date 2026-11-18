@@ -228,17 +228,17 @@ async function loadProjects() {
     }
     projects.value = await api.get("/projects/mine");
   } catch (e) {
-    ElMessage.error(e.message || "项目加载失败");
+    ElMessage.error(e.message || t("layout.projectError"));
   }
 }
 
 async function switchProject(id) {
   try {
     await api.switchProject(id);
-    ElMessage.success("已切换项目");
+    ElMessage.success(t("layout.switched"));
     window.location.reload();
   } catch (e) {
-    ElMessage.error(e.message || "切换失败");
+    ElMessage.error(e.message || t("layout.switchError"));
   }
 }
 

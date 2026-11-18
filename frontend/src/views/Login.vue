@@ -45,11 +45,11 @@
           <el-form-item :label="t('login.password')">
             <el-input v-model="password" size="large" type="password"
                       show-password autocomplete="current-password"
-                      placeholder="输入密码" :prefix-icon="Lock"
+                      :placeholder="t('login.passwordPlaceholder')" :prefix-icon="Lock"
                       @keyup.enter="submit" />
           </el-form-item>
           <el-form-item :label="t('login.otp')">
-            <el-input v-model="otp" size="large" placeholder="可选"
+            <el-input v-model="otp" size="large" :placeholder="t('login.otpPlaceholder')"
                       autocomplete="one-time-code" :prefix-icon="Key" />
           </el-form-item>
           <el-form-item :label="t('login.project')">
@@ -59,7 +59,7 @@
           <el-button type="primary" size="large" class="submit"
                      :loading="loading" @click="submit">{{ t("login.submit") }}</el-button>
           <el-button v-if="oidcEnabled" size="large" class="oidc"
-                     @click="oidcLogin">使用企业账号登录 (OIDC)</el-button>
+                     @click="oidcLogin">{{ t("login.oidc") }}</el-button>
         </el-form>
 
         <el-alert v-if="error" :title="error" type="error" :closable="false"
@@ -92,7 +92,7 @@ const router = useRouter();
 
 async function submit() {
   if (!username.value || !password.value) {
-    error.value = "请输入用户名和密码";
+    error.value = t("login.missing");
     return;
   }
   loading.value = true;

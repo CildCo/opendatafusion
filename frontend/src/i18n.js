@@ -14,7 +14,16 @@ import apiEditor from "./locales/api_editor";
 
 const KEY = "odf_locale";
 
-export const locale = ref(localStorage.getItem(KEY) === "en" ? "en" : "zh");
+const stored = localStorage.getItem(KEY);
+const initial = stored === "en" || stored === "zh"
+  ? stored
+  : (typeof navigator !== "undefined" && navigator.language || "")
+    .toLowerCase().startsWith("en") ? "en" : "zh";
+
+export const locale = ref(initial);
+if (typeof document !== "undefined") {
+  document.documentElement.lang = initial === "en" ? "en" : "zh-CN";
+}
 
 const base = {
   zh: {
@@ -105,6 +114,23 @@ const base = {
     "common.language": "界面语言",
     "common.languageZh": "简体中文",
     "common.languageEn": "English",
+    "settings.scope": "按项目生效",
+    "settings.themeColor": "主题色",
+    "settings.welcomeTitle": "欢迎标题",
+    "settings.welcomePlaceholder": "例如：欢迎使用数据平台",
+    "settings.welcomeText": "欢迎说明",
+    "settings.hiddenMenus": "隐藏菜单",
+    "settings.menuPermissions": "菜单权限",
+    "settings.menuHint": "仅对非管理员生效；勾选为空表示不限制。隐藏菜单只影响界面，菜单权限会同时拦截后端接口。",
+    "settings.applyHint": "设置保存后立即应用到侧边栏品牌、主题色和菜单可见性。",
+    "settings.saved": "已保存，正在刷新",
+    "login.passwordPlaceholder": "输入密码",
+    "login.otpPlaceholder": "可选",
+    "login.oidc": "使用企业账号登录 (OIDC)",
+    "login.missing": "请输入用户名和密码",
+    "layout.projectError": "项目加载失败",
+    "layout.switched": "已切换项目",
+    "layout.switchError": "切换失败",
   },
   en: {
     "nav.workspace": "Workspace",
@@ -194,6 +220,23 @@ const base = {
     "common.language": "Interface language",
     "common.languageZh": "简体中文",
     "common.languageEn": "English",
+    "settings.scope": "Applies per project",
+    "settings.themeColor": "Theme colour",
+    "settings.welcomeTitle": "Welcome title",
+    "settings.welcomePlaceholder": "For example: welcome to the data platform",
+    "settings.welcomeText": "Welcome text",
+    "settings.hiddenMenus": "Hidden menus",
+    "settings.menuPermissions": "Menu permissions",
+    "settings.menuHint": "Applies to non-admins only; an empty selection means no restriction. Hiding a menu only affects the console; permissions also block the backend routes.",
+    "settings.applyHint": "Saving applies the brand, theme colour and menu visibility to the sidebar immediately.",
+    "settings.saved": "Saved, reloading",
+    "login.passwordPlaceholder": "Enter password",
+    "login.otpPlaceholder": "Optional",
+    "login.oidc": "Sign in with a corporate account (OIDC)",
+    "login.missing": "Enter a username and password",
+    "layout.projectError": "Could not load projects",
+    "layout.switched": "Project switched",
+    "layout.switchError": "Could not switch project",
   },
 };
 
