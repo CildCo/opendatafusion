@@ -91,3 +91,29 @@ def interface_history(session, project_id, interface_id, limit=50):
     return [{"id": r.id, "actor": r.actor, "action": r.action,
              "at": r.at.isoformat(), "detail": r.detail_json or {}}
             for r in rows]
+
+
+def interface_stats(session, project_id, interface_id, days=30):
+    from collections import defaultdict
+    from datetime import datetime, timedelta, timezone
+    iface = session.get(Interface, interface_id)
+    if not iface or iface.project_id != project_id:
+        return None
+    days = max(1, min(int(days or 30), 365))
+    since = (datetime.now(timezone.utc) - timedelta(days=days - 1)).date()
+    rows = (session.query(AuditLog)
+            .filter_by(action="query", target=iface.interface_key)
+            .order_by(AuditLog.id.desc()).all())
+    by_day = defaultdict(lambda: {"calls": 0, "rows": 0})
+    total = {"calls": 0, "rows": 0}
+    for row in rows:
+        day = row.at.date()
+        if day < since:
+            continue
+        count = int((row.detail_json or {}).get("rows") or 0)
+        for target in (by_day[day.isoformat()], total):
+            target["calls"] += 1
+            target["rows"] += count
+    return {"since": since.isoformat(),
+            "days": [dict(v, day=k) for k, v in sorted(by_day.items())],
+            "total": total}

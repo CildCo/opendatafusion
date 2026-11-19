@@ -114,7 +114,8 @@
           <el-input v-model="ruleForm.name" />
         </el-form-item>
         <el-form-item :label="t('alerts.ruleKind')" required>
-          <el-input v-model="ruleForm.kind" placeholder="flow_health" />
+          <el-input v-model="ruleForm.kind" placeholder="mute" />
+          <div class="rule-hint">{{ t("alerts.ruleHint") }}</div>
         </el-form-item>
         <el-form-item :label="t('alerts.ruleConfig')">
           <el-input v-model="ruleForm.config" type="textarea" :rows="4"
@@ -268,4 +269,5 @@ async function removeRule(row) {
   justify-content: space-between;
   align-items: center;
 }
+.rule-hint { color: #64748b; font-size: 12px; line-height: 1.5; }
 </style>

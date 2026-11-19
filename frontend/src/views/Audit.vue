@@ -5,8 +5,11 @@
                 style="width: 200px" />
       <el-input v-model="action" :placeholder="t('audit.filterAction')" clearable
                 style="width: 200px" />
+      <el-input v-model="q" :placeholder="t('audit.filterQ')" clearable
+                style="width: 220px" @keyup.enter="load" />
       <div class="spacer" />
-      <el-button @click="load" :loading="loading">{{ t("audit.refresh") }}</el-button>
+      <el-button @click="load" :loading="loading">{{ t("audit.query") }}</el-button>
+      <el-button @click="exportCsv">{{ t("audit.export") }}</el-button>
     </div>
 
     <el-card class="card" shadow="never">
@@ -50,13 +53,14 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
-import { api, errMsg } from "../api";
+import { api, errMsg, getToken } from "../api";
 import { fmtDate, t } from "../i18n";
 
 const rows = ref([]);
 const loading = ref(false);
 const actor = ref("");
 const action = ref("");
+const q = ref("");
 const page = ref(1);
 const pageSize = 20;
 const drawer = ref(false);
@@ -73,14 +77,44 @@ const paged = computed(() =>
   filtered.value.slice((page.value - 1) * pageSize, page.value * pageSize)
 );
 
+function params() {
+  const p = new URLSearchParams();
+  p.set("limit", "500");
+  if (actor.value) p.set("actor", actor.value);
+  if (action.value) p.set("action", action.value);
+  if (q.value) p.set("q", q.value);
+  return p;
+}
+
 async function load() {
   loading.value = true;
+  page.value = 1;
   try {
-    rows.value = await api.get("/audit?limit=500");
+    rows.value = await api.get("/audit?" + params().toString());
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
     loading.value = false;
+  }
+}
+
+async function exportCsv() {
+  try {
+    const p = params();
+    p.delete("limit");
+    p.set("limit", "5000");
+    const r = await fetch("/api/v1/audit/export?" + p.toString(), {
+      headers: { Authorization: "Bearer " + getToken() },
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "audit.csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (e) {
+    ElMessage.error(t("audit.exportFailed") + ": " + errMsg(e));
   }
 }
 function showDetail(row) {
