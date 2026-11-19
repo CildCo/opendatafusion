@@ -1,7 +1,17 @@
+import re
+import time
+
 from sqlalchemy import func
 
-from odf.models import (Column, Dataset, DatasetTag, Datasource, Flow,
-                        FlowVersion, LineageEdge, Tag)
+from odf.models import (AuditLog, Column, Dataset, DatasetTag, Datasource,
+                        Flow, FlowVersion, LineageEdge, QualityResult,
+                        QualityRule, Tag)
+from odf.services.audit import write_audit
+from odf.services.masking import apply_masks
+from odf.services.query import execute_query
+from odf.services.sqldialect import limited
+
+_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
 
 
 def create_tag(session, project_id: int, name: str) -> Tag:
@@ -66,12 +76,39 @@ def list_datasets(session, project_id: int | None = None):
             for d in q.order_by(Dataset.id).all()]
 
 
-def dataset_detail(session, dataset_id: int, project_id: int | None = None):
+def _dataset_in_project(session, dataset_id: int,
+                        project_id: int | None = None):
     d = session.get(Dataset, dataset_id)
     if not d:
-        return None
+        return None, None
     ds = session.get(Datasource, d.datasource_id)
     if project_id is not None and (not ds or ds.project_id != project_id):
+        return None, None
+    return d, ds
+
+
+def _dataset_stats(session, dataset_id: int, column_count: int):
+    rules = (session.query(QualityRule)
+             .filter_by(dataset_id=dataset_id).all())
+    latest = None
+    if rules:
+        row = (session.query(QualityResult)
+               .filter(QualityResult.rule_id.in_([r.id for r in rules]))
+               .order_by(QualityResult.at.desc(),
+                         QualityResult.id.desc()).first())
+        if row:
+            latest = {"status": row.status, "at": row.at.isoformat()}
+    last_activity = (session.query(func.max(AuditLog.at))
+                     .filter(AuditLog.target == str(dataset_id)).scalar())
+    return {"column_count": column_count, "rule_count": len(rules),
+            "last_quality": latest,
+            "last_activity_at": (last_activity.isoformat()
+                                 if last_activity else None)}
+
+
+def dataset_detail(session, dataset_id: int, project_id: int | None = None):
+    d, ds = _dataset_in_project(session, dataset_id, project_id)
+    if not d:
         return None
     cols = (session.query(Column).filter_by(dataset_id=dataset_id)
             .order_by(Column.id).all())
@@ -79,9 +116,84 @@ def dataset_detail(session, dataset_id: int, project_id: int | None = None):
             .join(DatasetTag, DatasetTag.tag_id == Tag.id)
             .filter(DatasetTag.dataset_id == dataset_id).all())
     return {"id": d.id, "datasource_id": d.datasource_id,
+            "datasource_name": ds.name if ds else None,
+            "datasource_kind": ds.kind if ds else None,
+            "project_id": ds.project_id if ds else None,
             "schema": d.schema_name, "table": d.table_name,
             "columns": [{"name": c.name, "type": c.data_type} for c in cols],
-            "tags": [t.name for t in tags]}
+            "tags": [t.name for t in tags],
+            "stats": _dataset_stats(session, dataset_id, len(cols))}
+
+
+def _qualified(d: Dataset) -> str:
+    if not _IDENTIFIER.match(d.table_name or ""):
+        raise ValueError("preview is not available for this table name")
+    if d.schema_name:
+        if not _IDENTIFIER.match(d.schema_name):
+            raise ValueError("preview is not available for this schema name")
+        return "%s.%s" % (d.schema_name, d.table_name)
+    return d.table_name
+
+
+def dataset_sample(session, project_id: int, dataset_id: int, limit: int = 20,
+                   role: str | None = None, actor: str = ""):
+    d, ds = _dataset_in_project(session, dataset_id, project_id)
+    if not d:
+        raise ValueError("dataset not found")
+    try:
+        max_rows = max(1, min(int(limit or 20), 200))
+    except (TypeError, ValueError):
+        raise ValueError("limit must be a number")
+    sql = "SELECT * FROM %s" % _qualified(d)
+    started = time.time()
+    try:
+        result = execute_query(session, ds, limited(sql, ds.kind, max_rows + 1),
+                               None, max_rows + 1, read_only=True)
+    except ValueError as error:
+        raise ValueError(str(error))
+    rows = result["rows"]
+    truncated = len(rows) > max_rows
+    rows = rows[:max_rows]
+    cols = (session.query(Column).filter_by(dataset_id=dataset_id)
+            .order_by(Column.id).all())
+    content = {"query": {
+        "datasource_id": ds.id,
+        "table": "%s.%s" % (d.schema_name, d.table_name),
+        "select": [{"column": c.name} for c in cols],
+    }}
+    rows = apply_masks(session, content, rows, role)
+    elapsed = int((time.time() - started) * 1000)
+    write_audit(session, actor, "dataset_sample", str(d.id),
+                {"row_count": len(rows), "limit": max_rows})
+    return {"columns": result["columns"], "rows": rows,
+            "row_count": len(rows), "ms": elapsed, "truncated": truncated}
+
+
+_DATASET_ACTIONS = ("dataset_sample", "set_column_policy",
+                    "delete_column_policy", "create_row_policy",
+                    "delete_row_policy")
+
+
+def dataset_history(session, project_id: int, dataset_id: int,
+                    limit: int = 50):
+    d, _ = _dataset_in_project(session, dataset_id, project_id)
+    if not d:
+        raise ValueError("dataset not found")
+    try:
+        size = max(1, min(int(limit or 50), 200))
+    except (TypeError, ValueError):
+        raise ValueError("limit must be a number")
+    # Audit targets are plain ids shared by several object types, so the
+    # action list keeps another object's history out of this dataset's.
+    rows = (session.query(AuditLog)
+            .filter(AuditLog.target.in_([str(dataset_id),
+                                         "dataset:%d" % dataset_id]),
+                    AuditLog.action.in_(_DATASET_ACTIONS))
+            .order_by(AuditLog.at.desc(), AuditLog.id.desc())
+            .limit(size).all())
+    return [{"id": r.id, "actor": r.actor, "action": r.action,
+             "at": r.at.isoformat(), "detail": r.detail_json or {}}
+            for r in rows]
 
 
 def search_catalog(session, project_id: int, q: str, limit: int = 50):

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="page">
     <div class="toolbar">
       <el-input v-model="q" :placeholder="t('cat.searchPlaceholder')" clearable style="width: 240px"
@@ -48,47 +48,12 @@
           </div>
           <el-empty v-else :description="t('cat.noMatches')" :image-size="50" />
         </el-card>
-        <el-card v-if="detail.id" class="card" shadow="never">
-          <template #header>
-            <div class="card-head">
-              <span>{{ detail.schema }}.{{ detail.table }}</span>
-              <span>
-                <el-button v-if="isLakehouse" link
-                           @click="openProperties">{{ t("cat.tableProperties") }}</el-button>
-                <el-button link @click="tagDialog = true">{{ t("cat.tag") }}</el-button>
-              </span>
-            </div>
-          </template>
-          <div class="meta">
-            <el-tag v-for="t in detail.tags || []" :key="t" size="small"
-                    type="info" closable @close="detachTag(t)">{{ t }}</el-tag>
-            <span v-if="!(detail.tags || []).length" class="muted">{{ t("cat.noTags") }}</span>
-          </div>
-          <el-table :data="detail.columns || []" size="small" style="margin-top: 12px">
-            <el-table-column prop="name" :label="t('cat.columns')" />
-            <el-table-column prop="type" :label="t('cat.type')" />
-          </el-table>
-          <div v-if="impact.edges.length" class="impact">
-            <div class="muted" style="margin: 10px 0 6px">
-              {{ t("cat.impactDownstream").replace("{n}", impact.edges.length) }}
-            </div>
-            <div v-for="(e, i) in impact.edges" :key="'i' + i"
-                 class="col-edge">
-              <span>{{ e.from }}</span>
-              <el-icon><Right /></el-icon>
-              <span>{{ e.to }}</span>
-            </div>
-            <div v-if="impact.column_edges.length" class="muted"
-                 style="margin-top: 6px">
-              {{ t("cat.columnImpact").replace("{n}", impact.column_edges.length) }}
-            </div>
-          </div>
-        </el-card>
-        <el-card v-else class="card" shadow="never">
-          <el-empty :description="t('cat.selectHint')" />
+
+        <el-card class="card" shadow="never" style="margin-bottom: 16px">
+          <el-empty :description="t('cat.openDetailHint')" :image-size="80" />
         </el-card>
 
-        <el-card class="card" shadow="never" style="margin-top: 16px">
+        <el-card class="card" shadow="never">
           <template #header><b>{{ t("cat.lineage") }}</b></template>
           <div v-if="edges.length" class="lineage">
             <div v-for="(e, i) in edges" :key="i" class="edge">
@@ -110,64 +75,26 @@
         </el-card>
       </div>
     </div>
-
-    <el-dialog v-model="tagDialog" :title="t('cat.tag')" width="420px">
-      <el-input v-model="newTag" :placeholder="t('cat.newTagPlaceholder')" />
-      <template #footer>
-        <el-button @click="tagDialog = false">{{ t("cat.cancel") }}</el-button>
-        <el-button type="primary" @click="attachTag">{{ t("cat.save") }}</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="propsOpen" :title="t('cat.propsTitle')" width="600px">
-      <p class="muted" style="margin-top: 0">
-        {{ t("cat.propsHint") }}
-      </p>
-      <div v-for="(row, i) in props.rows" :key="i" class="prop-row">
-        <el-input v-model="row.key" placeholder="gc.enabled" size="small" />
-        <el-input v-model="row.value" placeholder="true" size="small" />
-        <el-button link type="danger" size="small"
-                   @click="props.rows.splice(i, 1)">{{ t("cat.delete") }}</el-button>
-      </div>
-      <el-button link @click="props.rows.push({ key: '', value: '' })">
-        + {{ t("cat.addProperty") }}
-      </el-button>
-      <template #footer>
-        <el-button @click="propsOpen = false">{{ t("cat.cancel") }}</el-button>
-        <el-button type="primary" :loading="props.saving"
-                   @click="saveProperties">{{ t("cat.submit") }}</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { Coin, Folder, Grid, Right, Search } from "@element-plus/icons-vue";
 import { api, errMsg, getProject } from "../api";
 import { t } from "../i18n";
 
+const router = useRouter();
 const datasources = ref([]);
 const datasets = ref([]);
 const edges = ref([]);
 const columnEdges = ref([]);
-const impact = reactive({ nodes: [], edges: [], column_edges: [] });
-const detail = ref({});
 const loading = ref(false);
 const q = ref("");
 const search = reactive({ tables: [], columns: [] });
 const treeRef = ref();
-const tagDialog = ref(false);
-const newTag = ref("");
-const allTags = ref([]);
-const propsOpen = ref(false);
-const props = reactive({ saving: false, rows: [{ key: "", value: "" }] });
-
-const isLakehouse = computed(() => {
-  const ds = datasources.value.find((d) => d.id === detail.value.datasource_id);
-  return ds && ds.kind === "trino";
-});
 
 const tree = computed(() => {
   const byDs = {};
@@ -215,30 +142,8 @@ watch(q, (v) => {
   }, 250);
 });
 
-async function openDataset(datasetId) {
-  try {
-    detail.value = await api.datasetDetail(datasetId);
-    await loadImpact(detail.value);
-  } catch (e) {
-    ElMessage.error(errMsg(e));
-  }
-}
-
-async function loadImpact(d) {
-  impact.nodes = [];
-  impact.edges = [];
-  impact.column_edges = [];
-  if (!d || !d.datasource_id || !d.table) return;
-  try {
-    const ref = `${d.datasource_id}:${d.table}`;
-    const r = await api.get(
-      `/catalog/impact?ref=${encodeURIComponent(ref)}`);
-    impact.nodes = r.nodes || [];
-    impact.edges = r.edges || [];
-    impact.column_edges = r.column_edges || [];
-  } catch {
-    /* impact is advisory */
-  }
+function openDataset(datasetId) {
+  router.push(`/catalog/${datasetId}`);
 }
 
 function filterNode(value, data) {
@@ -254,7 +159,6 @@ async function load() {
     const l = await api.get(`/catalog/lineage?project_id=${getProject() || 1}`);
     edges.value = l.edges;
     columnEdges.value = l.column_edges || [];
-    await loadTags();
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -262,78 +166,9 @@ async function load() {
   }
 }
 
-async function onNode(data) {
+function onNode(data) {
   if (data.type !== "table") return;
-  try {
-    detail.value = await api.datasetDetail(data.dataset.id);
-    await loadImpact(detail.value);
-  } catch (e) {
-    ElMessage.error(errMsg(e));
-  }
-}
-
-async function attachTag() {
-  if (!newTag.value) return;
-  try {
-    const createdTag = await api.post("/catalog/tags", { project_id: getProject() || 1, name: newTag.value });
-    await api.post("/catalog/tags/attach", { dataset_id: detail.value.id, tag_id: createdTag.id });
-    tagDialog.value = false;
-    newTag.value = "";
-    detail.value = await api.datasetDetail(detail.value.id);
-    await loadTags();
-    ElMessage.success(t("cat.tagged"));
-  } catch (e) {
-    ElMessage.error(errMsg(e));
-  }
-}
-
-async function loadTags() {
-  try {
-    allTags.value = await api.get("/catalog/tags");
-  } catch {
-    allTags.value = [];
-  }
-}
-
-async function detachTag(name) {
-  const tag = allTags.value.find((x) => x.name === name);
-  if (!tag) return;
-  try {
-    await api.post("/catalog/tags/detach",
-                   { dataset_id: detail.value.id, tag_id: tag.id });
-    detail.value = await api.datasetDetail(detail.value.id);
-    ElMessage.success(t("cat.tagRemoved"));
-  } catch (e) {
-    ElMessage.error(errMsg(e));
-  }
-}
-
-function openProperties() {
-  props.rows = [{ key: "gc.enabled", value: "true" }];
-  propsOpen.value = true;
-}
-
-async function saveProperties() {
-  const properties = Object.fromEntries(
-    props.rows.filter((r) => r.key.trim())
-      .map((r) => [r.key.trim(), r.value]));
-  if (!Object.keys(properties).length) {
-    ElMessage.warning(t("cat.propertiesRequired"));
-    return;
-  }
-  props.saving = true;
-  try {
-    const out = await api.post(
-      `/lakehouse/tables/${encodeURIComponent(detail.value.table)}/properties`,
-      { datasource_id: detail.value.datasource_id,
-        schema_name: detail.value.schema, properties });
-    propsOpen.value = false;
-    ElMessage.success(`${t("cat.propsSubmitted")} #${out.job_id}`);
-  } catch (e) {
-    ElMessage.error(errMsg(e));
-  } finally {
-    props.saving = false;
-  }
+  openDataset(data.dataset.id);
 }
 
 onMounted(load);
@@ -356,27 +191,11 @@ onMounted(load);
   gap: 6px;
   font-size: 13px;
 }
-.card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.meta {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
 .muted {
   color: #9ca3af;
   font-size: 12px;
 }
 .search-group { margin-bottom: 10px; }
-.prop-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 8px;
-}
 .hit { cursor: pointer; margin: 4px 6px 0 0; }
 .column-lineage { border-top: 1px dashed #e5e7eb; margin-top: 10px; }
 .col-edge {

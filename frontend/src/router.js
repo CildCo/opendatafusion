@@ -8,6 +8,7 @@ import Layout from "./views/Layout.vue";
 import Dashboard from "./views/Dashboard.vue";
 import Datasources from "./views/Datasources.vue";
 import Catalog from "./views/Catalog.vue";
+import CatalogDetail from "./views/CatalogDetail.vue";
 import PipelineList from "./views/PipelineList.vue";
 import PipelineEditor from "./views/PipelineEditor.vue";
 import ApiList from "./views/ApiList.vue";
@@ -51,6 +52,7 @@ const routes = [
       { path: "dashboard", component: Dashboard, meta: { title: "概览" } },
       { path: "datasources", component: Datasources, meta: { title: "数据源" } },
       { path: "catalog", component: Catalog, meta: { title: "数据目录" } },
+      { path: "catalog/:id", component: CatalogDetail, meta: { title: "数据目录" } },
       { path: "pipelines", component: PipelineList, meta: { title: "数据管道" } },
       { path: "pipelines/:id", component: PipelineEditor, meta: { title: "管道编辑" } },
       { path: "apis", component: ApiList, meta: { title: "数据接口" } },
