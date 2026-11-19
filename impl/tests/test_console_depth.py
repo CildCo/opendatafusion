@@ -189,3 +189,39 @@ def test_engine_jobs_route_resolves_submitter():
                             "Bearer " + create_token(9903, PROJECT_ID)})
     assert r.status_code == 200
     assert any(j["submitted_by"] == "engine-actor" for j in r.json())
+
+
+def test_proposed_change_can_be_withdrawn():
+    from odf.services.changes import propose, withdraw
+
+    _project()
+    with SessionLocal() as s:
+        change = propose(s, PROJECT_ID, "tester", "pause_flow", 1, {})
+        withdrawn = withdraw(s, change.id, "tester", PROJECT_ID)
+        assert withdrawn.status == "withdrawn"
+        with pytest.raises(ValueError):
+            withdraw(s, change.id, "tester", PROJECT_ID)
+
+
+def test_change_withdraw_route_is_project_scoped():
+    from fastapi.testclient import TestClient
+
+    from odf.main import app
+    from odf.services.auth import create_token
+    from odf.services.changes import propose
+
+    _project()
+    with SessionLocal() as s:
+        from odf.models import User
+        if not s.get(User, 9901):
+            s.add(User(id=9901, username="change-requester", password_hash="x",
+                       role="editor", active=True))
+            s.commit()
+        change = propose(s, PROJECT_ID, "9901", "pause_flow", 1, {})
+    client = TestClient(app)
+    own = {"Authorization": "Bearer " + create_token(9901, PROJECT_ID)}
+    ok = client.post(f"/api/v1/changes/{change.id}/withdraw", headers=own)
+    assert ok.status_code == 200
+    assert ok.json()["status"] == "withdrawn"
+    again = client.post(f"/api/v1/changes/{change.id}/withdraw", headers=own)
+    assert again.status_code == 400

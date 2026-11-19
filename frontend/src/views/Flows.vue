@@ -12,6 +12,8 @@
       <el-button type="primary" @click="openCreate">{{ t("flows.newFlow") }}</el-button>
     </div>
 
+    <p class="page-intro">{{ t("flows.intro") }}</p>
+
     <el-card class="card" shadow="never">
       <el-table :data="paged" size="small" v-loading="loading"
                 @row-click="openDetail" row-class-name="clickable">
@@ -36,7 +38,11 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" :description="t('flows.empty')" />
+      <el-empty v-if="!loading && !filtered.length" :description="t('flows.empty')">
+        <el-button type="primary" @click="openCreate">
+          {{ t("flows.newFlow") }}
+        </el-button>
+      </el-empty>
       <div class="pager">
         <el-pagination v-model:current-page="page" :page-size="pageSize"
                        :total="filtered.length" layout="total, prev, pager, next" small />
@@ -301,7 +307,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search, Right } from "@element-plus/icons-vue";
-import { api, errMsg } from "../api";
+import { api, errMsg, getProject } from "../api";
 import { fmtDate, t } from "../i18n";
 
 function tr(key, vars = {}) {
@@ -441,7 +447,7 @@ async function create() {
   saving.value = true;
   try {
     await api.post("/flows", {
-      project_id: 1,
+      project_id: getProject() || 1,
       name: form.name,
       cron: form.cronPreset === "custom" ? form.cron : form.cronPreset,
       dag: {

@@ -11,6 +11,8 @@
       <el-button :loading="loading" @click="load">{{ t("cdc.refresh") }}</el-button>
     </div>
 
+    <p class="page-intro">{{ t("cdc.intro") }}</p>
+
     <el-card class="card" shadow="never">
       <el-table :data="filtered" size="small" v-loading="loading"
                 @row-click="openDetail" row-class-name="clickable">
@@ -46,7 +48,11 @@
         </el-table-column>
       </el-table>
       <el-empty v-if="!loading && !filtered.length"
-                :description="t('cdc.empty')" />
+                :description="t('cdc.empty')">
+        <el-button type="primary" @click="openCreate">
+          {{ t("cdc.newSource") }}
+        </el-button>
+      </el-empty>
     </el-card>
 
     <el-dialog v-model="dialog" :title="t('cdc.newSource')" width="560px">

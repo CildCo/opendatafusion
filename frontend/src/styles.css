@@ -92,6 +92,12 @@ a {
   outline-offset: 2px;
 }
 
+.page-intro {
+  margin: 0 0 12px;
+  color: #64748b;
+  font-size: 13px;
+}
+
 .page {
   padding: 22px 26px 34px;
   min-height: 100%;
@@ -622,7 +628,7 @@ a {
   }
 }
 
-/* Page containers inherit the flat ledger grammar even where scoped
+/* Page containers inherit the flat ledger grammar even where legacy scoped
    styles still set a radius. */
 .card,
 .tree-card,
