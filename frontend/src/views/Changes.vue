@@ -6,6 +6,7 @@
                  @change="load">
         <el-option value="proposed" :label="t('changes.statusProposed')" />
         <el-option value="applied" :label="t('changes.statusApplied')" />
+        <el-option value="withdrawn" :label="t('changes.statusWithdrawn')" />
       </el-select>
       <div class="spacer" />
       <el-button @click="load" :loading="loading">
@@ -30,16 +31,15 @@
         <el-table-column prop="status" :label="t('changes.colStatus')"
                          width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'applied' ? 'success' : 'warning'" size="small">
-              {{ row.status === "applied"
-                ? t("changes.statusApplied") : t("changes.statusProposed") }}
+            <el-tag :type="statusType(row.status)" size="small">
+              {{ statusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column :label="t('changes.colTime')" width="200">
           <template #default="{ row }">{{ fmtDate(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column :label="t('changes.colActions')" width="260"
+        <el-table-column :label="t('changes.colActions')" width="320"
                          fixed="right">
           <template #default="{ row }">
             <el-button link :disabled="row.status !== 'proposed'" @click="approve(row)">
@@ -50,6 +50,10 @@
             </el-button>
             <el-button link :disabled="row.status !== 'proposed'" @click="approveAndApply(row)">
               {{ t("changes.approveAndApply") }}
+            </el-button>
+            <el-button link type="danger" :disabled="row.status !== 'proposed'"
+                       @click="withdraw(row)">
+              {{ t("changes.withdraw") }}
             </el-button>
           </template>
         </el-table-column>
@@ -104,7 +108,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getProject } from "../api";
 import { fmtDate, t } from "../i18n";
 
@@ -193,6 +197,31 @@ async function create() {
     ElMessage.error(errMsg(e));
   } finally {
     saving.value = false;
+  }
+}
+
+function statusType(s) {
+  return s === "applied" ? "success" : s === "withdrawn" ? "info" : "warning";
+}
+
+function statusLabel(s) {
+  return {
+    applied: t("changes.statusApplied"),
+    proposed: t("changes.statusProposed"),
+    withdrawn: t("changes.statusWithdrawn"),
+  }[s] || s;
+}
+
+async function withdraw(row) {
+  try {
+    await ElMessageBox.confirm(
+      t("changes.withdrawConfirm").replace("{action}", actionLabel(row.action)),
+      t("changes.withdrawTitle"), { type: "warning" });
+    await api.post(`/changes/${row.id}/withdraw`);
+    await load();
+    ElMessage.success(t("changes.withdrawnMsg"));
+  } catch (e) {
+    if (e !== "cancel") ElMessage.error(errMsg(e));
   }
 }
 

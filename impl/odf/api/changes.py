@@ -4,8 +4,10 @@ from sqlalchemy.orm import Session
 
 from odf.db import get_session
 from odf.services.approval import issue_token
-from odf.services.auth import require_approver, require_user
-from odf.services.changes import apply, list_changes, propose
+from odf.services.auth import (claims_role, require_approver,
+                               require_user)
+from odf.services.changes import (apply, list_changes, propose,
+                                  withdraw as withdraw_change)
 
 router = APIRouter()
 
@@ -34,6 +36,24 @@ def create(body: ChangeIn, s: Session = Depends(get_session),
     c = propose(s, body.project_id, claims["sub"], body.action,
                 body.target, body.payload)
     return {"id": c.id, "status": c.status}
+
+
+@router.post("/changes/{change_id}/withdraw")
+def withdraw(change_id: int, s: Session = Depends(get_session),
+             claims: dict = Depends(require_user)):
+    from odf.models import ChangeRequest
+    c = s.get(ChangeRequest, change_id)
+    if not c or c.project_id != claims["project_id"]:
+        raise HTTPException(404, "change not found")
+    role = claims_role(s, claims)
+    if c.actor != claims["sub"] and role not in ("approver", "admin"):
+        raise HTTPException(403, "only the requester or an approver may withdraw")
+    try:
+        out = withdraw_change(s, change_id, claims["sub"],
+                              claims["project_id"])
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    return {"id": out.id, "status": out.status}
 
 
 @router.post("/changes/{change_id}/approve")

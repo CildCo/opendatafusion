@@ -8,6 +8,8 @@
       <el-button type="primary" @click="openCreate">{{ t("quality.new") }}</el-button>
     </div>
 
+    <p class="page-intro">{{ t("quality.intro") }}</p>
+
     <el-card class="card" shadow="never">
       <el-table :data="filtered" size="small" v-loading="loading">
         <el-table-column prop="id" :label="t('quality.id')" width="70" />
@@ -49,7 +51,11 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" :description="t('quality.empty')" />
+      <el-empty v-if="!loading && !filtered.length" :description="t('quality.empty')">
+        <el-button type="primary" @click="openCreate">
+          {{ t("quality.new") }}
+        </el-button>
+      </el-empty>
     </el-card>
 
     <el-dialog v-model="dialog" :title="t('quality.createTitle')" width="560px">

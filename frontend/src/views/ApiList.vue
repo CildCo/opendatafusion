@@ -7,6 +7,8 @@
       <el-button @click="load" :loading="loading">{{ t("api.refresh") }}</el-button>
       <el-button type="primary" @click="create">{{ t("api.new") }}</el-button>
     </div>
+    <p class="page-intro">{{ t("api.intro") }}</p>
+
     <el-card shadow="never">
       <el-table :data="filtered" size="small" v-loading="loading">
         <el-table-column prop="name" :label="t('api.name')" min-width="160" />
@@ -34,7 +36,9 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" :description="t('api.empty')" />
+      <el-empty v-if="!loading && !filtered.length" :description="t('api.empty')">
+        <el-button type="primary" @click="create">{{ t("api.new") }}</el-button>
+      </el-empty>
     </el-card>
   </div>
 </template>

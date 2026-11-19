@@ -164,3 +164,17 @@ def apply(session, change_id: int, approval_token: str) -> ChangeRequest:
     c.applied_at = datetime.now(timezone.utc)
     session.commit()
     return c
+
+
+def withdraw(session, change_id: int, actor: str,
+             project_id: int | None = None) -> ChangeRequest:
+    c = session.get(ChangeRequest, change_id)
+    if not c or (project_id is not None and c.project_id != project_id):
+        raise ValueError("change not found")
+    if c.status != "proposed":
+        raise ValueError("only proposed changes can be withdrawn")
+    c.status = "withdrawn"
+    session.commit()
+    write_audit(session, actor, "withdraw_change", str(c.id),
+                {"action": c.action})
+    return c

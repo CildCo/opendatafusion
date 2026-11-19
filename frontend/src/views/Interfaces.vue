@@ -12,6 +12,8 @@
       <el-button type="primary" @click="openCreate">{{ t("iface.new") }}</el-button>
     </div>
 
+    <p class="page-intro">{{ t("iface.intro") }}</p>
+
     <el-card class="card" shadow="never">
       <el-table :data="paged" size="small" v-loading="loading">
         <el-table-column prop="id" label="ID" width="70" />
@@ -38,7 +40,11 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" :description="t('iface.empty')" />
+      <el-empty v-if="!loading && !filtered.length" :description="t('iface.empty')">
+        <el-button type="primary" @click="openCreate">
+          {{ t("iface.new") }}
+        </el-button>
+      </el-empty>
       <div class="pager">
         <el-pagination v-model:current-page="page" :page-size="pageSize"
                        :total="filtered.length" layout="total, prev, pager, next" small />

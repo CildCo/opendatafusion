@@ -5,6 +5,8 @@
       <el-button type="primary" @click="create">{{ t("pipe.newPipeline") }}</el-button>
     </div>
 
+    <p class="page-intro">{{ t("pipe.intro") }}</p>
+
     <el-card class="card" shadow="never">
       <el-table :data="rows" size="small" v-loading="loading"
                 row-class-name="clickable" @row-click="open">
@@ -26,7 +28,11 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !rows.length" :description="t('pipe.empty')" />
+      <el-empty v-if="!loading && !rows.length" :description="t('pipe.empty')">
+        <el-button type="primary" @click="create">
+          {{ t("pipe.newPipeline") }}
+        </el-button>
+      </el-empty>
     </el-card>
   </div>
 </template>
@@ -73,7 +79,7 @@ async function remove(row) {
 async function create() {
   try {
     const a = await api.post("/pipelines", {
-      name: "新建管道",
+      name: t("pipe.newDefaultName"),
       content: { nodes: [], edges: [], settings: { batch: 1000 } },
     });
     await load();
