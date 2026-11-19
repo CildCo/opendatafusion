@@ -80,6 +80,21 @@ export default {
     "flows.rollbackTitle": "回滚确认",
     "flows.rolledBack": "已回滚",
 
+    "flows.startedAt": "开始时间",
+    "flows.finishedAt": "结束时间",
+    "flows.duration": "耗时",
+    "flows.retry": "重试",
+    "flows.retried": "已重新排队",
+    "flows.runDetail": "运行详情",
+    "flows.downstream": "下游影响",
+    "flows.noDownstream": "暂无下游依赖",
+    "flows.compare": "对比当前",
+    "flows.compareTitle": "版本对比",
+    "flows.changedKeys": "变更字段",
+    "flows.noChanges": "两个版本配置一致",
+    "flows.config": "配置",
+    "flows.rowsPerSecond": "行/秒",
+
     // Engines
     "eng.allStatus": "全部状态",
     "eng.pending": "等待中",
@@ -263,6 +278,21 @@ export default {
     "flows.confirmRollback": "Roll back to version {version}?",
     "flows.rollbackTitle": "Confirm rollback",
     "flows.rolledBack": "Rolled back",
+
+    "flows.startedAt": "Started",
+    "flows.finishedAt": "Finished",
+    "flows.duration": "Duration",
+    "flows.retry": "Retry",
+    "flows.retried": "Queued again",
+    "flows.runDetail": "Run detail",
+    "flows.downstream": "Downstream impact",
+    "flows.noDownstream": "No downstream dependencies",
+    "flows.compare": "Compare with current",
+    "flows.compareTitle": "Version comparison",
+    "flows.changedKeys": "Changed keys",
+    "flows.noChanges": "Both versions have the same configuration",
+    "flows.config": "Configuration",
+    "flows.rowsPerSecond": "rows/s",
 
     // Engines
     "eng.allStatus": "All statuses",

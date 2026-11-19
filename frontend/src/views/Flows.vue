@@ -149,17 +149,19 @@
             <el-table-column prop="version" :label="t('flows.version')" width="80" />
             <el-table-column prop="created_by" :label="t('flows.createdBy')" width="140" />
             <el-table-column prop="created_at" :label="t('flows.time')" />
-            <el-table-column :label="t('flows.actions')" width="120">
+            <el-table-column :label="t('flows.actions')" width="180">
               <template #default="{ row }">
                 <el-button link :disabled="row.version === current.version"
                            @click="rollback(row)">{{ t("flows.rollback") }}</el-button>
+                <el-button link @click="compareVersion(row)">{{ t("flows.compare") }}</el-button>
               </template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
 
         <el-tab-pane :label="t('flows.runs')" name="runs">
-          <el-table :data="runs" size="small">
+          <el-table :data="runs" size="small" @row-click="openRun"
+                    row-class-name="clickable">
             <el-table-column prop="id" label="ID" width="70" />
             <el-table-column prop="status" :label="t('flows.status')" width="100">
               <template #default="{ row }">
@@ -168,11 +170,50 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="in" :label="t('flows.input')" width="90" />
-            <el-table-column prop="out" :label="t('flows.output')" width="90" />
-            <el-table-column prop="err" :label="t('flows.error')" width="80" />
-            <el-table-column prop="cursor" :label="t('flows.cursor')" />
+            <el-table-column :label="t('flows.startedAt')" width="150">
+              <template #default="{ row }">{{ fmt(row.started_at) }}</template>
+            </el-table-column>
+            <el-table-column :label="t('flows.duration')" width="100">
+              <template #default="{ row }">{{ duration(row) }}</template>
+            </el-table-column>
+            <el-table-column prop="in" :label="t('flows.input')" width="80" />
+            <el-table-column prop="out" :label="t('flows.output')" width="80" />
+            <el-table-column :label="t('flows.actions')" width="130">
+              <template #default="{ row }">
+                <el-button link @click.stop="openRun(row)">
+                  {{ t("flows.runDetail") }}
+                </el-button>
+                <el-button link type="primary"
+                           :disabled="current.status !== 1 || row.status < 2"
+                           @click.stop="retryRun(row)">
+                  {{ t("flows.retry") }}
+                </el-button>
+              </template>
+            </el-table-column>
           </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane :label="t('flows.downstream')" name="downstream">
+          <div v-if="downstream.edges.length" class="lineage">
+            <div v-for="(e, i) in downstream.edges" :key="i" class="edge">
+              <span class="node-tag">{{ e.from }}</span>
+              <el-icon><Right /></el-icon>
+              <span class="node-tag dst">{{ e.to }}</span>
+            </div>
+            <div v-if="downstream.column_edges.length" class="hint"
+                 style="margin-top: 10px">
+              {{ tr("cat.columnImpact", { n: downstream.column_edges.length }) }}
+            </div>
+          </div>
+          <el-empty v-else :description="t('flows.noDownstream')"
+                    :image-size="70" />
+          <div v-if="downstream.tables.length" style="margin-top: 12px">
+            <div class="hint">{{ t("cat.tables") }}</div>
+            <el-tag v-for="tb in downstream.tables" :key="tb" size="small"
+                    type="info" style="margin: 6px 6px 0 0">
+              {{ tb }}
+            </el-tag>
+          </div>
         </el-tab-pane>
 
         <el-tab-pane :label="t('flows.jobs')" name="jobs">
@@ -186,15 +227,87 @@
         </el-tab-pane>
       </el-tabs>
     </el-drawer>
+
+    <el-dialog v-model="runOpen" :title="t('flows.runDetail')" width="520px">
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="ID">{{ runRow.id }}</el-descriptions-item>
+        <el-descriptions-item :label="t('flows.status')">
+          <el-tag :type="runType(runRow.status)" size="small">
+            {{ runLabel(runRow.status) }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('flows.startedAt')">
+          {{ fmt(runRow.started_at) }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('flows.finishedAt')">
+          {{ fmt(runRow.finished_at) }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('flows.duration')">
+          {{ duration(runRow) }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('flows.rowsPerSecond')">
+          {{ rate(runRow) }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('flows.input')">
+          {{ runRow.in }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('flows.output')">
+          {{ runRow.out }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('flows.error')">
+          {{ runRow.err }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('flows.cursor')">
+          {{ runRow.cursor || "-" }}
+        </el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <el-button @click="runOpen = false">{{ t("flows.cancel") }}</el-button>
+        <el-button type="primary"
+                   :disabled="current.status !== 1 || runRow.status < 2"
+                   @click="retryRun(runRow)">{{ t("flows.retry") }}</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="compareOpen" :title="t('flows.compareTitle')"
+               width="720px">
+      <p class="hint" style="margin-top: 0">
+        v{{ compareVersionNo }} → v{{ current.version }}
+      </p>
+      <el-table :data="compareRows" size="small">
+        <el-table-column prop="key" :label="t('flows.changedKeys')"
+                         min-width="160" />
+        <el-table-column :label="'v' + compareVersionNo" min-width="180">
+          <template #default="{ row }">
+            <span class="mono">{{ row.left }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="'v' + current.version" min-width="180">
+          <template #default="{ row }">
+            <span class="mono">{{ row.right }}</span>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="!compareRows.length" :description="t('flows.noChanges')"
+                :image-size="60" />
+      <template #footer>
+        <el-button @click="compareOpen = false">{{ t("flows.cancel") }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Search } from "@element-plus/icons-vue";
+import { Search, Right } from "@element-plus/icons-vue";
 import { api, errMsg } from "../api";
-import { t } from "../i18n";
+import { locale, t } from "../i18n";
+
+function tr(key, vars = {}) {
+  return Object.entries(vars).reduce(
+    (s, [k, v]) => s.split(`{${k}}`).join(v ?? ""), t(key));
+}
 
 const rows = ref([]);
 const datasources = ref([]);
@@ -215,6 +328,12 @@ const q = ref("");
 const statusFilter = ref(null);
 const page = ref(1);
 const pageSize = 10;
+const runOpen = ref(false);
+const runRow = ref({});
+const downstream = reactive({ edges: [], column_edges: [], tables: [] });
+const compareOpen = ref(false);
+const compareVersionNo = ref(1);
+const compareRows = ref([]);
 let timer = null;
 
 const form = reactive({
@@ -243,6 +362,29 @@ function runLabel(s) {
     2: t("flows.runSuccess"), 3: t("flows.runFailed"),
     4: t("flows.runSkipped"),
   }[s] || s;
+}
+
+function fmt(value) {
+  if (!value) return "-";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value
+    : d.toLocaleString(locale.value === "en" ? "en-US" : "zh-CN");
+}
+
+function duration(row) {
+  const ms = row.duration_ms;
+  if (ms === null || ms === undefined) return "-";
+  return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
+}
+
+function rate(row) {
+  if (!row.duration_ms || row.duration_ms <= 0) return "-";
+  return Math.round((row.in || 0) / (row.duration_ms / 1000));
+}
+
+function openRun(row) {
+  runRow.value = row;
+  runOpen.value = true;
 }
 
 async function load() {
@@ -337,6 +479,7 @@ async function openDetail(row) {
     versions.value = await api.flowVersions(row.id);
     runs.value = await api.flowRuns(row.id);
     jobs.value = await api.get(`/flows/${row.id}/jobs`);
+    loadDownstream();
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -359,6 +502,71 @@ async function pollDetail() {
 
 async function refreshDetail() {
   if (current.value.id) await openDetail(current.value);
+}
+
+async function loadDownstream() {
+  downstream.edges = [];
+  downstream.column_edges = [];
+  downstream.tables = [];
+  const d = dag.value || {};
+  if (!d.sink_ds_id || !d.sink_table) return;
+  try {
+    const ref = `${d.sink_ds_id}:${d.sink_table}`;
+    const r = await api.get(
+      `/catalog/impact?ref=${encodeURIComponent(ref)}`);
+    downstream.edges = r.edges || [];
+    downstream.column_edges = r.column_edges || [];
+    downstream.tables = [...new Set((r.edges || []).map((e) => e.to))];
+  } catch {
+    /* impact is advisory */
+  }
+}
+
+function flatten(value, prefix = "", out = {}) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    for (const [k, v] of Object.entries(value)) {
+      flatten(v, prefix ? `${prefix}.${k}` : k, out);
+    }
+  } else {
+    out[prefix] = value;
+  }
+  return out;
+}
+
+function display(value) {
+  if (value === undefined) return "-";
+  if (value === null) return "null";
+  return typeof value === "object" ? JSON.stringify(value) : String(value);
+}
+
+async function compareVersion(row) {
+  try {
+    const v = await api.get(
+      `/flows/${current.value.id}/versions/${row.version}`);
+    compareVersionNo.value = row.version;
+    const left = flatten(v.dag || {});
+    const right = flatten(dag.value || {});
+    const keys = [...new Set([...Object.keys(left), ...Object.keys(right)])];
+    compareRows.value = keys
+      .filter((k) => JSON.stringify(left[k]) !== JSON.stringify(right[k]))
+      .map((k) => ({ key: k, left: display(left[k]),
+                     right: display(right[k]) }));
+    compareOpen.value = true;
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function retryRun(row) {
+  try {
+    await api.post(
+      `/flows/${current.value.id}/runs/${row.id}/retry`);
+    ElMessage.success(t("flows.retried"));
+    runOpen.value = false;
+    await pollDetail();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
 }
 
 async function run(row) {
@@ -423,6 +631,31 @@ onBeforeUnmount(() => timer && clearInterval(timer));
   margin-top: 16px;
   display: flex;
   gap: 10px;
+}
+.lineage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.edge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.node-tag {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+.node-tag.dst {
+  background: #ecfdf5;
+  color: #047857;
+}
+.mono {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
 }
 :deep(.clickable) {
   cursor: pointer;
