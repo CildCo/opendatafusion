@@ -4,6 +4,37 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-11-19
+
+### Added
+
+- Chinese and English console switch across every page and editor, with
+  first-visit browser detection; Element Plus follows the same choice, and
+  user guides are published in both languages.
+- A dataset detail page in the catalog with overview figures, a masked sample
+  preview, columns, quality rules, impact analysis and dataset activity.
+- Flow run timing and a run detail with retry, plus downstream impact and a
+  version comparison in the flow drawer.
+- API call statistics by day and access key on API assets; SQL interfaces show
+  the endpoint address and keep a call history.
+- CDC connector detail with task states and traces, and subscribed-table
+  editing from the console.
+- Quality rules show their last result and pass rate and link to the dataset;
+  alert rules are managed from the alert console; the operations console links
+  jobs and alerts to the objects they belong to.
+
+### Changed
+
+- The console loads each view on demand and splits large libraries into vendor
+  chunks, and dates follow the selected console language.
+
+### Fixed
+
+- SQL interfaces use the current project, and their call history no longer
+  mixes in publish actions.
+- The catalog detail and method console handle projects, history and preview
+  limits consistently.
+
 ## [1.1.0] - 2026-11-18
 
 ### Added
@@ -37,7 +68,7 @@ All notable changes are documented here. The format follows
 - Metadata resync updates datasets in place, so quality rules, tags and
   standard mappings survive a refresh.
 - Two-factor setup accepts an empty request body, and the dashboard counts
-  published interfaces instead of the retired legacy records.
+  published interfaces instead of retired interface records.
 - Engine profiles no longer return storage credentials, and gateway failures
   return a fixed message instead of an internal URL.
 - Workbench row limiting keeps the outer `ORDER BY`, which SQL Server and
