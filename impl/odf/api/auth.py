@@ -10,6 +10,7 @@ from odf.services.audit import write_audit
 from odf.services.users import create_user
 from odf.models import Project, ProjectMember
 from odf.services import ldap_auth, oidc
+from odf.services.messages import tr
 from odf.services.auth import create_token, require_user
 from odf.services.crypto import decrypt_secret, encrypt_secret
 from odf.services.passwords import validate_password
@@ -53,7 +54,8 @@ def _login_guard(s, username, request):
         host = "127.0.0.1"
     if not check_rate(s, "login:%s:%s" % (username, host),
                       get_settings().login_rate_per_min):
-        raise HTTPException(429, "too many login attempts")
+        raise HTTPException(429, tr(request.headers.get("accept-language"),
+                                    "auth.too_many_logins"))
 
 
 @router.post("/auth/login")
@@ -68,29 +70,34 @@ def login(body: LoginIn, request: Request,
         if name:
             u = s.query(User).filter_by(username=name).first()
             if u and not u.active:
-                raise HTTPException(401, "user is inactive")
+                raise HTTPException(401, tr(request.headers.get("accept-language"),
+                                        "auth.inactive"))
             if not u and get_settings().ldap_auto_provision:
                 u = create_user(s, name, __import__("secrets").token_urlsafe(24),
                                 role="viewer")
     if not u or not u.active:
         _login_guard(s, body.username, request)
-        raise HTTPException(401, "bad credentials")
+        raise HTTPException(401, tr(request.headers.get("accept-language"),
+                                    "auth.bad_credentials"))
     project = s.get(Project, body.project_id)
     if not project:
-        raise HTTPException(400, "project not found")
+        raise HTTPException(400, tr(request.headers.get("accept-language"),
+                                        "auth.project_not_found"))
     if u.role != "admin":
         member = (s.query(ProjectMember)
                   .filter_by(project_id=body.project_id, user_id=u.id)
                   .first())
         if not member:
-            raise HTTPException(403, "not a project member")
+            raise HTTPException(403, tr(request.headers.get("accept-language"),
+                                        "auth.not_member"))
     if u.totp_enabled:
         secret = decrypt_secret(u.totp_secret_encrypted or "")
         step = matching_step(secret, body.otp or "")
         if step is None or (u.totp_last_step is not None and
                             step <= u.totp_last_step):
             _login_guard(s, body.username, request)
-            raise HTTPException(401, "invalid or missing one-time code")
+            raise HTTPException(401, tr(request.headers.get("accept-language"),
+                                        "auth.bad_otp"))
         u.totp_last_step = step
         s.commit()
     write_audit(s, u.username, "login", str(u.id), {})
