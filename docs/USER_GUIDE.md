@@ -24,6 +24,7 @@ Tabs: overview, tasks, alerts, health, API calls, timeline and audit.
 - **Tasks**: retry a failed task or cancel a running one.
 - **Health**: flow lag, empty rounds and cursor age, plus recent health events.
 - **API calls**: calls, errors and average latency per interface and access key.
+- Rows in tasks and recent failures link to the related object; the alerts tab links to the alert page.
 - **Timeline**: alerts and health events in time order.
 - **Audit**: the same records as the Audit page.
 
@@ -47,8 +48,12 @@ Tabs: overview, tasks, alerts, health, API calls, timeline and audit.
 
 ## 5. Catalog
 
-The tree groups source → schema → table. Selecting a table shows columns, tags and lineage/impact.
+The tree groups source → schema → table. Selecting a table opens its dataset page.
 
+- **Overview** shows the source, schema, table, column and rule counts, the last quality check, the last activity and the tags.
+- **Data preview** reads the first 20, 50 or 100 rows from the source and applies column masking policies.
+- **Columns** lists the field names and types; **Quality rules** lists the rules defined for the dataset and links to the quality page.
+- **Dependencies and impact** shows downstream and column-level lineage; **Activity** records dataset-scoped actions.
 - **Add tag** saves a new tag; the close button on a tag removes it.
 - **Table properties** (Trino tables) submits a Spark job that sets Iceberg properties such as `gc.enabled=true`; follow it under Engines.
 - **Search** matches table and column names and links to the dataset.
@@ -86,11 +91,16 @@ Node palette: source, filter, select columns, rename, cast, join, aggregate, uni
 - **New CDC source**: name, database host, port, database, user, password, schema, tables and topic prefix.
 - **Pause/Resume** toggles the connector.
 - **Refresh status** reads the connector state from Debezium.
+- **Details** opens the connector state, the task states with error traces, and the subscribed tables, which can be edited and saved.
 - **Delete** removes the record and the connector.
 
 ## 11. Integration
 
-The flow list shows schedule, version and status. Run executes a flow immediately; the detail drawer exposes overview, versions, run history and the job queue.
+The flow list shows schedule, version and status. Run executes a flow immediately; the detail drawer exposes overview, versions, run history, downstream impact and the job queue.
+
+- **Run history** shows start, finish and duration; open a run for throughput and the cursor, and use Retry to queue the flow again.
+- **Versions** can be compared with the current configuration, listing changed keys.
+- **Downstream impact** follows the lineage of the sink table.
 
 ## 12. Data models
 
@@ -124,6 +134,7 @@ Build pages with text, metric cards, tables and forms.
 - Validate, Preview and Test run the configuration against real data.
 - **Docs** shows the path, AK/SK + projectKey authentication and curl/Python examples.
 - Publish serves the interface through the open API; take it offline to revoke.
+- The detail panel shows the endpoint address with a copy button, SQL, parameters and a call history with caller, time and returned rows.
 - The list page can delete an interface.
 
 ## 16. Access control
@@ -141,9 +152,13 @@ Create a subscription with name, callback URL, events (blank means all) and sign
 
 Create rules by dataset, kind (not null, unique, range, freshness, schema and more), column and configuration. Run a rule and inspect Results; deleting a rule deletes its results.
 
+The list shows the last result and the pass rate over recent runs. Results summarises that trend and links to the dataset page.
+
 ## 19. Alerts
 
 Filter by status and severity. Acknowledge records that the alert was seen; Close removes it from the open list. Alerts come from engine failures, flow health and similar events.
+
+**Alert rules** below the list creates and deletes rules by name, kind and optional JSON configuration. **Subscriptions** opens webhook event subscriptions.
 
 ## 20. Changes
 
