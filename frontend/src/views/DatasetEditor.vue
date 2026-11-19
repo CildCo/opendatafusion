@@ -1,7 +1,7 @@
 <template>
   <div class="model-page">
     <div class="head">
-      <el-button link @click="$router.push('/datasets')">←</el-button>
+      <el-button link @click="$router.push('/datasets')":aria-label="t('common.back')">←</el-button>
       <el-input v-model="name" size="small" style="width: 240px"
                 @change="rename" />
       <el-tag size="small" :type="published ? 'success' : 'info'">

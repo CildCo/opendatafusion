@@ -359,7 +359,7 @@ onMounted(async () => {
 
 .nav-item .el-icon {
   font-size: 14px;
-  color: #9ca3af;
+  color: #64748b;
 }
 
 .nav-item:hover {
@@ -490,7 +490,7 @@ onMounted(async () => {
 }
 
 .search-entry:hover {
-  border-color: #9ca3af;
+  border-color: #64748b;
   color: var(--odf-ink);
 }
 

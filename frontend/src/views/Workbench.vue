@@ -44,7 +44,7 @@
                          :label="(t.schema ? t.schema + '.' : '') + t.table" />
             </el-select>
             <el-button link type="danger" size="small"
-                       @click="removeSource(i)">×</el-button>
+                       @click="removeSource(i)":aria-label="t('common.remove')">×</el-button>
           </div>
           <el-button size="small" :disabled="sources.length >= 4"
                      @click="addSource">+ {{ t("wb.addSource") }}</el-button>

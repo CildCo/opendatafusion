@@ -462,7 +462,7 @@ onBeforeUnmount(() => clearInterval(timer));
 
 .filter-tabs button span {
   margin-left: 3px;
-  color: #9ca3af;
+  color: #64748b;
   font-family: var(--odf-mono);
   font-size: 9px;
 }

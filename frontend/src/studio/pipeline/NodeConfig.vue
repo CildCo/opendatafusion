@@ -45,7 +45,7 @@
         </el-select>
         <el-input v-model="c.value" size="small" :placeholder="t('nconf.value')" />
         <el-button link type="danger"
-                   @click="cfg.conditions.splice(i, 1)">×</el-button>
+                   @click="cfg.conditions.splice(i, 1)":aria-label="t('common.remove')">×</el-button>
       </div>
       <el-button link type="primary"
                  @click="cfg.conditions.push({ column: '', op: '=', value: '' })">
@@ -58,7 +58,7 @@
         <el-input v-model="c.column" size="small" :placeholder="t('nconf.column')" />
         <el-input v-model="c.as" size="small" :placeholder="t('nconf.alias')" />
         <el-button link type="danger"
-                   @click="cfg.columns.splice(i, 1)">×</el-button>
+                   @click="cfg.columns.splice(i, 1)":aria-label="t('common.remove')">×</el-button>
       </div>
       <el-button link type="primary"
                  @click="cfg.columns.push({ column: '', as: '' })">{{ t("nconf.addColumn") }}</el-button>
@@ -69,7 +69,7 @@
         <el-input v-model="c.from" size="small" :placeholder="t('nconf.oldName')" />
         <el-input v-model="c.to" size="small" :placeholder="t('nconf.newName')" />
         <el-button link type="danger"
-                   @click="cfg.pairs.splice(i, 1)">×</el-button>
+                   @click="cfg.pairs.splice(i, 1)":aria-label="t('common.remove')">×</el-button>
       </div>
       <el-button link type="primary"
                  @click="cfg.pairs.push({ from: '', to: '' })">{{ t("nconf.addRename") }}</el-button>
@@ -85,7 +85,7 @@
           <el-option value="bool" :label="t('nconf.typeBool')" />
         </el-select>
         <el-button link type="danger"
-                   @click="cfg.pairs.splice(i, 1)">×</el-button>
+                   @click="cfg.pairs.splice(i, 1)":aria-label="t('common.remove')">×</el-button>
       </div>
       <el-button link type="primary"
                  @click="cfg.pairs.push({ column: '', type: 'text' })">{{ t("nconf.addCast") }}</el-button>
@@ -108,7 +108,7 @@
       <div v-for="(p, i) in cfg.on" :key="i" class="row">
         <el-input v-model="p.left" :placeholder="t('nconf.leftKey')" />
         <el-input v-model="p.right" :placeholder="t('nconf.rightKey')" />
-        <el-button link type="danger" @click="cfg.on.splice(i, 1)">×</el-button>
+        <el-button link type="danger" @click="cfg.on.splice(i, 1)":aria-label="t('common.remove')">×</el-button>
       </div>
       <el-button link type="primary"
                  @click="cfg.on.push({ left: '', right: '' })">{{ t("nconf.addJoinKey") }}</el-button>
@@ -125,7 +125,7 @@
         </el-select>
         <el-input v-model="a.as" :placeholder="t('nconf.alias')" />
         <el-button link type="danger"
-                   @click="cfg.aggregates.splice(i, 1)">×</el-button>
+                   @click="cfg.aggregates.splice(i, 1)":aria-label="t('common.remove')">×</el-button>
       </div>
       <el-button link type="primary"
                  @click="cfg.aggregates.push({ column: '', agg: 'sum', as: '' })">
@@ -140,7 +140,7 @@
         <el-input v-model="c.left" :placeholder="t('nconf.leftColumn')" />
         <el-input v-model="c.right" :placeholder="t('nconf.rightColumn')" />
         <el-button link type="danger"
-                   @click="cfg.columns.splice(i, 1)">×</el-button>
+                   @click="cfg.columns.splice(i, 1)":aria-label="t('common.remove')">×</el-button>
       </div>
       <el-button link type="primary"
                  @click="cfg.columns.push({ name: '', left: '', right: '' })">
@@ -178,7 +178,7 @@
                      :value="op" :label="op" />
         </el-select>
         <el-input v-model="r.value" :placeholder="t('nconf.value')" />
-        <el-button link type="danger" @click="cfg.rules.splice(i, 1)">×</el-button>
+        <el-button link type="danger" @click="cfg.rules.splice(i, 1)":aria-label="t('common.remove')">×</el-button>
       </div>
       <el-button link type="primary"
                  @click="cfg.rules.push({ column: '', op: '>', value: '' })">

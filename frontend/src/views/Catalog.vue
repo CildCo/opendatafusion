@@ -192,7 +192,7 @@ onMounted(load);
   font-size: 13px;
 }
 .muted {
-  color: #9ca3af;
+  color: #64748b;
   font-size: 12px;
 }
 .search-group { margin-bottom: 10px; }
@@ -228,10 +228,10 @@ onMounted(load);
   color: #047857;
 }
 .arrow {
-  color: #9ca3af;
+  color: #64748b;
 }
 .flow {
-  color: #9ca3af;
+  color: #64748b;
   font-size: 12px;
 }
 @media (max-width: 1000px) {

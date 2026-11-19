@@ -336,7 +336,7 @@ onMounted(load);
   font-family: Consolas, monospace;
   font-size: 12px;
 }
-.muted { color: #9ca3af; font-size: 12px; }
+.muted { color: #64748b; font-size: 12px; }
 .trend-head {
   display: flex;
   align-items: center;

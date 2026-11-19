@@ -1,7 +1,7 @@
 <template>
   <div class="app-page">
     <div class="head">
-      <el-button link @click="$router.push('/apps')">←</el-button>
+      <el-button link @click="$router.push('/apps')":aria-label="t('common.back')">←</el-button>
       <el-input v-model="name" size="small" style="width: 220px"
                 @change="rename" />
       <el-tag size="small" :type="published ? 'success' : 'info'">
@@ -83,7 +83,7 @@
               {{ t("aedit.required") }}
             </el-checkbox>
             <el-button link type="danger" size="small"
-                       @click="removeParam(i)">×</el-button>
+                       @click="removeParam(i)":aria-label="t('common.remove')">×</el-button>
           </div>
           <p class="hint">{{ t("aedit.paramHint") }}</p>
         </div>
@@ -208,7 +208,7 @@
                       {{ t("aedit.required") }}
                     </el-checkbox>
                     <el-button link type="danger" size="small"
-                               @click="removeField(i)">×</el-button>
+                               @click="removeField(i)":aria-label="t('common.remove')">×</el-button>
                     <el-input v-if="f.widget === 'select'" size="small"
                               :model-value="(f.options || []).join(',')"
                               :placeholder="t('aedit.optionsHint')"
