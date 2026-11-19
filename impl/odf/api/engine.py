@@ -105,7 +105,7 @@ def create_job(body: JobIn, session: Session = Depends(get_session),
                          asset_id=body.asset_id)
     except ValueError as error:
         raise _error(error)
-    return job_out(job)
+    return job_out(job, session)
 
 
 @router.get("/engine/jobs")
@@ -115,7 +115,7 @@ def list_engine_jobs(status: str | None = Query(default=None),
                      session: Session = Depends(get_session),
                      claims: dict = Depends(require_user)):
     rows = list_jobs(session, claims["project_id"], status, engine, limit)
-    return [job_out(job) for job in rows]
+    return [job_out(job, session) for job in rows]
 
 
 @router.get("/engine/jobs/{job_id}")
@@ -124,7 +124,7 @@ def engine_job(job_id: int, session: Session = Depends(get_session),
     job = get_job(session, claims["project_id"], job_id)
     if not job:
         raise HTTPException(404, "engine job not found")
-    return job_out(job)
+    return job_out(job, session)
 
 
 @router.delete("/engine/jobs/{job_id}")
@@ -139,7 +139,7 @@ def cancel_engine_job(job_id: int, session: Session = Depends(get_session),
         raise _error(error)
     except Exception:
         raise HTTPException(502, "engine cancel failed")
-    return job_out(job)
+    return job_out(job, session)
 
 
 @router.post("/engine/jobs/{job_id}/savepoint")

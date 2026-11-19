@@ -39,3 +39,23 @@ def prune_audit(session, before: datetime, batch_size: int = 1000) -> int:
         session.commit()
         total += len(ids)
     return total
+
+
+def list_audit(session, limit: int = 100):
+    from odf.models import User
+    rows = (session.query(AuditLog).order_by(AuditLog.id.desc())
+            .limit(min(int(limit or 100), 500)).all())
+    ids = {int(r.actor) for r in rows if (r.actor or "").isdigit()}
+    names = {}
+    if ids:
+        names = {u.id: u.username for u in
+                 session.query(User).filter(User.id.in_(ids)).all()}
+    out = []
+    for r in rows:
+        actor = r.actor
+        if (actor or "").isdigit():
+            actor = names.get(int(actor), actor)
+        out.append({"id": r.id, "actor": actor, "action": r.action,
+                    "target": r.target, "detail": r.detail_json,
+                    "at": r.at.isoformat()})
+    return out

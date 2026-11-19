@@ -121,3 +121,71 @@ def test_connector_detail_parses_tasks_and_traces():
     assert len(out["tasks"]) == 2
     assert out["tasks"][1]["trace"].startswith("java.lang")
     assert out["failed_tasks"] == 1
+
+
+def test_audit_list_shows_usernames_for_numeric_actors():
+    from odf.models import AuditLog, User
+    from odf.services.audit import list_audit
+
+    _project()
+    with SessionLocal() as s:
+        u = s.get(User, 9902)
+        if not u:
+            u = User(id=9902, username="audit-actor", password_hash="x",
+                     role="admin", active=True)
+            s.add(u)
+        s.commit()
+        s.add(AuditLog(actor="9902", action="probe", target="1",
+                       detail_json={}))
+        s.commit()
+        rows = list_audit(s, 5)
+        assert rows[0]["actor"] == "audit-actor"
+
+
+def test_portal_menu_set_covers_console_pages():
+    from odf.portal.service import MENUS
+
+    assert {"/engines", "/cdc", "/interfaces"} <= MENUS
+
+
+def test_engine_job_shows_submitter_name():
+    from odf.models import EngineJob, User
+    from odf.services.engine_jobs import job_out
+
+    _project()
+    with SessionLocal() as s:
+        user = s.get(User, 9903)
+        if not user:
+            user = User(id=9903, username="engine-actor", password_hash="x",
+                        role="editor", active=True)
+            s.add(user)
+            s.commit()
+        job = EngineJob(project_id=PROJECT_ID, engine="spark",
+                        name="probe-%s" % uuid.uuid4().hex[:6],
+                        submitted_by="9903")
+        s.add(job)
+        s.commit()
+        assert job_out(job, s)["submitted_by"] == "engine-actor"
+
+
+def test_engine_jobs_route_resolves_submitter():
+    from fastapi.testclient import TestClient
+
+    from odf.main import app
+    from odf.models import User
+    from odf.services.auth import create_token
+
+    _project()
+    with SessionLocal() as s:
+        user = s.get(User, 9903)
+        if not user:
+            user = User(id=9903, username="engine-actor", password_hash="x",
+                        role="editor", active=True)
+            s.add(user)
+            s.commit()
+    client = TestClient(app)
+    r = client.get("/api/v1/engine/jobs",
+                   headers={"Authorization":
+                            "Bearer " + create_token(9903, PROJECT_ID)})
+    assert r.status_code == 200
+    assert any(j["submitted_by"] == "engine-actor" for j in r.json())

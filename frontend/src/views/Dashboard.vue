@@ -183,12 +183,11 @@ const primaryStats = computed(() => stats.value.slice(0, 4));
 const secondaryStats = computed(() => stats.value.slice(4));
 const exception = computed(() => alerts.value[0] || null);
 
-const clock = computed(() => now.value.toLocaleTimeString("zh-CN", {
-  hour12: false,
-}));
-const dateLabel = computed(() => now.value.toLocaleDateString("zh-CN", {
-  year: "numeric", month: "2-digit", day: "2-digit",
-}));
+const clock = computed(() => now.value.toLocaleTimeString(
+  locale.value === "en" ? "en-US" : "zh-CN", { hour12: false }));
+const dateLabel = computed(() => now.value.toLocaleDateString(
+  locale.value === "en" ? "en-US" : "zh-CN",
+  { year: "numeric", month: "2-digit", day: "2-digit" }));
 
 const runTabs = computed(() => {
   const count = (status) => status === "all"

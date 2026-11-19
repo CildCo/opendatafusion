@@ -64,33 +64,13 @@ import { onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { api, errMsg } from "../api";
 import { locale, setLocale, t } from "../i18n";
+import { MENU_ITEMS } from "../menu";
 
 function changeLocale(value) {
   setLocale(value);
 }
 
-const menus = [
-  { path: "/dashboard", key: "menu.dashboard" },
-  { path: "/ops", key: "menu.ops" },
-  { path: "/datasources", key: "menu.datasources" },
-  { path: "/catalog", key: "menu.catalog" },
-  { path: "/workbench", key: "menu.workbench" },
-  { path: "/pipelines", key: "menu.pipelines" },
-  { path: "/flows", key: "menu.flows" },
-  { path: "/apis", key: "menu.apis" },
-  { path: "/tools", key: "menu.tools" },
-  { path: "/datasets", key: "menu.datasets" },
-  { path: "/dashboards", key: "menu.dashboards" },
-  { path: "/apps", key: "menu.apps" },
-  { path: "/quality", key: "menu.quality" },
-  { path: "/alerts", key: "menu.alerts" },
-  { path: "/changes", key: "menu.changes" },
-  { path: "/grants", key: "menu.grants" },
-  { path: "/webhooks", key: "menu.webhooks" },
-  { path: "/files", key: "menu.files" },
-  { path: "/workspace", key: "menu.workspace" },
-  { path: "/security", key: "menu.security" },
-];
+const menus = MENU_ITEMS.map((m) => ({ path: m.path, key: m.key }));
 const form = reactive({ brand_name: "OpenDataFusion",
                         primary_color: "#1d4ed8", welcome_title: "",
                         welcome_text: "", hidden_menus: [] });
