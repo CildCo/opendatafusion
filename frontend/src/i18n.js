@@ -265,3 +265,10 @@ export function toggleLocale() {
 
 export const elementLocale = computed(() =>
   locale.value === "en" ? en : zhCn);
+
+export function fmtDate(value) {
+  if (!value) return "-";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value
+    : d.toLocaleString(locale.value === "en" ? "en-US" : "zh-CN");
+}

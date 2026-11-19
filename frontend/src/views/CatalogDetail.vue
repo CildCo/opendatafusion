@@ -216,7 +216,7 @@ import { useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
 import { Right } from "@element-plus/icons-vue";
 import { api, errMsg, getProject } from "../api";
-import { locale, t } from "../i18n";
+import { fmtDate, t } from "../i18n";
 
 function tr(key, vars = {}) {
   return Object.entries(vars).reduce(
@@ -247,12 +247,7 @@ const stats = computed(() => detail.value.stats || {
 const isLakehouse = computed(() => detail.value.datasource_kind === "trino");
 const loaded = { preview: false, quality: false, impact: false, history: false };
 
-function fmt(value) {
-  if (!value) return "-";
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value
-    : d.toLocaleString(locale.value === "en" ? "en-US" : "zh-CN");
-}
+const fmt = fmtDate;
 
 function brief(detailJson) {
   const text = JSON.stringify(detailJson || {});

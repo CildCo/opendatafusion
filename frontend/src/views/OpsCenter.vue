@@ -249,7 +249,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useRouter } from "vue-router";
 import { api, errMsg, getRole } from "../api";
-import { t } from "../i18n";
+import { fmtDate, t } from "../i18n";
 
 const router = useRouter();
 
@@ -296,8 +296,7 @@ const cards = computed(() => {
 
 function fmt(v) {
   if (!v) return "-";
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? v : d.toLocaleString("zh-CN");
+  return fmtDate(v);
 }
 
 function jobTone(s) {

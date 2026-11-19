@@ -139,7 +139,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getRole } from "../api";
-import { t } from "../i18n";
+import { fmtDate, t } from "../i18n";
 
 function tr(key, vars = {}) {
   return Object.entries(vars).reduce(
@@ -161,8 +161,7 @@ const form = reactive({ id: null, name: "", url: "", events: [],
 
 function fmt(v) {
   if (!v) return "-";
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? v : d.toLocaleString("zh-CN");
+  return fmtDate(v);
 }
 
 async function load() {
