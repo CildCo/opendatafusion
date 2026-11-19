@@ -8,7 +8,8 @@ from odf.services.approval import verify_token
 from odf.services.audit import write_audit
 from odf.services.auth import require_user
 from odf.services.interface import (create_interface, execute_interface,
-                                    interface_history, publish_interface)
+                                    interface_history, interface_stats,
+                                    publish_interface)
 
 router = APIRouter()
 
@@ -34,6 +35,16 @@ def get_(interface_id: int, s: Session = Depends(get_session),
     return {"id": i.id, "key": i.interface_key, "name": i.name,
             "status": i.status, "datasource_id": i.datasource_id,
             "sql": i.sql_text, "params": i.params_json}
+
+
+@router.get("/interfaces/{interface_id}/stats")
+def stats(interface_id: int, days: int = 30,
+          s: Session = Depends(get_session),
+          claims: dict = Depends(require_user)):
+    out = interface_stats(s, claims["project_id"], interface_id, days)
+    if out is None:
+        raise HTTPException(404, "interface not found")
+    return out
 
 
 @router.get("/interfaces/{interface_id}/history")

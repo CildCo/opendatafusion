@@ -218,6 +218,9 @@ export default {
     "iface.time": "时间",
     "iface.actor": "调用方",
     "iface.rows": "返回行数",
+    "iface.byDay": "按天统计",
+    "iface.statsRows": "返回行数",
+    "iface.day": "日期",
   },
   en: {
     "ds.searchPlaceholder": "Search name / type",
@@ -438,5 +441,8 @@ export default {
     "iface.time": "Time",
     "iface.actor": "Caller",
     "iface.rows": "Rows",
+    "iface.byDay": "Daily calls",
+    "iface.statsRows": "Rows returned",
+    "iface.day": "Day",
   },
 };

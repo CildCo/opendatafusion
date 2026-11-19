@@ -18,8 +18,25 @@ def list_rules(session, project_id: int):
             .order_by(AlertRule.id).all())
 
 
+def _muted(session, project_id: int, severity: str, title: str) -> bool:
+    rules = (session.query(AlertRule)
+             .filter_by(project_id=project_id, kind="mute", enabled=True)
+             .all())
+    for rule in rules:
+        config = rule.config_json or {}
+        if config.get("severity") and config["severity"] != severity:
+            continue
+        needle = str(config.get("title_contains") or "").lower()
+        if needle and needle not in (title or "").lower():
+            continue
+        return True
+    return False
+
+
 def raise_alert(session, project_id: int, severity: str, title: str,
-                detail: dict | None = None, rule_id: int | None = None) -> Alert:
+                detail: dict | None = None, rule_id: int | None = None):
+    if _muted(session, project_id, severity, title):
+        return None
     existing = (session.query(Alert)
                 .filter_by(project_id=project_id, title=title, status="open")
                 .first())

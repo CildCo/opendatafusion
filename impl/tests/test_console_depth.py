@@ -225,3 +225,81 @@ def test_change_withdraw_route_is_project_scoped():
     assert ok.json()["status"] == "withdrawn"
     again = client.post(f"/api/v1/changes/{change.id}/withdraw", headers=own)
     assert again.status_code == 400
+
+
+def test_audit_filters_and_csv_export():
+    from fastapi.testclient import TestClient
+
+    from odf.main import app
+    from odf.models import AuditLog, User
+    from odf.services.audit import list_audit
+    from odf.services.auth import create_token
+
+    _project()
+    with SessionLocal() as s:
+        u = s.get(User, 9904)
+        if not u:
+            u = User(id=9904, username="audit-admin", password_hash="x",
+                     role="admin", active=True)
+            s.add(u)
+        s.commit()
+        s.add(AuditLog(actor="9904", action="probe_csv", target="target-a",
+                       detail_json={"k": 1}))
+        s.commit()
+        rows = list_audit(s, 10, q="probe_csv")
+        assert rows and rows[0]["action"] == "probe_csv"
+        assert list_audit(s, 10, actor="audit-admin")[0]["actor"] == "audit-admin"
+    client = TestClient(app)
+    headers = {"Authorization": "Bearer " + create_token(9904, PROJECT_ID)}
+    resp = client.get("/api/v1/audit/export?q=probe_csv", headers=headers)
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers["content-type"]
+    assert "probe_csv" in resp.text
+    assert resp.text.splitlines()[0].startswith("id,actor,action,target,at")
+
+
+def test_interface_stats_aggregate_calls():
+    from odf.models import Interface
+    from odf.services.interface import interface_stats
+
+    _project()
+    with SessionLocal() as s:
+        iface = Interface(project_id=PROJECT_ID, datasource_id=1,
+                          interface_key=uuid.uuid4().hex,
+                          name="stats-iface", sql_text="select 1",
+                          params_json=[], status=1)
+        s.add(iface)
+        s.commit()
+        s.add_all([
+            AuditLog(actor="openapi", action="query",
+                     target=iface.interface_key, detail_json={"rows": 3}),
+            AuditLog(actor="openapi", action="query",
+                     target=iface.interface_key, detail_json={"rows": 5}),
+        ])
+        s.commit()
+        out = interface_stats(s, PROJECT_ID, iface.id, days=7)
+        assert out["total"]["calls"] == 2
+        assert out["total"]["rows"] == 8
+        assert out["days"][0]["calls"] == 2
+        assert interface_stats(s, 9999, iface.id, days=7) is None
+
+
+def test_mute_rule_suppresses_matching_alerts():
+    from odf.models import Alert, AlertRule
+    from odf.services.alerts import create_rule, raise_alert
+
+    _project()
+    with SessionLocal() as s:
+        create_rule(s, PROJECT_ID, "mute-spam", "mute",
+                    {"title_contains": "spam"})
+        suppressed = raise_alert(s, PROJECT_ID, "warning", "spam event")
+        assert suppressed is None
+        assert (s.query(Alert).filter_by(project_id=PROJECT_ID,
+                                         title="spam event").first() is None)
+        kept = raise_alert(s, PROJECT_ID, "warning", "real event")
+        assert kept is not None and kept.title == "real event"
+        s.query(Alert).filter_by(project_id=PROJECT_ID,
+                                 title="real event").delete()
+        s.query(AlertRule).filter_by(project_id=PROJECT_ID,
+                                     name="mute-spam").delete()
+        s.commit()

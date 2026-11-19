@@ -41,9 +41,25 @@ def prune_audit(session, before: datetime, batch_size: int = 1000) -> int:
     return total
 
 
-def list_audit(session, limit: int = 100):
+def list_audit(session, limit: int = 100, actor: str | None = None,
+               action: str | None = None, q: str | None = None):
+    from sqlalchemy import or_
     from odf.models import User
-    rows = (session.query(AuditLog).order_by(AuditLog.id.desc())
+    query = session.query(AuditLog)
+    if actor:
+        values = [actor]
+        user = session.query(User).filter_by(username=actor).first()
+        if user:
+            values.append(str(user.id))
+        query = query.filter(AuditLog.actor.in_(values))
+    if action:
+        query = query.filter(AuditLog.action.ilike("%%%s%%" % action))
+    if q:
+        like = "%%%s%%" % q
+        query = query.filter(or_(AuditLog.action.ilike(like),
+                                 AuditLog.target.ilike(like),
+                                 AuditLog.actor.ilike(like)))
+    rows = (query.order_by(AuditLog.id.desc())
             .limit(min(int(limit or 100), 500)).all())
     ids = {int(r.actor) for r in rows if (r.actor or "").isdigit()}
     names = {}

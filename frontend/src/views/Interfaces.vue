@@ -143,6 +143,17 @@
       </el-table>
       <el-empty v-if="!history.length" :description="t('iface.noHistory')"
                 :image-size="50" />
+
+      <el-divider content-position="left">{{ t("iface.byDay") }}</el-divider>
+      <div class="history-head">
+        <span class="hint">{{ t("iface.totalCalls") }}: {{ stats.total.calls }}</span>
+        <span class="hint">{{ t("iface.statsRows") }}: {{ stats.total.rows }}</span>
+      </div>
+      <el-table :data="stats.days" size="small" max-height="220">
+        <el-table-column prop="day" :label="t('iface.day')" width="140" />
+        <el-table-column prop="calls" :label="t('iface.totalCalls')" width="120" />
+        <el-table-column prop="rows" :label="t('iface.statsRows')" />
+      </el-table>
     </el-drawer>
 
     <el-dialog v-model="execDialog" :title="t('iface.execTitle')" width="620px">
@@ -175,6 +186,7 @@ const drawer = ref(false);
 const execDialog = ref(false);
 const detail = ref({});
 const history = ref([]);
+const stats = ref({ days: [], total: { calls: 0, rows: 0 } });
 const execParams = ref([]);
 const execValues = reactive({});
 const execLoading = ref(false);
@@ -251,6 +263,7 @@ async function openDetail(row) {
   try {
     detail.value = await api.get(`/interfaces/${row.id}`);
     history.value = await api.get(`/interfaces/${row.id}/history`);
+    stats.value = await api.get(`/interfaces/${row.id}/stats`);
     drawer.value = true;
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -312,6 +325,8 @@ async function doExecute() {
     try {
       history.value = await api.get(
         `/interfaces/${detail.value.id}/history`);
+      stats.value = await api.get(
+        `/interfaces/${detail.value.id}/stats`);
     } catch {
       /* history is advisory */
     }

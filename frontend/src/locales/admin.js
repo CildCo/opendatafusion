@@ -59,6 +59,10 @@ export default {
     // Audit
     "audit.filterActor": "按操作人过滤",
     "audit.filterAction": "按动作过滤",
+    "audit.filterQ": "搜索动作 / 对象",
+    "audit.query": "查询",
+    "audit.export": "导出 CSV",
+    "audit.exportFailed": "导出失败",
     "audit.refresh": "刷新",
     "audit.actor": "操作人",
     "audit.action": "动作",
@@ -198,6 +202,10 @@ export default {
     // Audit
     "audit.filterActor": "Filter by actor",
     "audit.filterAction": "Filter by action",
+    "audit.filterQ": "Search action / target",
+    "audit.query": "Query",
+    "audit.export": "Export CSV",
+    "audit.exportFailed": "Export failed",
     "audit.refresh": "Refresh",
     "audit.actor": "Actor",
     "audit.action": "Action",
