@@ -306,3 +306,27 @@ def delete_rule(session, project_id: int, rule_id: int) -> None:
         synchronize_session=False)
     session.delete(rule)
     session.commit()
+
+
+def rule_summaries(session, project_id: int):
+    rules = (session.query(QualityRule).filter_by(project_id=project_id)
+             .order_by(QualityRule.id).all())
+    out = []
+    for rule in rules:
+        results = (session.query(QualityResult)
+                   .filter_by(rule_id=rule.id)
+                   .order_by(QualityResult.at.desc(),
+                             QualityResult.id.desc())
+                   .limit(20).all())
+        last = results[0] if results else None
+        passed = sum(1 for r in results if r.status == "pass")
+        out.append({
+            "id": rule.id, "dataset_id": rule.dataset_id, "name": rule.name,
+            "kind": rule.kind, "column": rule.column_name,
+            "enabled": rule.enabled,
+            "last_status": last.status if last else None,
+            "last_at": last.at.isoformat() if last else None,
+            "pass_rate": (int(round(passed * 100 / len(results)))
+                          if results else None),
+        })
+    return out

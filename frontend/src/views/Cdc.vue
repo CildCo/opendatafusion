@@ -12,7 +12,8 @@
     </div>
 
     <el-card class="card" shadow="never">
-      <el-table :data="filtered" size="small" v-loading="loading">
+      <el-table :data="filtered" size="small" v-loading="loading"
+                @row-click="openDetail" row-class-name="clickable">
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="name" :label="t('cdc.name')" min-width="160" />
         <el-table-column prop="connector_name" :label="t('cdc.connector')" min-width="200" />
@@ -29,13 +30,16 @@
           </template>
         </el-table-column>
         <el-table-column prop="created_at" :label="t('cdc.createdAt')" width="200" />
-        <el-table-column :label="t('cdc.actions')" width="200" fixed="right">
+        <el-table-column :label="t('cdc.actions')" width="240" fixed="right">
           <template #default="{ row }">
-            <el-button link @click="toggle(row)">
+            <el-button link @click.stop="openDetail(row)">
+              {{ t("cdc.viewDetail") }}
+            </el-button>
+            <el-button link @click.stop="toggle(row)">
               {{ row.status === "paused" ? t("cdc.resume") : t("cdc.pause") }}
             </el-button>
-            <el-button link @click="refreshOne(row)">{{ t("cdc.refreshStatus") }}</el-button>
-            <el-button link type="danger" @click="remove(row)">{{ t("cdc.delete") }}</el-button>
+            <el-button link @click.stop="refreshOne(row)">{{ t("cdc.refreshStatus") }}</el-button>
+            <el-button link type="danger" @click.stop="remove(row)">{{ t("cdc.delete") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -79,6 +83,59 @@
         <el-button type="primary" :loading="saving" @click="create">{{ t("cdc.save") }}</el-button>
       </template>
     </el-dialog>
+
+    <el-drawer v-model="detailOpen" :title="detail.name || t('cdc.detail')"
+               size="560px">
+      <el-descriptions :column="1" border v-loading="detailLoading">
+        <el-descriptions-item :label="t('cdc.connector')">
+          <span class="mono">{{ detail.connector_name }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('cdc.connectorState')">
+          <el-tag :type="statusType(detail.status)" size="small">
+            {{ statusLabel(detail.status) }}
+          </el-tag>
+          <span v-if="detail.state" class="hint" style="margin-left: 8px">
+            {{ detail.state }}
+          </span>
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('cdc.failedTasks')">
+          {{ detail.failed_tasks || 0 }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('cdc.createdAt')">
+          {{ detail.created_at }}
+        </el-descriptions-item>
+      </el-descriptions>
+
+      <h4>{{ t("cdc.tasks") }}</h4>
+      <el-table :data="detail.tasks || []" size="small">
+        <el-table-column prop="id" :label="t('cdc.taskId')" width="70" />
+        <el-table-column prop="state" :label="t('cdc.taskState')"
+                         width="110" />
+        <el-table-column :label="t('cdc.trace')">
+          <template #default="{ row }">
+            <span class="mono">{{ row.trace || "-" }}</span>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="!(detail.tasks || []).length"
+                :description="t('cdc.noTasks')" :image-size="50" />
+
+      <h4>{{ t("cdc.editTables") }}</h4>
+      <div class="tables-row">
+        <el-input v-model="tablesText"
+                  placeholder="public.events,public.orders" />
+        <el-button type="primary" :loading="savingTables"
+                   @click="saveTables">{{ t("cdc.save") }}</el-button>
+      </div>
+      <div class="drawer-actions">
+        <el-button @click="toggle(detail)">
+          {{ detail.status === "paused" ? t("cdc.resume") : t("cdc.pause") }}
+        </el-button>
+        <el-button @click="refreshOne(detail)">
+          {{ t("cdc.refreshStatus") }}
+        </el-button>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -93,6 +150,11 @@ const loading = ref(false);
 const saving = ref(false);
 const dialog = ref(false);
 const status = ref("");
+const detailOpen = ref(false);
+const detail = ref({});
+const detailLoading = ref(false);
+const tablesText = ref("");
+const savingTables = ref(false);
 
 const blank = () => ({
   name: "", host: "cdc-postgres.stream.svc", port: 5432,
@@ -153,6 +215,9 @@ async function toggle(row) {
   try {
     await api.post(`/cdc/sources/${row.id}/${action}`);
     await load();
+    if (detailOpen.value && detail.value.id === row.id) {
+      await openDetail(row);
+    }
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -162,8 +227,41 @@ async function refreshOne(row) {
   try {
     await api.post(`/cdc/sources/${row.id}/status`);
     await load();
+    if (detailOpen.value && detail.value.id === row.id) {
+      await openDetail(row);
+    }
   } catch (e) {
     ElMessage.error(errMsg(e));
+  }
+}
+
+async function openDetail(row) {
+  if (!row || !row.id) return;
+  detailOpen.value = true;
+  detailLoading.value = true;
+  try {
+    detail.value = await api.get(`/cdc/sources/${row.id}/detail`);
+    tablesText.value = (detail.value.config || {}).table_list || "";
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    detailLoading.value = false;
+  }
+}
+
+async function saveTables() {
+  if (!detail.value.id) return;
+  savingTables.value = true;
+  try {
+    await api.put(`/cdc/sources/${detail.value.id}/tables`,
+                  { table_list: tablesText.value });
+    ElMessage.success(t("cdc.tablesSaved"));
+    await openDetail(detail.value);
+    await load();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    savingTables.value = false;
   }
 }
 
@@ -186,3 +284,12 @@ async function remove(row) {
 
 onMounted(load);
 </script>
+
+<style scoped>
+.card { border-radius: 12px; border: 1px solid #e5e7eb; }
+.mono { font-family: Consolas, "Courier New", monospace; font-size: 12px; }
+.hint { color: #6b7280; font-size: 12px; }
+.tables-row { display: flex; gap: 8px; align-items: center; }
+.drawer-actions { display: flex; gap: 10px; margin-top: 16px; }
+:deep(.clickable) { cursor: pointer; }
+</style>

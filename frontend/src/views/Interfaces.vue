@@ -91,6 +91,9 @@
         </el-descriptions-item>
         <el-descriptions-item :label="t('iface.openapiPath')" :span="2">
           <span class="mono">/openapi/{{ detail.key }}</span>
+          <el-button link @click="copy(`/openapi/${detail.key}`)">
+            {{ t("iface.copy") }}
+          </el-button>
         </el-descriptions-item>
         <el-descriptions-item :label="t('iface.datasource')">{{ detail.datasource_id }}</el-descriptions-item>
       </el-descriptions>
@@ -109,6 +112,31 @@
         <el-button v-else @click="revoke(detail)">{{ t("iface.revoke") }}</el-button>
         <el-button :disabled="detail.status !== 1" @click="execute(detail)">{{ t("iface.execute") }}</el-button>
       </div>
+
+      <el-divider content-position="left">{{ t("iface.history") }}</el-divider>
+      <div class="history-head">
+        <span class="hint">
+          {{ t("iface.totalCalls") }}: {{ history.length }}
+        </span>
+        <span class="hint" v-if="history.length">
+          {{ t("iface.lastCall") }}: {{ history[0].at }}
+        </span>
+      </div>
+      <el-table :data="history" size="small" max-height="240">
+        <el-table-column :label="t('iface.time')" width="200">
+          <template #default="{ row }">{{ fmt(row.at) }}</template>
+        </el-table-column>
+        <el-table-column prop="actor" :label="t('iface.actor')" width="120" />
+        <el-table-column prop="action" :label="t('iface.status')" width="120" />
+        <el-table-column :label="t('iface.rows')">
+          <template #default="{ row }">
+            {{ row.detail && row.detail.rows !== undefined
+              ? row.detail.rows : "-" }}
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="!history.length" :description="t('iface.noHistory')"
+                :image-size="50" />
     </el-drawer>
 
     <el-dialog v-model="execDialog" :title="t('iface.execTitle')" width="620px">
@@ -128,7 +156,14 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
 import { api, errMsg, getProject } from "../api";
-import { t } from "../i18n";
+import { locale, t } from "../i18n";
+
+function fmt(value) {
+  if (!value) return "-";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value
+    : d.toLocaleString(locale.value === "en" ? "en-US" : "zh-CN");
+}
 
 const rows = ref([]);
 const datasources = ref([]);
@@ -138,6 +173,7 @@ const dialog = ref(false);
 const drawer = ref(false);
 const execDialog = ref(false);
 const detail = ref({});
+const history = ref([]);
 const execParams = ref([]);
 const execValues = reactive({});
 const execLoading = ref(false);
@@ -213,6 +249,7 @@ async function create() {
 async function openDetail(row) {
   try {
     detail.value = await api.get(`/interfaces/${row.id}`);
+    history.value = await api.get(`/interfaces/${row.id}/history`);
     drawer.value = true;
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -271,6 +308,12 @@ async function doExecute() {
     }
     const r = await api.post(`/interfaces/${detail.value.id}/execute`, payload);
     result.value = JSON.stringify(r, null, 2);
+    try {
+      history.value = await api.get(
+        `/interfaces/${detail.value.id}/history`);
+    } catch {
+      /* history is advisory */
+    }
   } catch (e) {
     result.value = errMsg(e);
   } finally {
@@ -329,6 +372,11 @@ onMounted(load);
   margin-top: 16px;
   display: flex;
   gap: 10px;
+}
+.history-head {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 8px;
 }
 .result {
   margin-top: 14px;

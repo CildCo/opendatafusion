@@ -31,11 +31,14 @@
             <el-table-column prop="finished_at" :label="t('ops.finishedAt')" width="180">
               <template #default="{ row }">{{ fmt(row.finished_at) }}</template>
             </el-table-column>
-            <el-table-column :label="t('ops.actions')" width="90">
+            <el-table-column :label="t('ops.actions')" width="130">
               <template #default="{ row }">
                 <el-button v-if="canOperate" link type="primary"
                            @click="retry(row)">
                   {{ t("ops.retry") }}
+                </el-button>
+                <el-button v-if="targetPath(row)" link @click="openTarget(row)">
+                  {{ t("ops.view") }}
                 </el-button>
               </template>
             </el-table-column>
@@ -73,11 +76,14 @@
             <el-table-column prop="run_at" :label="t('ops.scheduledAt')" width="180">
               <template #default="{ row }">{{ fmt(row.run_at) }}</template>
             </el-table-column>
-            <el-table-column :label="t('ops.actions')" width="90">
+            <el-table-column :label="t('ops.actions')" width="130">
               <template #default="{ row }">
                 <el-button v-if="canOperate && row.status === 'failed'"
                            link type="primary" @click="retry(row)">
                   {{ t("ops.retry") }}
+                </el-button>
+                <el-button v-if="targetPath(row)" link @click="openTarget(row)">
+                  {{ t("ops.view") }}
                 </el-button>
               </template>
             </el-table-column>
@@ -102,6 +108,9 @@
               <el-option value="warning" label="warning" />
               <el-option value="info" label="info" />
             </el-select>
+            <el-button size="small" @click="router.push('/alerts')">
+              {{ t("ops.openAlerts") }}
+            </el-button>
           </div>
           <el-table :data="alerts" size="small" :empty-text="t('ops.emptyAlerts')">
             <el-table-column prop="id" label="ID" width="70" />
@@ -238,8 +247,11 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { useRouter } from "vue-router";
 import { api, errMsg, getRole } from "../api";
 import { t } from "../i18n";
+
+const router = useRouter();
 
 const role = getRole() || "viewer";
 const isAdmin = role === "admin";
@@ -291,6 +303,19 @@ function fmt(v) {
 function jobTone(s) {
   return { failed: "danger", running: "warning", queued: "info",
            success: "success" }[s] || "info";
+}
+
+function targetPath(row) {
+  const type = row.asset_type || row.target_type || "";
+  return { flow: "/flows", pipeline: "/pipelines", api: "/apis",
+           dashboard: "/dashboards", app: "/apps", dataset: "/datasets",
+           metric: "/metrics" }[type] || "";
+}
+
+function openTarget(row) {
+  const base = targetPath(row);
+  const assetId = row.asset_id || row.target_id;
+  router.push(assetId ? `${base}/${assetId}` : base);
 }
 function severityTone(s) {
   return { critical: "danger", warning: "warning", info: "info",
