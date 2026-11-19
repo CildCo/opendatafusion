@@ -14,6 +14,9 @@
         <el-option value="warning" :label="t('alerts.severityWarning')" />
       </el-select>
       <div class="spacer" />
+      <el-button @click="$router.push('/webhooks')">
+        {{ t("alerts.subscriptions") }}
+      </el-button>
       <el-button @click="load" :loading="loading">
         {{ t("alerts.refresh") }}
       </el-button>
@@ -59,6 +62,33 @@
                 :description="t('alerts.empty')" />
     </el-card>
 
+    <el-card class="card" shadow="never" style="margin-top: 16px">
+      <template #header>
+        <div class="card-head">
+          <b>{{ t("alerts.rules") }}</b>
+          <el-button size="small" type="primary" @click="openRule">
+            {{ t("alerts.newRule") }}
+          </el-button>
+        </div>
+      </template>
+      <el-table :data="rules" size="small">
+        <el-table-column prop="id" label="ID" width="70" />
+        <el-table-column prop="name" :label="t('alerts.ruleName')"
+                         min-width="180" />
+        <el-table-column prop="kind" :label="t('alerts.ruleKind')"
+                         width="150" />
+        <el-table-column :label="t('alerts.colActions')" width="100">
+          <template #default="{ row }">
+            <el-button link type="danger" @click="removeRule(row)">
+              {{ t("alerts.deleteRule") }}
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="!rules.length" :description="t('alerts.noRules')"
+                :image-size="60" />
+    </el-card>
+
     <el-drawer v-model="drawer"
                :title="current.title || t('alerts.drawerTitle')"
                size="520px">
@@ -76,21 +106,46 @@
       <h4>{{ t("alerts.detail") }}</h4>
       <pre class="detail">{{ JSON.stringify(current.detail, null, 2) }}</pre>
     </el-drawer>
+
+    <el-dialog v-model="ruleDialog" :title="t('alerts.newRule')"
+               width="520px">
+      <el-form label-width="110px">
+        <el-form-item :label="t('alerts.ruleName')" required>
+          <el-input v-model="ruleForm.name" />
+        </el-form-item>
+        <el-form-item :label="t('alerts.ruleKind')" required>
+          <el-input v-model="ruleForm.kind" placeholder="flow_health" />
+        </el-form-item>
+        <el-form-item :label="t('alerts.ruleConfig')">
+          <el-input v-model="ruleForm.config" type="textarea" :rows="4"
+                    placeholder="{}" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="ruleDialog = false">{{ t("alerts.cancel") }}</el-button>
+        <el-button type="primary" @click="createRule">
+          {{ t("alerts.save") }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
 
 const rows = ref([]);
+const rules = ref([]);
 const loading = ref(false);
 const status = ref("");
 const severity = ref("");
 const drawer = ref(false);
 const current = ref({});
+const ruleDialog = ref(false);
+const ruleForm = reactive({ name: "", kind: "flow_health", config: "{}" });
 
 const filtered = computed(() =>
   rows.value.filter((r) => !severity.value || r.severity === severity.value)
@@ -109,6 +164,7 @@ async function load() {
   try {
     const q = status.value ? `?status=${status.value}` : "";
     rows.value = await api.get("/alerts" + q);
+    rules.value = await api.get("/alerts/rules");
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -141,6 +197,54 @@ async function close(row) {
   }
 }
 onMounted(load);
+
+function openRule() {
+  ruleForm.name = "";
+  ruleForm.kind = "flow_health";
+  ruleForm.config = "{}";
+  ruleDialog.value = true;
+}
+
+async function createRule() {
+  if (!ruleForm.name.trim() || !ruleForm.kind.trim()) {
+    ElMessage.warning(t("alerts.nameRequired"));
+    return;
+  }
+  let config = {};
+  try {
+    config = ruleForm.config.trim() ? JSON.parse(ruleForm.config) : {};
+  } catch (e) {
+    ElMessage.error(t("alerts.ruleConfig") + ": " + errMsg(e));
+    return;
+  }
+  try {
+    await api.post("/alerts/rules", {
+      name: ruleForm.name.trim(), kind: ruleForm.kind.trim(), config,
+    });
+    ruleDialog.value = false;
+    await load();
+    ElMessage.success(t("alerts.created"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function removeRule(row) {
+  try {
+    await ElMessageBox.confirm(
+      t("alerts.deleteRuleConfirm").replace("{name}", row.name),
+      t("alerts.deleteRule"), { type: "warning" });
+  } catch (e) {
+    return;
+  }
+  try {
+    await api.del(`/alerts/rules/${row.id}`);
+    await load();
+    ElMessage.success(t("alerts.deleted"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
 </script>
 
 <style scoped>
@@ -158,5 +262,10 @@ onMounted(load);
 }
 :deep(.clickable) {
   cursor: pointer;
+}
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 </style>

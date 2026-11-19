@@ -22,6 +22,19 @@ def _project():
             s.commit()
 
 
+def test_alert_rule_can_be_deleted():
+    from odf.models import AlertRule
+    from odf.services.alerts import create_rule, delete_rule
+
+    _project()
+    with SessionLocal() as s:
+        rule = create_rule(s, PROJECT_ID, "rule-delete", "flow_health", {})
+        delete_rule(s, PROJECT_ID, rule.id)
+        assert s.get(AlertRule, rule.id) is None
+        with pytest.raises(ValueError):
+            delete_rule(s, PROJECT_ID, rule.id)
+
+
 def test_api_stats_aggregate_days_and_keys():
     _project()
     with SessionLocal() as s:
