@@ -2,7 +2,16 @@ const TOKEN_KEY = "odf_token";
 const ROLE_KEY = "odf_role";
 const PROJECT_KEY = "odf_project";
 
+const LOCALE_KEY = "odf_locale";
+
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
+
+function acceptLanguage() {
+  const stored = localStorage.getItem(LOCALE_KEY);
+  const lang = stored === "en" || stored === "zh" ? stored
+    : ((navigator.language || "").toLowerCase().startsWith("en") ? "en" : "zh");
+  return lang === "en" ? "en-US,en;q=0.9" : "zh-CN,zh;q=0.9";
+}
 export const getRole = () => localStorage.getItem(ROLE_KEY);
 export const getProject = () => Number(localStorage.getItem(PROJECT_KEY) || 0);
 export const setProject = (id) => localStorage.setItem(PROJECT_KEY, String(id));
@@ -14,7 +23,9 @@ export const clearSession = () => {
 };
 
 async function request(path, opts = {}) {
-  const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+  const headers = { "Content-Type": "application/json",
+                    "Accept-Language": acceptLanguage(),
+                    ...(opts.headers || {}) };
   const token = getToken();
   if (token) headers.Authorization = "Bearer " + token;
   let r;
@@ -88,7 +99,8 @@ export const api = {
   login: async (username, password, project_id = 1, otp = "") => {
     const r = await fetch("/api/v1/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json",
+                 "Accept-Language": acceptLanguage() },
       body: JSON.stringify({ username, password, project_id, otp }),
     });
     if (!r.ok) {

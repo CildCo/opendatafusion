@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt
 from sqlalchemy.orm import Session
 
 from odf.db import get_session
+from odf.services.messages import tr
 from odf.settings import get_settings
 
 _bearer = HTTPBearer(auto_error=False)
@@ -33,19 +34,20 @@ def decode_token(token: str) -> dict:
 
 def require_user(
         cred: HTTPAuthorizationCredentials | None = Depends(_bearer),
-        s: Session = Depends(get_session)) -> dict:
+        s: Session = Depends(get_session),
+        accept_language: str | None = Header(default=None)) -> dict:
     if cred is None:
-        raise HTTPException(401, "missing bearer token")
+        raise HTTPException(401, tr(accept_language, "auth.missing_token"))
     try:
         claims = decode_token(cred.credentials)
     except Exception:
-        raise HTTPException(401, "invalid or expired token")
+        raise HTTPException(401, tr(accept_language, "auth.invalid_token"))
     from odf.models import User
     user = s.get(User, int(claims["sub"]))
     if not user or not user.active:
-        raise HTTPException(401, "invalid or inactive user")
+        raise HTTPException(401, tr(accept_language, "auth.inactive_user"))
     if int(claims.get("ver", 0)) != int(user.token_version or 0):
-        raise HTTPException(401, "session has been revoked")
+        raise HTTPException(401, tr(accept_language, "auth.revoked"))
     return claims
 
 
@@ -71,30 +73,33 @@ def claims_role(session, claims):
 
 
 def require_editor(claims: dict = Depends(require_user),
-                   s: Session = Depends(get_session)) -> dict:
+                   s: Session = Depends(get_session),
+                   accept_language: str | None = Header(default=None)) -> dict:
     from odf.models import User
     user = s.get(User, int(claims["sub"]))
     if not user or not user.active or effective_role(
             s, user, claims["project_id"]) not in ("editor", "approver",
                                                    "admin"):
-        raise HTTPException(403, "editor role required")
+        raise HTTPException(403, tr(accept_language, "auth.editor"))
     return claims
 
 
 def require_approver(claims: dict = Depends(require_user),
-                     s: Session = Depends(get_session)) -> dict:
+                     s: Session = Depends(get_session),
+                     accept_language: str | None = Header(default=None)) -> dict:
     from odf.models import User
     user = s.get(User, int(claims["sub"]))
     if not user or not user.active or effective_role(
             s, user, claims["project_id"]) not in ("approver", "admin"):
-        raise HTTPException(403, "approver role required")
+        raise HTTPException(403, tr(accept_language, "auth.approver"))
     return claims
 
 
 def require_admin(claims: dict = Depends(require_user),
-                  s: Session = Depends(get_session)) -> dict:
+                  s: Session = Depends(get_session),
+                  accept_language: str | None = Header(default=None)) -> dict:
     from odf.models import User
     user = s.get(User, int(claims["sub"]))
     if not user or not user.active or user.role != "admin":
-        raise HTTPException(403, "admin role required")
+        raise HTTPException(403, tr(accept_language, "auth.admin"))
     return claims
