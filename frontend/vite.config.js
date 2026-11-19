@@ -9,15 +9,16 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          "vendor-vue": ["vue", "vue-router"],
-          "vendor-element": ["element-plus", "@element-plus/icons-vue"],
-          "vendor-echarts": ["echarts"],
-          "vendor-vueflow": [
-            "@vue-flow/core", "@vue-flow/background",
-            "@vue-flow/controls", "@vue-flow/minimap",
-          ],
-          "vendor-codemirror": ["codemirror", "@codemirror/lang-sql"],
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("echarts")) return "vendor-echarts";
+          if (id.includes("@vue-flow")) return "vendor-vueflow";
+          if (id.includes("codemirror")) return "vendor-codemirror";
+          if (id.includes("element-plus")) return "vendor-element";
+          if (id.includes("vue-router") || id.includes("/vue/")
+              || id.includes("@vue/")) {
+            return "vendor-vue";
+          }
         },
       },
     },
