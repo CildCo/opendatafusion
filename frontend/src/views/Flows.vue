@@ -618,7 +618,7 @@ onBeforeUnmount(() => timer && clearInterval(timer));
   margin-top: 10px;
 }
 .hint {
-  color: #9ca3af;
+  color: #64748b;
   font-size: 12px;
   margin-left: 8px;
 }

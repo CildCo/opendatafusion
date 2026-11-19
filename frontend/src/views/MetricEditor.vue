@@ -1,7 +1,7 @@
 <template>
   <div class="model-page">
     <div class="head">
-      <el-button link @click="$router.push('/metrics')">←</el-button>
+      <el-button link @click="$router.push('/metrics')":aria-label="t('common.back')">←</el-button>
       <el-input v-model="name" size="small" style="width: 220px"
                 @change="rename" />
       <el-tag size="small" :type="published ? 'success' : 'info'">
@@ -59,7 +59,7 @@
           </el-select>
           <el-input v-model="f.value" :placeholder="t('med.value')" />
           <el-button link type="danger"
-                     @click="content.filters.splice(i, 1)">×</el-button>
+                     @click="content.filters.splice(i, 1)":aria-label="t('common.remove')">×</el-button>
         </div>
         <el-button link type="primary"
                    @click="content.filters.push({ column: '', op: '=', value: '' })">

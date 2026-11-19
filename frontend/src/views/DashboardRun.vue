@@ -1,7 +1,7 @@
 <template>
   <div class="run-page">
     <div class="head">
-      <el-button link @click="$router.push('/dashboards')">←</el-button>
+      <el-button link @click="$router.push('/dashboards')":aria-label="t('common.back')">←</el-button>
       <span class="name">{{ name }}</span>
       <el-tag v-if="published" size="small" type="success">{{ t("dedit.published") }}</el-tag>
       <div class="spacer" />

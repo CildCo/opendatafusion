@@ -28,7 +28,7 @@
         <el-option v-for="a in aggs" :key="a" :value="a" :label="a" />
       </el-select>
       <el-input v-model="s.as" :placeholder="t('apic.alias')" style="width: 120px" />
-      <el-button link type="danger" @click="q.select.splice(i, 1)">×</el-button>
+      <el-button link type="danger" @click="q.select.splice(i, 1)":aria-label="t('common.remove')">×</el-button>
     </div>
     <el-button link type="primary" @click="q.select.push({ column: '' })">
       {{ t("apic.addField") }}
@@ -53,7 +53,7 @@
       </el-select>
       <el-input v-if="!isNull(f.op) && !f.param"
                 v-model="f.value" :placeholder="t('apic.fixedValue')" style="width: 120px" />
-      <el-button link type="danger" @click="q.filters.splice(i, 1)">×</el-button>
+      <el-button link type="danger" @click="q.filters.splice(i, 1)":aria-label="t('common.remove')">×</el-button>
     </div>
     <el-button link type="primary"
                @click="q.filters.push({ column: '', op: '=', value: '' })">
@@ -73,7 +73,7 @@
         <el-option value="asc" :label="t('apic.asc')" />
         <el-option value="desc" :label="t('apic.desc')" />
       </el-select>
-      <el-button link type="danger" @click="q.order_by.splice(i, 1)">×</el-button>
+      <el-button link type="danger" @click="q.order_by.splice(i, 1)":aria-label="t('common.remove')">×</el-button>
     </div>
     <el-button link type="primary"
                @click="q.order_by.push({ column: '', dir: 'asc' })">

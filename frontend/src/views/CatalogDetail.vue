@@ -410,7 +410,7 @@ onMounted(async () => {
   color: #0f172a;
 }
 .muted {
-  color: #9ca3af;
+  color: #64748b;
   font-size: 12px;
 }
 .time { margin-left: 8px; }

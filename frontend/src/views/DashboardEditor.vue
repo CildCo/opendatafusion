@@ -1,7 +1,7 @@
 <template>
   <div class="dash-page">
     <div class="head">
-      <el-button link @click="$router.push('/dashboards')">←</el-button>
+      <el-button link @click="$router.push('/dashboards')":aria-label="t('common.back')">←</el-button>
       <el-input v-model="name" size="small" style="width: 220px"
                 @change="rename" />
       <el-tag size="small" :type="published ? 'success' : 'info'">
@@ -40,7 +40,7 @@
           <el-input v-model="p.default" size="small" :placeholder="t('dedit.defaultValue')"
                     @change="resetParams" />
           <el-button link type="danger" size="small"
-                     @click="removeParam(i)">×</el-button>
+                     @click="removeParam(i)":aria-label="t('common.remove')">×</el-button>
         </div>
         <el-button size="small" class="add" @click="addParam">
           {{ t("dedit.addParam") }}
@@ -93,7 +93,7 @@
                                  :value="p.name" :label="p.name" />
                     </el-select>
                     <el-button link type="danger" size="small"
-                               @click="removeFilter(i)">×</el-button>
+                               @click="removeFilter(i)":aria-label="t('common.remove')">×</el-button>
                   </div>
                   <el-button link size="small"
                              :disabled="!content.params.length"
@@ -120,7 +120,7 @@
                                :label="c" />
                   </el-select>
                   <el-button link type="danger" size="small"
-                             @click="selected.emit = null">×</el-button>
+                             @click="selected.emit = null":aria-label="t('common.remove')">×</el-button>
                 </div>
                 <el-button v-else link size="small"
                            :disabled="!content.params.length"

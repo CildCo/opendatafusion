@@ -17,7 +17,7 @@
       <el-checkbox v-model="p.required" size="small">{{ t("apic.required") }}</el-checkbox>
       <el-input v-model="p.default" :placeholder="t('apic.defaultValue')" size="small" />
       <el-input v-model="p.example" :placeholder="t('apic.example')" size="small" />
-      <el-button link type="danger" @click="params.splice(i, 1)">×</el-button>
+      <el-button link type="danger" @click="params.splice(i, 1)":aria-label="t('common.remove')">×</el-button>
     </div>
     <el-empty v-if="!params.length" :description="t('apic.noParams')" :image-size="50" />
   </div>

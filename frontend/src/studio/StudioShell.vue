@@ -2,7 +2,7 @@
   <div class="studio">
     <header class="studio-head">
       <div class="left">
-        <el-button link @click="$router.push('/pipelines')">←</el-button>
+        <el-button link @click="$router.push('/pipelines')":aria-label="t('common.back')">←</el-button>
         <el-input :model-value="title" size="small" style="width: 200px"
                   @update:model-value="$emit('rename', $event)"
                   @change="$emit('rename-save', $event)" />
