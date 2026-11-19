@@ -55,7 +55,7 @@
 import { ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../../api";
-import { t } from "../../i18n";
+import { fmtDate, t } from "../../i18n";
 
 const props = defineProps({
   kind: { type: String, required: true },
@@ -70,8 +70,7 @@ const shares = ref([]);
 
 function fmt(v) {
   if (!v) return "-";
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? v : d.toLocaleString("zh-CN");
+  return fmtDate(v);
 }
 
 async function load() {

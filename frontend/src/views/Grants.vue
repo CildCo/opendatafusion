@@ -180,7 +180,7 @@
 import { onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getProject } from "../api";
-import { t } from "../i18n";
+import { fmtDate, t } from "../i18n";
 
 function tr(key, vars = {}) {
   return Object.entries(vars).reduce(
@@ -245,8 +245,7 @@ async function revokeKey(row) {
 
 function fmt(v) {
   if (!v) return "-";
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? v : d.toLocaleString("zh-CN");
+  return fmtDate(v);
 }
 function statusTone(s) {
   return { approved: "success", pending: "warning",

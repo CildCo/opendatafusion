@@ -302,7 +302,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search, Right } from "@element-plus/icons-vue";
 import { api, errMsg } from "../api";
-import { locale, t } from "../i18n";
+import { fmtDate, t } from "../i18n";
 
 function tr(key, vars = {}) {
   return Object.entries(vars).reduce(
@@ -364,12 +364,7 @@ function runLabel(s) {
   }[s] || s;
 }
 
-function fmt(value) {
-  if (!value) return "-";
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value
-    : d.toLocaleString(locale.value === "en" ? "en-US" : "zh-CN");
-}
+const fmt = fmtDate;
 
 function duration(row) {
   const ms = row.duration_ms;
