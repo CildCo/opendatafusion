@@ -1,123 +1,123 @@
 <template>
   <div class="page">
     <div class="toolbar">
-      <el-input v-model="q" placeholder="搜索接口名 / Key" clearable style="width: 240px"
+      <el-input v-model="q" :placeholder="t('iface.searchPlaceholder')" clearable style="width: 240px"
                 :prefix-icon="Search" />
-      <el-select v-model="statusFilter" clearable placeholder="全部状态" style="width: 140px">
-        <el-option :value="1" label="已发布" />
-        <el-option :value="0" label="草稿" />
+      <el-select v-model="statusFilter" clearable :placeholder="t('iface.allStatus')" style="width: 140px">
+        <el-option :value="1" :label="t('iface.published')" />
+        <el-option :value="0" :label="t('iface.draft')" />
       </el-select>
       <div class="spacer" />
-      <el-button @click="load" :loading="loading">刷新</el-button>
-      <el-button type="primary" @click="openCreate">新建接口</el-button>
+      <el-button @click="load" :loading="loading">{{ t("iface.refresh") }}</el-button>
+      <el-button type="primary" @click="openCreate">{{ t("iface.new") }}</el-button>
     </div>
 
     <el-card class="card" shadow="never">
       <el-table :data="paged" size="small" v-loading="loading">
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="name" label="名称" min-width="140" />
-        <el-table-column prop="key" label="接口 Key" min-width="220">
+        <el-table-column prop="name" :label="t('iface.name')" min-width="140" />
+        <el-table-column prop="key" :label="t('iface.key')" min-width="220">
           <template #default="{ row }">
             <span class="mono">{{ row.key }}</span>
-            <el-button link @click="copy(row.key)">复制</el-button>
+            <el-button link @click="copy(row.key)">{{ t("iface.copy") }}</el-button>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="status" :label="t('iface.status')" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
-              {{ row.status === 1 ? "已发布" : "草稿" }}
+              {{ row.status === 1 ? t("iface.published") : t("iface.draft") }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="260" fixed="right">
+        <el-table-column :label="t('iface.actions')" width="260" fixed="right">
           <template #default="{ row }">
-            <el-button link @click="openDetail(row)">详情</el-button>
-            <el-button v-if="row.status !== 1" link @click="publish(row)">发布</el-button>
-            <el-button v-else link @click="revoke(row)">下线</el-button>
-            <el-button link :disabled="row.status !== 1" @click="execute(row)">执行</el-button>
+            <el-button link @click="openDetail(row)">{{ t("iface.detail") }}</el-button>
+            <el-button v-if="row.status !== 1" link @click="publish(row)">{{ t("iface.publish") }}</el-button>
+            <el-button v-else link @click="revoke(row)">{{ t("iface.revoke") }}</el-button>
+            <el-button link :disabled="row.status !== 1" @click="execute(row)">{{ t("iface.execute") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" description="还没有接口" />
+      <el-empty v-if="!loading && !filtered.length" :description="t('iface.empty')" />
       <div class="pager">
         <el-pagination v-model:current-page="page" :page-size="pageSize"
                        :total="filtered.length" layout="total, prev, pager, next" small />
       </div>
     </el-card>
 
-    <el-dialog v-model="dialog" title="新建接口" width="720px">
+    <el-dialog v-model="dialog" :title="t('iface.newTitle')" width="720px">
       <el-form label-width="90px">
-        <el-form-item label="名称" required>
+        <el-form-item :label="t('iface.name')" required>
           <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item label="数据源" required>
+        <el-form-item :label="t('iface.datasource')" required>
           <el-select v-model="form.datasource_id" style="width: 100%">
             <el-option v-for="d in datasources" :key="d.id" :value="d.id"
                        :label="`${d.name} (${d.kind})`" />
           </el-select>
         </el-form-item>
-        <el-form-item label="SQL" required>
+        <el-form-item :label="t('iface.sql')" required>
           <el-input v-model="form.sql_text" type="textarea" :rows="7"
                     class="sql" placeholder="select * from t where day = ${day}" />
         </el-form-item>
-        <el-form-item label="参数">
+        <el-form-item :label="t('iface.params')">
           <div class="param-box">
             <div v-for="(p, i) in form.params" :key="i" class="param-row">
-              <el-input v-model="p.name" placeholder="名称" style="width: 130px" />
+              <el-input v-model="p.name" :placeholder="t('iface.paramName')" style="width: 130px" />
               <el-select v-model="p.type" style="width: 110px">
-                <el-option value="string" label="字符串" />
-                <el-option value="number" label="数字" />
+                <el-option value="string" :label="t('iface.typeString')" />
+                <el-option value="number" :label="t('iface.typeNumber')" />
               </el-select>
-              <el-checkbox v-model="p.required">必填</el-checkbox>
-              <el-button link type="danger" @click="form.params.splice(i, 1)">删除</el-button>
+              <el-checkbox v-model="p.required">{{ t("iface.required") }}</el-checkbox>
+              <el-button link type="danger" @click="form.params.splice(i, 1)">{{ t("iface.delete") }}</el-button>
             </div>
-            <el-button link type="primary" @click="addParam">+ 添加参数</el-button>
+            <el-button link type="primary" @click="addParam">+ {{ t("iface.addParam") }}</el-button>
           </div>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialog = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="create">保存</el-button>
+        <el-button @click="dialog = false">{{ t("iface.cancel") }}</el-button>
+        <el-button type="primary" :loading="saving" @click="create">{{ t("iface.save") }}</el-button>
       </template>
     </el-dialog>
 
-    <el-drawer v-model="drawer" :title="detail.name || '接口详情'" size="700px">
+    <el-drawer v-model="drawer" :title="detail.name || t('iface.detailTitle')" size="700px">
       <el-descriptions :column="2" border>
-        <el-descriptions-item label="接口 ID">{{ detail.id }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
+        <el-descriptions-item :label="t('iface.interfaceId')">{{ detail.id }}</el-descriptions-item>
+        <el-descriptions-item :label="t('iface.status')">
           <el-tag :type="detail.status === 1 ? 'success' : 'info'" size="small">
-            {{ detail.status === 1 ? "已发布" : "草稿" }}
+            {{ detail.status === 1 ? t("iface.published") : t("iface.draft") }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="OpenAPI 路径" :span="2">
+        <el-descriptions-item :label="t('iface.openapiPath')" :span="2">
           <span class="mono">/openapi/{{ detail.key }}</span>
         </el-descriptions-item>
-        <el-descriptions-item label="数据源">{{ detail.datasource_id }}</el-descriptions-item>
+        <el-descriptions-item :label="t('iface.datasource')">{{ detail.datasource_id }}</el-descriptions-item>
       </el-descriptions>
       <h4>SQL</h4>
       <pre class="sql-preview">{{ detail.sql }}</pre>
-      <h4>参数</h4>
+      <h4>{{ t("iface.params") }}</h4>
       <el-table :data="detail.params || []" size="small">
-        <el-table-column prop="name" label="名称" />
-        <el-table-column prop="type" label="类型" width="100" />
-        <el-table-column prop="required" label="必填" width="80">
-          <template #default="{ row }">{{ row.required ? "是" : "否" }}</template>
+        <el-table-column prop="name" :label="t('iface.paramName')" />
+        <el-table-column :label="t('iface.paramType')" width="100" />
+        <el-table-column :label="t('iface.required')" width="80">
+          <template #default="{ row }">{{ row.required ? t("iface.yes") : t("iface.no") }}</template>
         </el-table-column>
       </el-table>
       <div class="actions">
-        <el-button v-if="detail.status !== 1" type="primary" @click="publish(detail)">发布</el-button>
-        <el-button v-else @click="revoke(detail)">下线</el-button>
-        <el-button :disabled="detail.status !== 1" @click="execute(detail)">执行</el-button>
+        <el-button v-if="detail.status !== 1" type="primary" @click="publish(detail)">{{ t("iface.publish") }}</el-button>
+        <el-button v-else @click="revoke(detail)">{{ t("iface.revoke") }}</el-button>
+        <el-button :disabled="detail.status !== 1" @click="execute(detail)">{{ t("iface.execute") }}</el-button>
       </div>
     </el-drawer>
 
-    <el-dialog v-model="execDialog" title="执行接口" width="620px">
+    <el-dialog v-model="execDialog" :title="t('iface.execTitle')" width="620px">
       <el-form label-width="100px">
         <el-form-item v-for="p in execParams" :key="p.name" :label="p.name">
           <el-input v-model="execValues[p.name]" :placeholder="p.type" />
         </el-form-item>
       </el-form>
-      <el-button type="primary" :loading="execLoading" @click="doExecute">执行</el-button>
+      <el-button type="primary" :loading="execLoading" @click="doExecute">{{ t("iface.execute") }}</el-button>
       <pre class="result">{{ result }}</pre>
     </el-dialog>
   </div>
@@ -127,7 +127,8 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
-import { api, errMsg } from "../api";
+import { api, errMsg, getProject } from "../api";
+import { t } from "../i18n";
 
 const rows = ref([]);
 const datasources = ref([]);
@@ -187,13 +188,13 @@ function addParam() {
 }
 async function create() {
   if (!form.name || !form.sql_text || !form.datasource_id) {
-    ElMessage.warning("名称、数据源和 SQL 必填");
+    ElMessage.warning(t("iface.requiredFields"));
     return;
   }
   saving.value = true;
   try {
     await api.post("/interfaces", {
-      project_id: 1,
+      project_id: getProject() || 1,
       datasource_id: form.datasource_id,
       name: form.name,
       sql_text: form.sql_text,
@@ -201,7 +202,7 @@ async function create() {
     });
     dialog.value = false;
     await load();
-    ElMessage.success("已创建");
+    ElMessage.success(t("iface.created"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -224,19 +225,20 @@ async function publish(row) {
     await api.post(`/interfaces/${row.id}/publish?approval_token=${encodeURIComponent(a.approval_token)}`, {});
     await load();
     if (drawer.value && detail.value.id === row.id) await openDetail(row);
-    ElMessage.success("已发布");
+    ElMessage.success(t("iface.publishedMsg"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
 }
 async function revoke(row) {
   try {
-    await ElMessageBox.confirm("下线后外部调用将不可用，确认？", "下线确认", { type: "warning" });
+    await ElMessageBox.confirm(t("iface.revokeConfirm"),
+      t("iface.revokeTitle"), { type: "warning" });
     const a = await api.post(`/interfaces/${row.id}/approve?action=revoke`, {});
     await api.post(`/interfaces/${row.id}/revoke?approval_token=${encodeURIComponent(a.approval_token)}`, {});
     await load();
     if (drawer.value && detail.value.id === row.id) await openDetail(row);
-    ElMessage.success("已下线");
+    ElMessage.success(t("iface.revokedMsg"));
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));
   }
@@ -262,7 +264,7 @@ async function doExecute() {
     for (const p of execParams.value) {
       const v = execValues[p.name];
       if (p.required && (v === "" || v === undefined)) {
-        throw new Error(`参数 ${p.name} 必填`);
+        throw new Error(t("iface.paramRequired").replace("{name}", p.name));
       }
       if (v === "" || v === undefined) continue;
       payload[p.name] = p.type === "number" ? Number(v) : v;
@@ -279,7 +281,7 @@ async function doExecute() {
 async function copy(text) {
   try {
     await navigator.clipboard.writeText(text);
-    ElMessage.success("已复制");
+    ElMessage.success(t("iface.copied"));
   } catch (e) {
     ElMessage.warning(text);
   }

@@ -30,6 +30,20 @@ test("datasources and catalog search work", async ({ page }) => {
   await expect(page.getByText("列级血缘")).toBeVisible({ timeout: 10000 });
 });
 
+test("catalog detail exposes preview and activity", async ({ page }) => {
+  await login(page);
+  await page.goto("/ui/#/catalog");
+  await page.locator(".el-tree-node__content", { hasText: "demo_src" })
+    .first().click();
+  await expect(page).toHaveURL(/catalog\/\d+/);
+  await expect(page.getByRole("tab", { name: "概览" })).toBeVisible();
+  await page.getByRole("tab", { name: "数据预览" }).click();
+  await page.getByRole("button", { name: "加载样例" }).click();
+  await expect(page.getByText(/\d+ 行 ·/)).toBeVisible();
+  await page.getByRole("tab", { name: "操作历史" }).click();
+  await expect(page.getByText("dataset_sample")).toBeVisible();
+});
+
 test("pipeline studio exposes backfill and cursor actions", async ({ page }) => {
   await login(page);
   await page.goto("/ui/#/pipelines/1");
