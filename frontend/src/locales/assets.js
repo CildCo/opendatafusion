@@ -161,6 +161,8 @@ export default {
     "catd.detail": "详情",
     "catd.pass": "通过",
     "catd.fail": "未通过",
+    "catd.enabled": "启用",
+    "catd.disabled": "停用",
 
     "iface.searchPlaceholder": "搜索接口名 / Key",
     "iface.allStatus": "全部状态",
@@ -368,6 +370,8 @@ export default {
     "catd.detail": "Detail",
     "catd.pass": "Pass",
     "catd.fail": "Fail",
+    "catd.enabled": "Enabled",
+    "catd.disabled": "Disabled",
 
     "iface.searchPlaceholder": "Search interface name / key",
     "iface.allStatus": "All statuses",

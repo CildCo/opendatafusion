@@ -114,7 +114,9 @@
 
         <el-tab-pane :label="t('catd.quality')" name="quality">
           <div class="preview-bar">
-            <span class="muted">{{ stats.rule_count }}</span>
+            <span class="muted">
+              {{ stats.rule_count }} {{ t("catd.ruleCount") }}
+            </span>
             <div class="spacer" />
             <el-button size="small" @click="$router.push('/quality')">
               {{ t("catd.goQuality") }}
@@ -127,7 +129,7 @@
             <el-table-column :label="t('iface.status')" width="110">
               <template #default="{ row }">
                 <el-tag size="small" :type="row.enabled ? 'success' : 'info'">
-                  {{ row.enabled ? t("iface.published") : t("iface.draft") }}
+                  {{ row.enabled ? t("catd.enabled") : t("catd.disabled") }}
                 </el-tag>
               </template>
             </el-table-column>
