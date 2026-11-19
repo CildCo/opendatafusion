@@ -69,3 +69,25 @@ def execute_interface(session, interface_id, params, timeout_s=None,
                          detail_json={"rows": len(result)}))
     session.commit()
     return result, len(result)
+
+
+_IFACE_ACTIONS = ("query",)
+
+
+def interface_history(session, project_id, interface_id, limit=50):
+    iface = session.get(Interface, interface_id)
+    if not iface or iface.project_id != project_id:
+        return None
+    try:
+        size = max(1, min(int(limit or 50), 200))
+    except (TypeError, ValueError):
+        raise ValueError("limit must be a number")
+    rows = (session.query(AuditLog)
+            .filter(AuditLog.target.in_([iface.interface_key,
+                                         str(interface_id)]),
+                    AuditLog.action.in_(_IFACE_ACTIONS))
+            .order_by(AuditLog.at.desc(), AuditLog.id.desc())
+            .limit(size).all())
+    return [{"id": r.id, "actor": r.actor, "action": r.action,
+             "at": r.at.isoformat(), "detail": r.detail_json or {}}
+            for r in rows]

@@ -71,3 +71,11 @@ def close_alert(session, alert_id: int) -> Alert:
     a.closed_at = datetime.now(timezone.utc)
     session.commit()
     return a
+
+
+def delete_rule(session, project_id: int, rule_id: int) -> None:
+    rule = session.get(AlertRule, rule_id)
+    if not rule or rule.project_id != project_id:
+        raise ValueError("rule not found")
+    session.delete(rule)
+    session.commit()

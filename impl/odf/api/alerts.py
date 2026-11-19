@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from odf.db import get_session
 from odf.ops.service import ack_alert as ack_scoped
 from odf.ops.service import close_alert as close_scoped
-from odf.services.alerts import create_rule, list_alerts, list_rules
+from odf.services.alerts import (create_rule, delete_rule, list_alerts,
+                                 list_rules)
 from odf.services.auth import require_editor, require_user
 
 router = APIRouter()
@@ -32,6 +33,16 @@ def create(body: RuleIn, s: Session = Depends(get_session),
     r = create_rule(s, claims["project_id"], body.name, body.kind,
                     body.config)
     return {"id": r.id}
+
+
+@router.delete("/alerts/rules/{rule_id}", status_code=204)
+def remove_rule(rule_id: int, s: Session = Depends(get_session),
+                claims: dict = Depends(require_editor)):
+    try:
+        delete_rule(s, claims["project_id"], rule_id)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return None
 
 
 @router.get("/alerts")

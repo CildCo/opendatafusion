@@ -16,6 +16,10 @@ class SourceIn(BaseModel):
     password: str = ""
 
 
+class TablesIn(BaseModel):
+    table_list: str = ""
+
+
 def _error(error: Exception) -> HTTPException:
     message = str(error)
     if "not configured" in message:
@@ -60,6 +64,34 @@ def get_source(source_id: int, session: Session = Depends(get_session),
                claims: dict = Depends(require_user)):
     return service.source_out(_source(session, claims["project_id"],
                                       source_id))
+
+
+@router.get("/cdc/sources/{source_id}/detail")
+def connector_detail(source_id: int, session: Session = Depends(get_session),
+                     claims: dict = Depends(require_user)):
+    source = _source(session, claims["project_id"], source_id)
+    try:
+        return service.connector_detail(session, source)
+    except ValueError as error:
+        raise _error(error)
+    except httpx.HTTPError:
+        raise HTTPException(502, "debezium is unreachable")
+
+
+@router.put("/cdc/sources/{source_id}/tables")
+def update_tables(source_id: int, body: TablesIn,
+                  session: Session = Depends(get_session),
+                  claims: dict = Depends(require_editor)):
+    source = _source(session, claims["project_id"], source_id)
+    try:
+        service.update_tables(session, source, body.table_list, claims["sub"])
+    except ValueError as error:
+        raise _error(error)
+    except httpx.HTTPStatusError:
+        raise HTTPException(502, "debezium rejected the request")
+    except httpx.HTTPError:
+        raise HTTPException(502, "debezium is unreachable")
+    return service.source_out(source)
 
 
 @router.post("/cdc/sources/{source_id}/status")

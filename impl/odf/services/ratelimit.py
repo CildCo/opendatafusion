@@ -81,9 +81,9 @@ def record_stat(session, day, api_id, ak, ok, ms):
 
 
 def stats(session, project_id, days=7):
-    since = datetime.now(timezone.utc).date()
     from datetime import timedelta
-    since = since - timedelta(days=max(1, days) - 1)
+    since = (datetime.now(timezone.utc).date()
+             - timedelta(days=max(1, days) - 1))
     rows = (session.query(ApiCallStat.api_id, ApiCallStat.ak,
                           func.sum(ApiCallStat.count),
                           func.sum(ApiCallStat.errors),
@@ -102,3 +102,41 @@ def stats(session, project_id, days=7):
                     "errors": int(errors or 0),
                     "avg_ms": int((total_ms or 0) / max(1, count or 0))})
     return out
+
+
+def stats_for_api(session, project_id, api_id, days=30):
+    from datetime import timedelta
+    asset = session.get(Asset, api_id)
+    if not asset or asset.project_id != project_id:
+        return None
+    days = max(1, min(int(days or 30), 365))
+    since = (datetime.now(timezone.utc).date()
+             - timedelta(days=days - 1))
+    rows = (session.query(ApiCallStat)
+            .filter(ApiCallStat.api_id == api_id,
+                    ApiCallStat.day >= since)
+            .order_by(ApiCallStat.day).all())
+    by_day, by_key = {}, {}
+    total = {"count": 0, "errors": 0, "total_ms": 0}
+    for row in rows:
+        day = row.day.isoformat()
+        d = by_day.setdefault(day, {"day": day, "count": 0, "errors": 0,
+                                    "total_ms": 0})
+        k = by_key.setdefault(row.ak or "-", {"ak": row.ak or "-",
+                                              "count": 0, "errors": 0,
+                                              "total_ms": 0})
+        for target in (d, k, total):
+            target["count"] += row.count
+            target["errors"] += row.errors
+            target["total_ms"] += row.total_ms
+
+    def _avg(item):
+        return {"count": item["count"], "errors": item["errors"],
+                "avg_ms": int(item["total_ms"] / max(1, item["count"]))}
+
+    return {"since": since.isoformat(),
+            "days": [dict(_avg(item), day=item["day"])
+                     for item in by_day.values()],
+            "keys": [_avg(item) | {"ak": item["ak"]}
+                     for item in by_key.values()],
+            "total": _avg(total)}

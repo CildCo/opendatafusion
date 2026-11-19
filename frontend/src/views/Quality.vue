@@ -21,6 +21,26 @@
         <el-table-column :label="t('quality.dataset')" min-width="160">
           <template #default="{ row }">{{ datasetName(row.dataset_id) }}</template>
         </el-table-column>
+        <el-table-column :label="t('quality.lastStatus')" width="140">
+          <template #default="{ row }">
+            <el-tag v-if="row.last_status"
+                    :type="row.last_status === 'pass' ? 'success' : 'danger'"
+                    size="small">
+              {{ row.last_status }}
+            </el-tag>
+            <span v-else class="muted">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('quality.passRate')" width="150">
+          <template #default="{ row }">
+            <el-progress v-if="row.pass_rate !== null"
+                         :percentage="row.pass_rate"
+                         :status="row.pass_rate >= 90 ? 'success'
+                           : row.pass_rate >= 60 ? 'warning' : 'exception'"
+                         :stroke-width="8" />
+            <span v-else class="muted">-</span>
+          </template>
+        </el-table-column>
         <el-table-column :label="t('quality.actions')" width="240" fixed="right">
           <template #default="{ row }">
             <el-button link @click="run(row)">{{ t("quality.run") }}</el-button>
@@ -100,6 +120,18 @@
     </el-dialog>
 
     <el-drawer v-model="resultDrawer" :title="t('quality.results') + ' · ' + (current.name || '')" size="640px">
+      <div class="trend-head">
+        <span class="hint">
+          {{ t("quality.trendSummary").replace("{n}", results.length) }}
+        </span>
+        <span class="hint" v-if="current.pass_rate !== null">
+          {{ t("quality.passRate") }}: {{ current.pass_rate }}%
+        </span>
+        <div class="spacer" />
+        <el-button size="small" @click="openDataset">
+          {{ t("quality.viewDataset") }}
+        </el-button>
+      </div>
       <el-table :data="results" size="small">
         <el-table-column prop="id" :label="t('quality.id')" width="70" />
         <el-table-column prop="status" :label="t('quality.results')" width="90">
@@ -123,10 +155,13 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
+import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
+
+const router = useRouter();
 
 const rows = ref([]);
 const datasets = ref([]);
@@ -283,6 +318,12 @@ async function showResults(row) {
   }
 }
 
+function openDataset() {
+  if (current.value.dataset_id) {
+    router.push(`/catalog/${current.value.dataset_id}`);
+  }
+}
+
 onMounted(load);
 </script>
 
@@ -295,4 +336,13 @@ onMounted(load);
   font-family: Consolas, monospace;
   font-size: 12px;
 }
+.muted { color: #9ca3af; font-size: 12px; }
+.trend-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.spacer { flex: 1; }
+.hint { color: #6b7280; font-size: 12px; }
 </style>

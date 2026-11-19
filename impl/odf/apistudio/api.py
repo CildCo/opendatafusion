@@ -14,6 +14,7 @@ from odf.services.approval import verify_token
 from odf.services.audit import write_audit
 from odf.services.auth import (claims_role, require_approver, require_editor,
                                 require_user)
+from odf.services.ratelimit import stats_for_api
 from odf.services.changes import apply as apply_change
 from odf.services.changes import propose
 
@@ -171,6 +172,16 @@ def test(asset_id: int, body: ParamsIn,
     write_audit(s, claims["sub"], "test_api", str(a.id),
                 {"rows": result["row_count"]})
     return result
+
+
+@router.get("/apis/{asset_id}/stats")
+def stats(asset_id: int, days: int = 30, s: Session = Depends(get_session),
+          claims: dict = Depends(require_user)):
+    a = _asset(s, asset_id, claims)
+    out = stats_for_api(s, a.project_id, a.id, days)
+    if out is None:
+        raise HTTPException(404, "API not found")
+    return out
 
 
 @router.get("/apis/{asset_id}/docs")

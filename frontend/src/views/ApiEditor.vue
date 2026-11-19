@@ -15,6 +15,7 @@
       <el-button size="small" @click="test">{{ t("aed.test") }}</el-button>
       <el-button size="small" type="primary" @click="publish">{{ t("aed.publish") }}</el-button>
       <el-button size="small" @click="versionsOpen = true">{{ t("aed.versions") }}</el-button>
+      <el-button size="small" @click="openStats">{{ t("aed.stats") }}</el-button>
       <el-button size="small" @click="docsOpen = true">{{ t("aed.docs") }}</el-button>
       <el-button size="small" @click="toggle">
         {{ enabled ? t("aed.offline") : t("aed.enable") }}
@@ -66,6 +67,43 @@
       </el-table>
     </el-drawer>
     <ApiDocs v-model="docsOpen" :asset-id="id" />
+
+    <el-drawer v-model="statsOpen" :title="t('aed.stats')" size="560px">
+      <div class="stat-row">
+        <div class="stat">
+          <span>{{ t("aed.calls") }}</span>
+          <b>{{ stats.total.count }}</b>
+        </div>
+        <div class="stat">
+          <span>{{ t("aed.errors") }}</span>
+          <b>{{ stats.total.errors }}</b>
+        </div>
+        <div class="stat">
+          <span>{{ t("aed.avgLatency") }}</span>
+          <b>{{ stats.total.avg_ms }} ms</b>
+        </div>
+      </div>
+      <h4>{{ t("aed.byDay") }}</h4>
+      <el-table :data="stats.days" size="small">
+        <el-table-column prop="day" :label="t('aed.day')" />
+        <el-table-column prop="count" :label="t('aed.calls')" width="100" />
+        <el-table-column prop="errors" :label="t('aed.errors')" width="90" />
+        <el-table-column :label="t('aed.avgLatency')" width="120">
+          <template #default="{ row }">{{ row.avg_ms }} ms</template>
+        </el-table-column>
+      </el-table>
+      <h4>{{ t("aed.byKey") }}</h4>
+      <el-table :data="stats.keys" size="small">
+        <el-table-column prop="ak" label="AK" />
+        <el-table-column prop="count" :label="t('aed.calls')" width="100" />
+        <el-table-column prop="errors" :label="t('aed.errors')" width="90" />
+        <el-table-column :label="t('aed.avgLatency')" width="120">
+          <template #default="{ row }">{{ row.avg_ms }} ms</template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="!stats.total.count" :description="t('aed.noStats')"
+                :image-size="60" />
+    </el-drawer>
   </div>
 </template>
 
@@ -94,6 +132,9 @@ const datasources = ref([]);
 const items = ref([]);
 const versions = ref([]);
 const versionsOpen = ref(false);
+const statsOpen = ref(false);
+const stats = ref({ total: { count: 0, errors: 0, avg_ms: 0 },
+                    days: [], keys: [] });
 const docsOpen = ref(false);
 const preview = ref(null);
 
@@ -175,6 +216,15 @@ async function openVersions() {
   versions.value = await api.get(`/apis/${id}/versions`);
 }
 
+async function openStats() {
+  statsOpen.value = true;
+  try {
+    stats.value = await api.get(`/apis/${id}/stats?days=30`);
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
 async function rollback(row) {
   try {
     await ElMessageBox.confirm(
@@ -200,6 +250,12 @@ onMounted(load);
 .spacer { flex: 1; }
 .key { font-size: 12px; color: #6b7280; }
 .mono { font-family: ui-monospace, monospace; }
+.stat-row { display: flex; gap: 12px; margin-bottom: 8px; }
+.stat { flex: 1; border: 1px solid #e5e7eb; border-radius: 8px;
+        padding: 10px 12px; display: flex; flex-direction: column;
+        gap: 4px; background: #fff; }
+.stat span { color: #6b7280; font-size: 12px; }
+.stat b { font-size: 20px; color: #0f172a; }
 .body { flex: 1; display: grid; grid-template-columns: 210px 1fr 360px;
         min-height: 0; }
 .left { background: #fff; border-right: 1px solid #e5e7eb; overflow: auto; }

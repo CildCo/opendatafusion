@@ -5,7 +5,7 @@ import httpx
 
 from odf.models import CdcSource
 from odf.services.audit import write_audit
-from odf.services.crypto import encrypt_secret
+from odf.services.crypto import decrypt_secret, encrypt_secret
 from odf.settings import get_settings
 
 STATES = {"RUNNING": "running", "PAUSED": "paused", "FAILED": "failed",
@@ -159,3 +159,49 @@ def delete_source(session, source: CdcSource, actor: str) -> None:
     session.commit()
     write_audit(session, actor, "delete_cdc_source", str(source_id),
                 {"connector": connector})
+
+
+def parse_connector_status(payload: dict) -> dict:
+    connector = payload.get("connector") or {}
+    state = connector.get("state") or "UNKNOWN"
+    tasks = []
+    for task in payload.get("tasks") or []:
+        tasks.append({"id": task.get("id"),
+                      "state": task.get("state") or "UNKNOWN",
+                      "trace": (task.get("trace") or "")[:2000]})
+    return {"state": state, "tasks": tasks,
+            "failed_tasks": sum(1 for t in tasks
+                                if t["state"].upper() == "FAILED"),
+            "trace": (connector.get("trace") or "")[:2000]}
+
+
+def connector_detail(session, source: CdcSource) -> dict:
+    response = _client().get("/connectors/%s/status" % source.connector_name)
+    response.raise_for_status()
+    detail = parse_connector_status(response.json())
+    config = (source.config_json or {}).copy()
+    config.pop("password", None)
+    detail.update({"id": source.id, "name": source.name,
+                   "connector_name": source.connector_name,
+                   "status": source.status, "config": config,
+                   "created_at": source.created_at.isoformat()})
+    return detail
+
+
+def update_tables(session, source: CdcSource, table_list: str,
+                  actor: str) -> CdcSource:
+    config = dict(source.config_json or {})
+    config["table_list"] = table_list
+    password = decrypt_secret(source.password_encrypted) \
+        if source.password_encrypted else ""
+    payload = connector_payload(config, password)
+    response = _client().put(
+        "/connectors/%s/config" % source.connector_name, json=payload)
+    response.raise_for_status()
+    source.config_json = config
+    source.updated_at = _now()
+    session.commit()
+    write_audit(session, actor, "update_cdc_tables", str(source.id),
+                {"connector": source.connector_name,
+                 "table_list": table_list})
+    return source

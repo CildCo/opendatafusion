@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from odf.db import get_session
 from odf.services.auth import require_editor, require_user
 from odf.services.quality import (create_rule, delete_rule,
-                                  list_results, list_rules, run_rule)
+                                  list_results, rule_summaries, run_rule)
 
 router = APIRouter()
 
@@ -22,9 +22,7 @@ class RuleIn(BaseModel):
 @router.get("/quality/rules")
 def rules(s: Session = Depends(get_session),
           claims: dict = Depends(require_user)):
-    return [{"id": r.id, "dataset_id": r.dataset_id, "name": r.name,
-             "kind": r.kind, "column": r.column_name, "enabled": r.enabled}
-            for r in list_rules(s, claims["project_id"])]
+    return rule_summaries(s, claims["project_id"])
 
 
 @router.post("/quality/rules")
