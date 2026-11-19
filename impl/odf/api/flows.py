@@ -51,6 +51,21 @@ def versions(flow_id: int, s: Session = Depends(get_session),
              "created_at": v.created_at.isoformat()} for v in rows]
 
 
+@router.get("/flows/{flow_id}/versions/{version}")
+def version_detail(flow_id: int, version: int,
+                   s: Session = Depends(get_session),
+                   claims: dict = Depends(require_user)):
+    f = s.get(Flow, flow_id)
+    if not f or f.project_id != claims["project_id"]:
+        raise HTTPException(404, "flow not found")
+    v = (s.query(FlowVersion)
+         .filter_by(flow_id=flow_id, version=version).first())
+    if not v:
+        raise HTTPException(404, "version not found")
+    return {"version": v.version, "created_by": v.created_by,
+            "created_at": v.created_at.isoformat(), "dag": v.dag_json}
+
+
 @router.post("/flows")
 def create(body: FlowIn, s: Session = Depends(get_session),
            claims: dict = Depends(require_user)):
