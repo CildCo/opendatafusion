@@ -141,7 +141,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="at" :label="t('quality.time')" width="200" />
+        <el-table-column :label="t('quality.time')" width="200">
+          <template #default="{ row }">{{ fmtDate(row.at) }}</template>
+        </el-table-column>
         <el-table-column :label="t('quality.detail')">
           <template #default="{ row }">
             <span class="mono">{{ JSON.stringify(row.detail) }}</span>
@@ -158,8 +160,8 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
-import { api, errMsg } from "../api";
-import { t } from "../i18n";
+import { api, errMsg, getProject } from "../api";
+import { fmtDate, t } from "../i18n";
 
 const router = useRouter();
 
@@ -277,7 +279,7 @@ async function create() {
       config.allow_extra = form.allow_extra;
     }
     await api.post("/quality/rules", {
-      project_id: 1,
+      project_id: getProject() || 1,
       dataset_id: form.dataset_id,
       name: form.name,
       kind: form.kind,

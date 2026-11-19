@@ -65,7 +65,7 @@ async function request(path, opts = {}) {
 async function applyChange(action, target, payload = {}) {
   const c = await request("/changes", {
     method: "POST",
-    body: JSON.stringify({ project_id: 1, action, target, payload }),
+    body: JSON.stringify({ project_id: getProject() || 1, action, target, payload }),
   });
   const a = await request(`/changes/${c.id}/approve`, {
     method: "POST",

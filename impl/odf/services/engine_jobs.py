@@ -310,7 +310,13 @@ def _record_sync_failure(session, job_id, error):
                  job.sync_failures, MAX_SYNC_FAILURES, error)
 
 
-def job_out(job):
+def job_out(job, session=None):
+    actor = job.submitted_by
+    if session is not None and (actor or "").isdigit():
+        from odf.models import User
+        user = session.get(User, int(actor))
+        if user:
+            actor = user.username
     return {
         "id": job.id,
         "project_id": job.project_id,
@@ -319,7 +325,7 @@ def job_out(job):
         "name": job.name,
         "status": job.status,
         "external_id": job.external_id,
-        "submitted_by": job.submitted_by,
+        "submitted_by": actor,
         "attempts": job.attempts,
         "max_attempts": job.max_attempts,
         "error": job.error,

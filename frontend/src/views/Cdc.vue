@@ -29,7 +29,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" :label="t('cdc.createdAt')" width="200" />
+        <el-table-column :label="t('cdc.createdAt')" width="200">
+          <template #default="{ row }">{{ fmtDate(row.created_at) }}</template>
+        </el-table-column>
         <el-table-column :label="t('cdc.actions')" width="240" fixed="right">
           <template #default="{ row }">
             <el-button link @click.stop="openDetail(row)">
@@ -102,7 +104,7 @@
           {{ detail.failed_tasks || 0 }}
         </el-descriptions-item>
         <el-descriptions-item :label="t('cdc.createdAt')">
-          {{ detail.created_at }}
+          {{ fmtDate(detail.created_at) }}
         </el-descriptions-item>
       </el-descriptions>
 
@@ -143,7 +145,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
-import { t } from "../i18n";
+import { fmtDate, t } from "../i18n";
 
 const rows = ref([]);
 const loading = ref(false);

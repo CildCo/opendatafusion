@@ -16,7 +16,9 @@
         <el-table-column prop="actor" :label="t('audit.actor')" width="150" />
         <el-table-column prop="action" :label="t('audit.action')" width="190" />
         <el-table-column prop="target" :label="t('audit.target')" width="160" />
-        <el-table-column prop="at" :label="t('audit.at')" width="200" />
+        <el-table-column :label="t('audit.at')" width="200">
+          <template #default="{ row }">{{ fmtDate(row.at) }}</template>
+        </el-table-column>
         <el-table-column :label="t('audit.detail')">
           <template #default="{ row }">
             <span class="mono">{{ JSON.stringify(row.detail) }}</span>
@@ -37,7 +39,7 @@
         <el-descriptions-item :label="t('audit.actor')">{{ current.actor }}</el-descriptions-item>
         <el-descriptions-item :label="t('audit.action')">{{ current.action }}</el-descriptions-item>
         <el-descriptions-item :label="t('audit.target')">{{ current.target }}</el-descriptions-item>
-        <el-descriptions-item :label="t('audit.at')">{{ current.at }}</el-descriptions-item>
+        <el-descriptions-item :label="t('audit.at')">{{ fmtDate(current.at) }}</el-descriptions-item>
       </el-descriptions>
       <h4>{{ t("audit.detail") }}</h4>
       <pre class="detail">{{ JSON.stringify(current.detail, null, 2) }}</pre>
@@ -49,7 +51,7 @@
 import { computed, onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { api, errMsg } from "../api";
-import { t } from "../i18n";
+import { fmtDate, t } from "../i18n";
 
 const rows = ref([]);
 const loading = ref(false);

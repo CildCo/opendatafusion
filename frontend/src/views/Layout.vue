@@ -29,7 +29,7 @@
         <div class="rail-meta">
           <span>API 18080</span>
           <span>MCP 18082</span>
-          <span>v1.0</span>
+          <span>v{{ appVersion }}</span>
         </div>
       </div>
     </aside>
@@ -90,11 +90,8 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import {
-  Odometer, Coin, Collection, Share, Connection, CircleCheck, Bell,
-  Switch, User, Document, Grid, Monitor, EditPen, Key, Promotion,
-  Folder, Setting, Lock, Search, Cpu, DataLine,
-} from "@element-plus/icons-vue";
+import { Search } from "@element-plus/icons-vue";
+import { MENU_GROUPS } from "../menu";
 import { ElMessage } from "element-plus";
 import { api, clearSession, getProject, getRole, setProject }
   from "../api";
@@ -102,6 +99,7 @@ import { t, toggleLocale } from "../i18n";
 
 const route = useRoute();
 const router = useRouter();
+const appVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
 const role = getRole() || "viewer";
 const online = ref(true);
 const projects = ref([]);
@@ -109,42 +107,7 @@ const currentProject = ref(getProject());
 const portal = ref({ brand_name: "OpenDataFusion", primary_color: "#1d4ed8",
                      hidden_menus: [], allowed_menus: null });
 
-const groups = [
-  { key: "nav.workspace", items: [
-    { path: "/dashboard", key: "menu.dashboard", icon: Odometer },
-    { path: "/ops", key: "menu.ops", icon: Monitor },
-  ] },
-  { key: "nav.assets", items: [
-    { path: "/datasources", key: "menu.datasources", icon: Coin },
-    { path: "/catalog", key: "menu.catalog", icon: Collection },
-    { path: "/workbench", key: "menu.workbench", icon: EditPen },
-    { path: "/files", key: "menu.files", icon: Folder },
-  ] },
-  { key: "nav.development", items: [
-    { path: "/pipelines", key: "menu.pipelines", icon: Share },
-    { path: "/engines", key: "menu.engines", icon: Cpu },
-    { path: "/cdc", key: "menu.cdc", icon: DataLine },
-    { path: "/flows", key: "menu.flows", icon: Share },
-    { path: "/datasets", key: "menu.datasets", icon: Collection },
-    { path: "/dashboards", key: "menu.dashboards", icon: Odometer },
-    { path: "/apps", key: "menu.apps", icon: Grid },
-  ] },
-  { key: "nav.governance", items: [
-    { path: "/apis", key: "menu.apis", icon: Connection },
-    { path: "/grants", key: "menu.grants", icon: Key },
-    { path: "/webhooks", key: "menu.webhooks", icon: Promotion },
-    { path: "/quality", key: "menu.quality", icon: CircleCheck },
-    { path: "/alerts", key: "menu.alerts", icon: Bell },
-    { path: "/changes", key: "menu.changes", icon: Switch },
-    { path: "/tools", key: "menu.tools", icon: Connection },
-  ] },
-  { key: "nav.management", items: [
-    { path: "/users", key: "menu.users", icon: User, adminOnly: true },
-    { path: "/workspace", key: "menu.workspace", icon: Setting },
-    { path: "/security", key: "menu.security", icon: Lock },
-    { path: "/audit", key: "menu.audit", icon: Document, adminOnly: true },
-  ] },
-];
+const groups = MENU_GROUPS;
 
 const menuGroups = computed(() => {
   const hidden = portal.value.hidden_menus || [];

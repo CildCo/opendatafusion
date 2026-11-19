@@ -36,7 +36,9 @@
         </el-table-column>
         <el-table-column prop="attempts" :label="t('eng.attempts')" width="80" />
         <el-table-column prop="submitted_by" :label="t('eng.submittedBy')" width="120" />
-        <el-table-column prop="created_at" :label="t('eng.createdAt')" width="200" />
+        <el-table-column :label="t('eng.createdAt')" width="200">
+          <template #default="{ row }">{{ fmtDate(row.created_at) }}</template>
+        </el-table-column>
         <el-table-column :label="t('eng.actions')" width="150" fixed="right">
           <template #default="{ row }">
             <el-button link :disabled="!active(row)" @click.stop="cancel(row)">
@@ -136,7 +138,7 @@
         <el-descriptions-item :label="t('eng.status')">{{ statusLabel(current.status) }}</el-descriptions-item>
         <el-descriptions-item :label="t('eng.externalId')">{{ current.external_id || "-" }}</el-descriptions-item>
         <el-descriptions-item :label="t('eng.started')">{{ current.started_at || "-" }}</el-descriptions-item>
-        <el-descriptions-item :label="t('eng.finished')">{{ current.finished_at || "-" }}</el-descriptions-item>
+        <el-descriptions-item :label="t('eng.finished')">{{ current.finished_at ? fmtDate(current.finished_at) : "-" }}</el-descriptions-item>
       </el-descriptions>
       <h4>{{ t("eng.spec") }}</h4>
       <pre class="detail">{{ JSON.stringify(current.spec, null, 2) }}</pre>
@@ -156,7 +158,7 @@
 import { computed, onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
-import { t } from "../i18n";
+import { fmtDate, t } from "../i18n";
 
 const rows = ref([]);
 const loading = ref(false);

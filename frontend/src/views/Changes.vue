@@ -36,8 +36,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" :label="t('changes.colTime')"
-                         width="200" />
+        <el-table-column :label="t('changes.colTime')" width="200">
+          <template #default="{ row }">{{ fmtDate(row.created_at) }}</template>
+        </el-table-column>
         <el-table-column :label="t('changes.colActions')" width="260"
                          fixed="right">
           <template #default="{ row }">
@@ -104,8 +105,8 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
-import { api, errMsg } from "../api";
-import { t } from "../i18n";
+import { api, errMsg, getProject } from "../api";
+import { fmtDate, t } from "../i18n";
 
 function tr(key, vars = {}) {
   return Object.entries(vars).reduce(
@@ -179,7 +180,7 @@ async function create() {
   saving.value = true;
   try {
     await api.post("/changes", {
-      project_id: 1,
+      project_id: getProject() || 1,
       action: form.action,
       target: form.target,
       payload: form.action === "rollback_flow"

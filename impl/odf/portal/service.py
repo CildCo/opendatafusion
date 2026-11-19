@@ -4,10 +4,10 @@ from odf.models import PortalSetting
 from odf.services.audit import write_audit
 
 MENUS = {"/dashboard", "/ops", "/datasources", "/catalog", "/workbench",
-         "/pipelines", "/flows", "/apis", "/tools", "/datasets",
-         "/dashboards", "/apps", "/quality", "/alerts", "/changes",
-         "/grants", "/webhooks", "/files", "/workspace", "/security",
-         "/users", "/audit"}
+         "/files", "/pipelines", "/engines", "/cdc", "/flows", "/datasets",
+         "/dashboards", "/apps", "/apis", "/interfaces", "/tools",
+         "/grants", "/webhooks", "/quality", "/alerts", "/changes",
+         "/workspace", "/security", "/users", "/audit"}
 DEFAULTS = {"brand_name": "OpenDataFusion", "primary_color": "#1d4ed8",
             "welcome_title": "", "welcome_text": "", "hidden_menus": [],
             "allowed_menus": None}
