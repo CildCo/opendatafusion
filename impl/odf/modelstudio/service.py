@@ -427,3 +427,47 @@ def metric_diff(session, project_id, metric_id):
     return {"published_version": published.version if published else None,
             "draft_version": draft.version if draft else None,
             "changes": changes}
+
+
+def metrics_for_dataset(session, project_id, dataset_id):
+    from odf.models import Asset, Dataset, Datasource
+    dataset = session.get(Dataset, dataset_id)
+    if not dataset:
+        return []
+    datasource = session.get(Datasource, dataset.datasource_id)
+    if not datasource or datasource.project_id != project_id:
+        return []
+    metrics = (session.query(Asset)
+               .filter_by(project_id=project_id, type="metric")
+               .order_by(Asset.name).all())
+    out = []
+    for metric in metrics:
+        content = {}
+        if metric.published_version_id:
+            version = session.get(AssetVersion, metric.published_version_id)
+            if version:
+                content = version.content_json or {}
+        if not content and metric.draft_version_id:
+            version = session.get(AssetVersion, metric.draft_version_id)
+            if version:
+                content = version.content_json or {}
+        source = session.get(Asset, content.get("dataset_id"))             if isinstance(content.get("dataset_id"), int) else None
+        if not source or source.project_id != project_id:
+            continue
+        source_content = {}
+        if source.published_version_id:
+            version = session.get(AssetVersion, source.published_version_id)
+            if version:
+                source_content = version.content_json or {}
+        if not source_content and source.draft_version_id:
+            version = session.get(AssetVersion, source.draft_version_id)
+            if version:
+                source_content = version.content_json or {}
+        query = source_content.get("query") or {}
+        table = (query.get("table") or "").split(".")[-1]
+        if (query.get("datasource_id") == dataset.datasource_id
+                and table == dataset.table_name):
+            out.append({"id": metric.id, "name": metric.name,
+                        "key": metric.key,
+                        "published": metric.published_version_id is not None})
+    return out

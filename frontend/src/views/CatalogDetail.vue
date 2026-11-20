@@ -59,6 +59,16 @@
               <span v-if="stats.last_activity_at">{{ fmt(stats.last_activity_at) }}</span>
               <span v-else class="muted">{{ t("catd.never") }}</span>
             </el-descriptions-item>
+            <el-descriptions-item :label="t('catd.metricsUsedBy')" :span="2">
+              <template v-if="(detail.metrics || []).length">
+                <el-tag v-for="m in detail.metrics" :key="m.id" size="small"
+                        class="metric-link"
+                        @click="$router.push(`/metrics/${m.id}`)">
+                  {{ m.name }}
+                </el-tag>
+              </template>
+              <span v-else class="muted">{{ t("catd.noMetrics") }}</span>
+            </el-descriptions-item>
           </el-descriptions>
           <div class="meta">
             <el-tag v-for="tag in detail.tags || []" :key="tag" size="small"
@@ -543,6 +553,7 @@ onMounted(async () => {
   font-family: Consolas, "Courier New", monospace;
   font-size: 11px;
 }
+.metric-link { cursor: pointer; margin-right: 6px; }
 .prop-row {
   display: flex;
   gap: 8px;

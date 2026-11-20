@@ -115,6 +115,12 @@ def dataset_detail(session, dataset_id: int, project_id: int | None = None):
     tags = (session.query(Tag)
             .join(DatasetTag, DatasetTag.tag_id == Tag.id)
             .filter(DatasetTag.dataset_id == dataset_id).all())
+    try:
+        from odf.modelstudio.service import metrics_for_dataset
+        owner = project_id if project_id is not None else ds.project_id
+        related = metrics_for_dataset(session, owner, dataset_id)
+    except Exception:
+        related = []
     return {"id": d.id, "datasource_id": d.datasource_id,
             "datasource_name": ds.name if ds else None,
             "datasource_kind": ds.kind if ds else None,
@@ -122,6 +128,7 @@ def dataset_detail(session, dataset_id: int, project_id: int | None = None):
             "schema": d.schema_name, "table": d.table_name,
             "columns": [{"name": c.name, "type": c.data_type} for c in cols],
             "tags": [t.name for t in tags],
+            "metrics": related,
             "stats": _dataset_stats(session, dataset_id, len(cols))}
 
 
