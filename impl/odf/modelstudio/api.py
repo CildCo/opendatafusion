@@ -336,6 +336,16 @@ def metric_lineage_route(asset_id: int, s: Session = Depends(get_session),
     return out
 
 
+@router.get("/metrics/{asset_id}/diff")
+def metric_diff_route(asset_id: int, s: Session = Depends(get_session),
+                      claims: dict = Depends(require_user)):
+    from odf.modelstudio.service import metric_diff
+    out = metric_diff(s, claims["project_id"], asset_id)
+    if out is None:
+        raise HTTPException(404, "metric not found")
+    return out
+
+
 @router.post("/metrics")
 def create_metric(body: ModelIn, s: Session = Depends(get_session),
                   claims: dict = Depends(require_editor)):
