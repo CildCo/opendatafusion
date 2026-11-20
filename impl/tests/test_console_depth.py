@@ -303,3 +303,48 @@ def test_mute_rule_suppresses_matching_alerts():
         s.query(AlertRule).filter_by(project_id=PROJECT_ID,
                                      name="mute-spam").delete()
         s.commit()
+
+
+def test_mysql_connector_payload():
+    from odf.cdc.service import connector_payload
+
+    payload = connector_payload(
+        {"engine": "mysql", "host": "db", "user": "u", "database": "shop",
+         "schema_list": "shop", "table_list": "shop.orders"}, "pw")
+    assert payload["connector.class"].endswith("MySqlConnector")
+    assert payload["database.hostname"] == "db"
+    assert payload["database.port"] == "3306"
+    assert payload["database.include.list"] == "shop"
+    assert payload["table.include.list"] == "shop.orders"
+    assert payload["database.server.id"].isdigit()
+    assert payload["database.password"] == "pw"
+    assert (payload["schema.history.internal.kafka.bootstrap.servers"]
+            == "kafka:9092")
+    assert (payload["schema.history.internal.kafka.topic"]
+            == "schema-history-odf")
+
+
+def test_oracle_connector_payload():
+    from odf.cdc.service import connector_payload
+
+    payload = connector_payload(
+        {"engine": "oracle", "host": "db", "user": "ODF", "database": "ORCL",
+         "schema_list": "ODF", "table_list": "ODF.EVENTS"}, "pw")
+    assert payload["connector.class"].endswith("OracleConnector")
+    assert payload["database.port"] == "1521"
+    assert payload["database.dbname"] == "ORCL"
+    assert payload["database.connector"] == "logminer"
+    assert payload["schema.include.list"] == "ODF"
+    assert payload["table.include.list"] == "ODF.EVENTS"
+    assert (payload["schema.history.internal.kafka.topic"]
+            == "schema-history-odf")
+
+
+def test_unknown_cdc_engine_is_rejected():
+    import pytest as _pytest
+
+    from odf.cdc.service import connector_payload
+
+    with _pytest.raises(ValueError):
+        connector_payload({"engine": "db2", "host": "h", "user": "u",
+                           "database": "d"}, "pw")
