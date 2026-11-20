@@ -24,8 +24,13 @@
                          width="170">
           <template #default="{ row }">{{ actionLabel(row.action) }}</template>
         </el-table-column>
-        <el-table-column prop="target" :label="t('changes.colTarget')"
-                         width="100" />
+        <el-table-column :label="t('changes.colTarget')" width="200">
+          <template #default="{ row }">
+            <span v-if="row.target_name">{{ row.target_name }}</span>
+            <span v-else>{{ row.target }}</span>
+            <span class="muted"> #{{ row.target }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="actor" :label="t('changes.colActor')"
                          width="130" />
         <el-table-column prop="status" :label="t('changes.colStatus')"
@@ -142,6 +147,19 @@ function actionLabel(a) {
     rollback_flow: t("changes.actionRollbackFlow"),
     publish_interface: t("changes.actionPublishInterface"),
     revoke_interface: t("changes.actionRevokeInterface"),
+    publish_metric: t("changes.actionPublishMetric"),
+    rollback_metric: t("changes.actionRollbackMetric"),
+    publish_dataset: t("changes.actionPublishDataset"),
+    rollback_dataset: t("changes.actionRollbackDataset"),
+    publish_pipeline: t("changes.actionPublishPipeline"),
+    pause_pipeline: t("changes.actionPausePipeline"),
+    resume_pipeline: t("changes.actionResumePipeline"),
+    publish_api: t("changes.actionPublishApi"),
+    rollback_api: t("changes.actionRollbackApi"),
+    enable_api: t("changes.actionEnableApi"),
+    revoke_api: t("changes.actionRevokeApi"),
+    publish_dashboard: t("changes.actionPublishDashboard"),
+    publish_app: t("changes.actionPublishApp"),
   }[a] || a;
 }
 

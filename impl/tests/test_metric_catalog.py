@@ -197,3 +197,34 @@ def test_metrics_for_dataset_and_dataset_detail():
         detail = dataset_detail(s, physical.id, PROJECT_ID)
         assert [m["id"] for m in detail["metrics"]] == [metric.id]
         assert service.metrics_for_dataset(s, 9999, physical.id) == []
+
+
+def test_changes_resolve_metric_target_names():
+    from fastapi.testclient import TestClient
+
+    from odf.main import app
+    from odf.models import User
+    from odf.services.auth import create_token
+
+    _project()
+    with SessionLocal() as s:
+        user = s.get(User, 9912)
+        if not user:
+            user = User(id=9912, username="metric-reviewer", password_hash="x",
+                        role="editor", active=True)
+            s.add(user)
+            s.commit()
+        metric = _asset(s, "metric", "Reviewed metric", {
+            "dataset_id": None, "measure": {}, "dimensions": [],
+        })
+        metric_id = metric.id
+    client = TestClient(app)
+    headers = {"Authorization": "Bearer " + create_token(9912, PROJECT_ID)}
+    created = client.post("/api/v1/changes", json={
+        "project_id": PROJECT_ID, "action": "publish_metric",
+        "target": metric_id, "payload": {}}, headers=headers)
+    assert created.status_code == 200
+    rows = client.get("/api/v1/changes", headers=headers).json()
+    row = next(r for r in rows if r["action"] == "publish_metric"
+               and r["target"] == str(metric_id))
+    assert row["target_name"] == "Reviewed metric"

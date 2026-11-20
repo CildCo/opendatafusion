@@ -19,10 +19,30 @@ class ChangeIn(BaseModel):
     payload: dict = {}
 
 
+def _target_name(session, action, target):
+    from odf.models import Asset, Flow, Interface
+    try:
+        object_id = int(target)
+    except (TypeError, ValueError):
+        return None
+    if action.endswith(("_metric", "_dataset", "_api", "_pipeline",
+                        "_dashboard", "_app")):
+        row = session.get(Asset, object_id)
+        return row.name if row else None
+    if "flow" in action:
+        row = session.get(Flow, object_id)
+        return row.name if row else None
+    if "interface" in action:
+        row = session.get(Interface, object_id)
+        return row.name if row else None
+    return None
+
+
 @router.get("/changes")
 def changes(status: str | None = None, s: Session = Depends(get_session),
             claims: dict = Depends(require_user)):
     return [{"id": c.id, "action": c.action, "target": c.target,
+             "target_name": _target_name(s, c.action, c.target),
              "status": c.status, "actor": c.actor,
              "created_at": c.created_at.isoformat()}
             for c in list_changes(s, status, claims["project_id"])]

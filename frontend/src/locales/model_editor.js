@@ -46,6 +46,7 @@ export default {
     "ded.rollbackTitle": "回滚确认",
 
     "med.published": "已发布",
+    "med.submitted": "已提交审批",
     "med.draft": "草稿",
     "med.save": "保存",
     "med.validate": "校验",
@@ -127,6 +128,7 @@ export default {
     "ded.rollbackTitle": "Confirm rollback",
 
     "med.published": "Published",
+    "med.submitted": "Submitted for approval",
     "med.draft": "Draft",
     "med.save": "Save",
     "med.validate": "Validate",

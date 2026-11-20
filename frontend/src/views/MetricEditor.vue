@@ -120,7 +120,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { api, errMsg } from "../api";
+import { api, errMsg, getProject, getRole } from "../api";
 import { t } from "../i18n";
 
 const route = useRoute();
@@ -231,10 +231,19 @@ async function preview() {
 async function publish() {
   const ok = await save();
   if (!ok) return;
+  const role = getRole();
   try {
-    await api.applyChange("publish_metric", id);
+    if (["approver", "admin"].includes(role)) {
+      await api.applyChange("publish_metric", id);
+      ElMessage.success(t("med.published"));
+    } else {
+      await api.post("/changes", {
+        project_id: getProject() || 1, action: "publish_metric",
+        target: id, payload: {},
+      });
+      ElMessage.success(t("med.submitted"));
+    }
     await load();
-    ElMessage.success(t("med.published"));
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
