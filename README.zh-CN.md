@@ -15,13 +15,47 @@ MCP 使用同一套能力。
 
 ![OpenDataFusion 概览](docs/images/dashboard.png)
 
+<details>
+<summary>目录</summary>
+
+- [OpenDataFusion 是什么？](#opendatafusion-是什么)
+- [界面一览](#界面一览)
+- [为什么选择 OpenDataFusion](#为什么选择-opendatafusion)
+- [功能概览](#功能概览)
+- [架构](#架构)
+- [快速开始](#快速开始)
+- [文档](#文档)
+- [开发](#开发)
+- [社区](#社区)
+- [安全](#安全)
+- [许可证](#许可证)
+
+</details>
+
 ## OpenDataFusion 是什么？
 
-OpenDataFusion 是一个开源自托管的数据平台，把通常分散在数据集成、转换、目录、BI 和内部工具里的工作合并到同一个按项目隔离的工作区：可视化数据管道、受治理的数据接口、数据集/指标建模、数据看板、数据应用，以及基于 Apache Iceberg 的湖仓层（Trino、Spark、Flink 执行）、Debezium 增量同步，并提供 MCP 服务让 AI 代理调用同一套能力。
+OpenDataFusion 是一个开源自托管的数据平台，把通常分散在数据集成、转换、目录、BI 和内部工具里的工作合并到同一个按项目隔离的工作区：可视化数据管道、受治理的数据接口、数据集/指标建模、数据看板、数据应用，以及基于 Apache Iceberg 的湖仓层（Trino、Spark、Flink 执行）、Debezium 增量同步，并提供 MCP 服务让外部操作方调用同一套能力。
 
 **适用场景：** 低代码 ETL/ELT 与数据集成平台；带血缘和质量规则的数据目录；带 AK/SK 鉴权的数据开放接口；自助式看板与内部应用；Kubernetes 上的湖仓控制面。
 
-**关键词：** 开源数据平台、低代码 ETL、数据集成、数据管道、湖仓、Apache Iceberg、Nessie、Trino、Apache Spark、Apache Flink、Kafka、Debezium、CDC、数据目录、数据血缘、数据质量、数据治理、API 网关、内部工具、BI 看板、MCP、大模型数据代理、FastAPI、Vue 3、Kubernetes。
+<details>
+<summary>搜索关键词</summary>
+
+开源数据平台、低代码 ETL、数据集成、数据管道、湖仓、Apache Iceberg、Nessie、Trino、Apache Spark、Apache Flink、Kafka、Debezium、CDC、数据目录、数据血缘、数据质量、数据治理、API 网关、内部工具、BI 看板、MCP、大模型数据代理、FastAPI、Vue 3、Kubernetes。
+
+</details>
+
+## 界面一览
+
+以下截图为英文界面；每个页面都可以通过页头切换到中文。
+
+| | |
+| --- | --- |
+| ![数据目录](docs/images/catalog.png) **数据目录与探查。** 表与字段搜索、标签、脱敏样例、数据探查、质量规则、影响分析与操作历史集中在一个详情页。 | ![管道 Studio](docs/images/pipeline.png) **管道 Studio。** 可视化 DAG，覆盖 source、filter、join、aggregate、quality、sink 等节点；schema 校验、预览、版本化发布与有界回填。 |
+| ![数据集成](docs/images/flows.png) **数据集成。** 带游标的轻量复制任务，包含运行记录、下游影响和版本对比。 | ![指标目录](docs/images/metrics.png) **指标语义层。** 指标目录展示来源数据集、定义、负责人，以及使用它的看板和应用的引用关系。 |
+| ![数据看板](docs/images/dashboards.png) **数据看板。** 12 列栅格上的卡片、图表、表格和文本，支持筛选、版本化发布和限时分享链接。 | ![数据应用](docs/images/apps.png) **数据应用。** 多页内部应用，支持参数、指标卡、表格，以及基于已发布数据集的带审计写表单。 |
+| ![数据质量](docs/images/quality.png) **数据质量。** freshness、空值、唯一性、范围、枚举和 schema 规则，展示通过率与每次运行结果。 | ![运维中心](docs/images/ops.png) **运维中心。** 队列与失败、告警处理、流程健康、依赖跳过、接口调用和审计集中在一个控制台。 |
+| ![数据接口](docs/images/interfaces.png) **受治理的数据接口。** SQL 接口支持参数、发布、执行与调用记录，并提供 AK/SK 签名的网关访问。 | ![SQL 工作台](docs/images/workbench.png) **SQL 工作台。** 只读查询、受控数据源、跨源查询与 CSV 导出。 |
 
 ## 为什么选择 OpenDataFusion
 
@@ -44,9 +78,12 @@ OpenDataFusion 是一个开源自托管的数据平台，把通常分散在数�
 | **模型 Studio** | 数据集和指标资产；schema、预览、审批发布；面向 AI 的读取工具。 |
 | **看板 Studio** | 12 列栅格看板，卡片、折线/柱状/饼图、表格和文本；参数与 widget 过滤器；拖拽调整；版本化发布；只读运行页和限时分享链接。 |
 | **应用 Studio** | 多页内部应用，支持参数、指标卡、表格、行详情抽屉，以及基于已发布数据集的带审计新增/修改/删除表单。 |
+| **湖仓** | 基于 Apache Iceberg 的 Trino 数据源，支持元数据同步、表维护（小文件合并、快照过期），Iceberg 目录作为一等数据源注册。 |
+| **计算引擎** | 通过 Spark Operator 提交 Spark 应用，通过 SQL Gateway 执行 Flink SQL：提交、查看、取消、savepoint，并默认应用湖仓执行配置。 |
+| **增量同步** | 从平台创建、暂停、恢复和监控 PostgreSQL、MySQL、Oracle 的 Debezium 连接器；变更事件写入 Kafka 供 Flink 或 Spark 消费。 |
 | **目录与血缘** | 表和字段搜索、标签、列级血缘、下游影响分析和健康事件。 |
 | **治理** | 列分类与脱敏、行策略、数据标准、freshness/regex/enum/schema 质量规则，以及带审计的策略变更。 |
-| **运维** | 运维中心、队列概览、任务重试、告警确认、Prometheus 指标、请求 ID、JSON 日志、备份恢复和 HA 指南。 |
+| **运维** | 运维中心、队列概览、任务重试、告警确认、依赖感知调度、Prometheus 指标、请求 ID、JSON 日志、备份恢复和 HA 指南。 |
 | **开放 API 与 MCP** | 管理 API、签名公共网关、streamable HTTP MCP、stdio MCP，以及审批令牌保护的写工具。 |
 
 ## 架构
@@ -132,7 +169,7 @@ cp .env.example .env
 | [性能](docs/PERFORMANCE.md) | 指标、连接池、压测和基准结果 |
 | [基准测试](docs/BENCHMARKS.md) | 30GB 多源结果和缓存实验 |
 | [测试](docs/TESTING.md) | 单元、集成、浏览器和完整矩阵测试 |
-| [控制台使用指南](docs/USER_GUIDE.zh-CN.md) | 每个页面与按钮的操作说明 |
+| [控制台使用指南](docs/USER_GUIDE.zh-CN.md) | 每个页面与按钮的操作说明（[英文版](docs/USER_GUIDE.md)） |
 
 ## 开发
 
@@ -140,7 +177,7 @@ cp .env.example .env
 - 前端：Vue 3、Vite、Element Plus、Vue Flow、CodeMirror、ECharts。
 - 默认分支：`main`。Pull Request 会运行单元、集成、浏览器和 Helm 检查。
 - 提交前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
-- 安全问题请按 [SECURITY.md](SECURITY.md) 私下报告，不要开公开 Issue。
+- 控制台测试：`cd frontend && npm ci && npx playwright install chromium && npm run test:e2e`。
 
 ## 社区
 
@@ -149,7 +186,13 @@ cp .env.example .env
 - [GitHub Discussions](https://github.com/CildCo/opendatafusion/discussions)：
   设计讨论、部署问题和经验分享。
 - [路线图](ROADMAP.md) 和 [变更日志](CHANGELOG.md)。
-- [行为准则](CODE_OF_CONDUCT.md)。
+- [行为准则](CODE_OF_CONDUCT.md) 和 [支持说明](SUPPORT.md)。
+
+## 安全
+
+如发现疑似漏洞，请按 [SECURITY.md](SECURITY.md) 私下报告，不要开公开
+Issue。平台对密钥加密存储、校验 webhook 出站地址、将 SQL 工作台限制为只读，
+并让发布动作经过审批与审计。
 
 ## 许可证
 

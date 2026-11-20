@@ -2,7 +2,10 @@
 
 **An API-first, open-source low-code data platform for the full data delivery loop.**
 
-Connect sources, move and transform data, model datasets and metrics, publish governed APIs, build dashboards and internal apps, and operate the estate from one project-scoped console. External operators can use the same capabilities over MCP.
+Connect sources, move and transform data, model datasets and metrics, publish
+governed APIs, build dashboards and internal apps, and operate the estate from
+one project-scoped console. External operators can use the same capabilities
+over MCP.
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
@@ -11,22 +14,77 @@ Connect sources, move and transform data, model datasets and metrics, publish go
 [![Release](https://img.shields.io/github/v/release/CildCo/opendatafusion?include_prereleases&sort=semver)](https://github.com/CildCo/opendatafusion/releases)
 [![Container](https://img.shields.io/badge/container-ghcr.io%2FCildCo%2Fopendatafusion-2496ed)](https://github.com/CildCo/opendatafusion/pkgs/container/opendatafusion)
 
-![OpenDataFusion dashboard](docs/images/dashboard.png)
+![OpenDataFusion overview](docs/images/dashboard.png)
+
+<details>
+<summary>Contents</summary>
+
+- [What is OpenDataFusion?](#what-is-opendatafusion)
+- [Explore the console](#explore-the-console)
+- [Why OpenDataFusion](#why-opendatafusion)
+- [Feature overview](#feature-overview)
+- [Architecture](#architecture)
+- [Quick start](#quick-start)
+- [Documentation](#documentation)
+- [Development](#development)
+- [Community](#community)
+- [Security](#security)
+- [License](#license)
+
+</details>
 
 ## What is OpenDataFusion?
 
-OpenDataFusion is an open-source, self-hosted data platform that combines the jobs usually split across ingestion tools, transformation frameworks, catalogs, BI tools and internal-tool builders in one project-scoped workspace. It ships a visual pipeline studio, a governed API studio, dataset/metric modelling, dashboards, data apps, a lakehouse layer over Apache Iceberg with Trino, Spark and Flink execution, Debezium change data capture, and an MCP server so AI agents can operate the same capabilities.
+OpenDataFusion is an open-source, self-hosted data platform that combines the
+jobs usually split across ingestion tools, transformation frameworks, catalogs,
+BI tools and internal-tool builders in one project-scoped workspace. It ships a
+visual pipeline studio, a governed API studio, dataset/metric modelling,
+dashboards, data apps, a lakehouse layer over Apache Iceberg with Trino, Spark
+and Flink execution, Debezium change data capture, and an MCP server so external
+operators can use the same capabilities.
 
-**Use it when you need:** a low-code ETL/ELT and data integration platform; a data catalog with lineage and quality rules; governed data APIs with AK/SK; self-service dashboards and internal apps; or a lakehouse control plane on Kubernetes.
+**Use it when you need:** a low-code ETL/ELT and data integration platform; a
+data catalog with lineage and quality rules; governed data APIs with AK/SK;
+self-service dashboards and internal apps; or a lakehouse control plane on
+Kubernetes.
 
-**Keywords:** open-source data platform, low-code ETL, ELT, data integration, data pipeline, lakehouse, Apache Iceberg, Nessie, Trino, Apache Spark, Apache Flink, Kafka, Debezium, CDC, data catalog, data lineage, data quality, data governance, API gateway, internal tools, BI dashboards, MCP, AI data agents, FastAPI, Vue 3, Kubernetes.
+<details>
+<summary>Search keywords</summary>
+
+open-source data platform, low-code ETL, ELT, data integration, data pipeline,
+lakehouse, Apache Iceberg, Nessie, Trino, Apache Spark, Apache Flink, Kafka,
+Debezium, CDC, data catalog, data lineage, data quality, data governance, API
+gateway, internal tools, BI dashboards, MCP, AI data agents, FastAPI, Vue 3,
+Kubernetes.
+
+</details>
+
+## Explore the console
+
+The screenshots below are the English console; every page is also available in
+Chinese from the header switch.
+
+| | |
+| --- | --- |
+| ![Catalog](docs/images/catalog.png) **Catalog and profiling.** Table and column search, tags, a masked sample, profiling, quality rules, impact analysis and activity in one detail page. | ![Pipeline Studio](docs/images/pipeline.png) **Pipeline Studio.** Visual DAGs with source, filter, join, aggregate, quality and sink nodes; schema validation, preview, versioned publish and bounded backfill. |
+| ![Integration flows](docs/images/flows.png) **Integration flows.** Lightweight copy jobs with a cursor, run history, downstream impact and version comparison. | ![Metric catalogue](docs/images/metrics.png) **Semantic layer.** A metric catalogue with source dataset, definition, owner and the dashboards and apps that consume it. |
+| ![Dashboards](docs/images/dashboards.png) **Dashboards.** Cards, charts, tables and text on a 12-column grid, with filters, versioned publish and expiring share links. | ![Data apps](docs/images/apps.png) **Data apps.** Multi-page internal apps with parameters, metric cards, tables and audited write forms over published datasets. |
+| ![Data quality](docs/images/quality.png) **Data quality.** Freshness, null, uniqueness, range, enum and schema rules with pass rates and per-run results. | ![Operations](docs/images/ops.png) **Operations.** Queue and failures, alert triage, flow health, dependency skips, API calls and audit in one console. |
+| ![Governed APIs](docs/images/interfaces.png) **Governed APIs.** SQL interfaces with parameters, publication, execution and call history, plus signed AK/SK gateway access. | ![SQL workbench](docs/images/workbench.png) **SQL workbench.** Read-only queries with governed sources, federated queries and CSV export. |
 
 ## Why OpenDataFusion
 
-- **One delivery loop.** Source → pipeline → dataset/metric → API, dashboard or app, with lineage, quality, approvals and audit in the same product model.
-- **Operable by design.** A durable PostgreSQL job queue, retrying workers, a single scheduler leader, cursor-safe backfill, health events, metrics and backup scripts.
-- **Governance is visible.** Column masking, row policies, governed SQL restrictions, quality rules and approval-gated publishing are first-class states, not hidden error paths.
-- **AI-operable without a chat UI.** An MCP server exposes read tools and approval-gated write tools to external agents. Every management action is also available over HTTP.
+- **One delivery loop.** Source → pipeline → dataset/metric → API, dashboard or
+  app, with lineage, quality, approvals and audit in the same product model.
+- **Operable by design.** A durable PostgreSQL job queue, retrying workers, a
+  single scheduler leader, cursor-safe backfill, health events, metrics and
+  backup scripts.
+- **Governance is visible.** Column masking, row policies, governed SQL
+  restrictions, quality rules and approval-gated publishing are first-class
+  states, not hidden error paths.
+- **AI-operable without a chat UI.** An MCP server exposes read tools and
+  approval-gated write tools to external agents. Every management action is
+  also available over HTTP.
 
 ## Feature overview
 
@@ -40,10 +98,10 @@ OpenDataFusion is an open-source, self-hosted data platform that combines the jo
 | **App Studio** | Multi-page internal apps with parameters, metric cards, tables, row-detail drawers and audited insert/update/delete forms over published datasets. |
 | **Lakehouse** | Trino data sources over Apache Iceberg, with metadata sync, table maintenance (small-file compaction, snapshot expiry) and Iceberg catalogs registered as first-class data sources. |
 | **Compute engines** | Spark applications through the Spark Operator and Flink SQL through the SQL Gateway: submit, inspect, cancel, savepoint, and a lakehouse profile the platform applies by default. |
-| **Change data capture** | Debezium connectors created, paused, resumed and monitored from the platform; change events land in Kafka for Flink or Spark to consume. |
+| **Change data capture** | Debezium connectors for PostgreSQL, MySQL and Oracle created, paused, resumed and monitored from the platform; change events land in Kafka for Flink or Spark to consume. |
 | **Catalog & lineage** | Table and column search, tags, column-level lineage, downstream impact analysis and health events. |
 | **Governance** | Column classification and masking, row policies, data standards, freshness/regex/enum/schema quality rules and audit-backed policy changes. |
-| **Operations** | Ops center, queue summary, job retry, alert acknowledgement, Prometheus metrics, request IDs, JSON logs, backup/restore and HA guidance. |
+| **Operations** | Ops center, queue summary, job retry, alert acknowledgement, dependency-aware scheduling, Prometheus metrics, request IDs, JSON logs, backup/restore and HA guidance. |
 | **Open API & MCP** | Management API, signed public gateway, streamable HTTP MCP server, stdio MCP entry point and approval-token-protected write tools. |
 
 ## Architecture
@@ -75,7 +133,9 @@ OpenDataFusion is an open-source, self-hosted data platform that combines the jo
 └───────────────┘    └─────────────────┘
 ```
 
-The API is stateless. Scheduling and execution are durable and scale separately. See [Architecture](docs/ARCHITECTURE.md), [Delivery](docs/DELIVERY.md), [HA](docs/HA.md) and [Security](docs/SECURITY.md).
+The API is stateless. Scheduling and execution are durable and scale separately.
+See [Architecture](docs/ARCHITECTURE.md), [Delivery](docs/DELIVERY.md),
+[HA](docs/HA.md) and [Security](docs/SECURITY.md).
 
 ## Quick start
 
@@ -127,7 +187,7 @@ development, see [frontend/README.md](frontend/README.md).
 | [Performance](docs/PERFORMANCE.md) | Metrics, pools, load tests and benchmark results |
 | [Benchmarks](docs/BENCHMARKS.md) | 30GB multi-source results and cache experiments |
 | [Testing](docs/TESTING.md) | Unit, integration, browser and full-matrix tests |
-| [User guide](docs/USER_GUIDE.md) | Every console page and action |
+| [User guide](docs/USER_GUIDE.md) | Every console page and action (also in [Chinese](docs/USER_GUIDE.zh-CN.md)) |
 
 ## Development
 
@@ -135,8 +195,7 @@ development, see [frontend/README.md](frontend/README.md).
 - Frontend: Vue 3, Vite, Element Plus, Vue Flow, CodeMirror, ECharts.
 - Default branch: `main`. Pull requests run unit, integration, browser and Helm checks.
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
-- Security reports: follow [SECURITY.md](SECURITY.md); do not open a public issue
-  for a suspected vulnerability.
+- Console tests: `cd frontend && npm ci && npx playwright install chromium && npm run test:e2e`.
 
 ## Community
 
@@ -145,7 +204,14 @@ development, see [frontend/README.md](frontend/README.md).
 - [GitHub Discussions](https://github.com/CildCo/opendatafusion/discussions) —
   design questions, deployment help and show-and-tell.
 - [Roadmap](ROADMAP.md) and [Changelog](CHANGELOG.md).
-- [Code of Conduct](CODE_OF_CONDUCT.md).
+- [Code of Conduct](CODE_OF_CONDUCT.md) and [Support](SUPPORT.md).
+
+## Security
+
+Report suspected vulnerabilities privately as described in
+[SECURITY.md](SECURITY.md); please do not open a public issue. The platform
+keeps secrets encrypted at rest, validates outbound webhook hosts, runs the SQL
+workbench read-only and gates publishing behind approval and audit.
 
 ## License
 
