@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 
 from odf.db import SessionLocal
 from odf.main import app
-from odf.models import User
+from odf.models import AuditLog, User
 from odf.services.auth import create_token
 
 ADMIN_A = 9201
@@ -62,6 +62,11 @@ def test_admin_can_deactivate_another_user(users):
               headers=_h(ADMIN_A))
     assert r.status_code == 200
     assert r.json()["active"] is False
+    with SessionLocal() as s:
+        audit = (s.query(AuditLog)
+                 .filter_by(action="set_user_active", target=str(VIEWER))
+                 .first())
+        assert audit and audit.detail_json == {"active": False}
 
 
 def test_unknown_user_still_returns_404(users):

@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import bcrypt
 
 from odf.models import User
@@ -78,5 +80,29 @@ def set_active_by_name(session, username: str, active: bool) -> User:
     if not u:
         raise ValueError("user not found")
     u.active = active
+    session.commit()
+    return u
+
+
+def reset_password_by_name(session, username: str, password: str) -> User:
+    """Break-glass helper for the CLI; revokes existing sessions."""
+    u = session.query(User).filter_by(username=username).first()
+    if not u:
+        raise ValueError("user not found")
+    u.password_hash = hash_password(password)
+    u.password_changed_at = datetime.now(timezone.utc)
+    u.token_version = int(u.token_version or 0) + 1
+    session.commit()
+    return u
+
+
+def reset_totp_by_name(session, username: str) -> User:
+    """Break-glass helper for a lost authenticator device."""
+    u = session.query(User).filter_by(username=username).first()
+    if not u:
+        raise ValueError("user not found")
+    u.totp_secret_encrypted = None
+    u.totp_enabled = False
+    u.totp_last_step = None
     session.commit()
     return u

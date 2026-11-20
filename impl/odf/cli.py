@@ -8,7 +8,8 @@ from odf.services.aksk_admin import issue_aksk
 from odf.services.passwords import validate_password
 from odf.services.projects import create_project
 from odf.services.rotation import rotate_aksk, rotate_fernet, rotate_webhook
-from odf.services.users import create_user, set_active_by_name
+from odf.services.users import (create_user, reset_password_by_name,
+                                reset_totp_by_name, set_active_by_name)
 
 
 def main():
@@ -26,6 +27,13 @@ def main():
     su = sub.add_parser("set-user-active")
     su.add_argument("--username", required=True)
     su.add_argument("--active", choices=["true", "false"], required=True)
+
+    rp = sub.add_parser("reset-password")
+    rp.add_argument("--username", required=True)
+    rp.add_argument("--password", required=True)
+
+    rt = sub.add_parser("reset-totp")
+    rt.add_argument("--username", required=True)
 
     k = sub.add_parser("issue-aksk")
     k.add_argument("--project-id", type=int, required=True)
@@ -63,6 +71,15 @@ def main():
             write_audit(s, "cli", "set_user_active", str(u.id),
                         {"active": u.active})
             print("user id=%s active=%s" % (u.id, u.active))
+        elif args.cmd == "reset-password":
+            validate_password(args.password)
+            u = reset_password_by_name(s, args.username, args.password)
+            write_audit(s, "cli", "reset_user_password", str(u.id), {})
+            print("password reset for user id=%s" % u.id)
+        elif args.cmd == "reset-totp":
+            u = reset_totp_by_name(s, args.username)
+            write_audit(s, "cli", "reset_user_totp", str(u.id), {})
+            print("two-factor cleared for user id=%s" % u.id)
         elif args.cmd == "issue-aksk":
             row, sk = issue_aksk(s, args.project_id)
             print("ak=%s\nsk=%s" % (row.ak, sk))
