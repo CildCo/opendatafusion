@@ -319,6 +319,13 @@ def metrics(s: Session = Depends(get_session),
     return _list(s, claims, "metric")
 
 
+@router.get("/metrics/catalog")
+def metric_catalog_route(s: Session = Depends(get_session),
+                         claims: dict = Depends(require_user)):
+    from odf.modelstudio.service import metric_catalog
+    return metric_catalog(s, claims["project_id"])
+
+
 @router.post("/metrics")
 def create_metric(body: ModelIn, s: Session = Depends(get_session),
                   claims: dict = Depends(require_editor)):

@@ -212,3 +212,87 @@ def query_metric(session, asset_id, content=None, limit=100,
     if key is not None:
         cache.put(key, result, ttl, int(s.metric_cache_size or 128))
     return result
+
+
+def _metric_usage(session, project_id, metric_id):
+    from odf.models import Asset
+    out = []
+    assets = (session.query(Asset)
+              .filter(Asset.project_id == project_id,
+                      Asset.type.in_(("dashboard", "app"))).all())
+    for asset in assets:
+        published = False
+        content = None
+        if asset.published_version_id:
+            version = session.get(AssetVersion, asset.published_version_id)
+            if version:
+                content = version.content_json
+                published = True
+        if content is None and asset.draft_version_id:
+            version = session.get(AssetVersion, asset.draft_version_id)
+            if version:
+                content = version.content_json
+        if content is None:
+            continue
+        if _mentions_metric(content, metric_id):
+            out.append({"id": asset.id, "name": asset.name,
+                        "type": asset.type, "published": published})
+    return out
+
+
+def _mentions_metric(node, metric_id):
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "metric_id" and value == metric_id:
+                return True
+            if _mentions_metric(value, metric_id):
+                return True
+    elif isinstance(node, list):
+        for item in node:
+            if _mentions_metric(item, metric_id):
+                return True
+    return False
+
+
+def metric_catalog(session, project_id):
+    from odf.models import Asset
+    metrics = (session.query(Asset)
+               .filter_by(project_id=project_id, type="metric")
+               .order_by(Asset.id).all())
+    rows = []
+    for metric in metrics:
+        content = {}
+        if metric.published_version_id:
+            version = session.get(AssetVersion, metric.published_version_id)
+            if version:
+                content = version.content_json or {}
+        if not content and metric.draft_version_id:
+            version = session.get(AssetVersion, metric.draft_version_id)
+            if version:
+                content = version.content_json or {}
+        dataset_id = content.get("dataset_id")
+        dataset = (session.get(Asset, dataset_id)
+                   if isinstance(dataset_id, int) else None)
+        usage = _metric_usage(session, project_id, metric.id)
+        owner = metric.owner
+        if (owner or "").isdigit():
+            from odf.models import User
+            user = session.get(User, int(owner))
+            if user:
+                owner = user.username
+        rows.append({
+            "id": metric.id, "key": metric.key, "name": metric.name,
+            "published": metric.published_version_id is not None,
+            "enabled": metric.enabled, "owner": owner,
+            "description": metric.description,
+            "dataset_id": dataset_id,
+            "dataset_name": dataset.name if dataset and
+            dataset.project_id == project_id else None,
+            "measure": content.get("measure") or {},
+            "dimensions": content.get("dimensions") or [],
+            "format": content.get("format") or {},
+            "usage_count": len(usage), "usage": usage,
+            "updated_at": metric.updated_at.isoformat()
+            if metric.updated_at else None,
+        })
+    return rows
