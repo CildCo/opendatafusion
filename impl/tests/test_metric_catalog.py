@@ -228,3 +228,28 @@ def test_changes_resolve_metric_target_names():
     row = next(r for r in rows if r["action"] == "publish_metric"
                and r["target"] == str(metric_id))
     assert row["target_name"] == "Reviewed metric"
+
+
+def test_metric_catalog_searches_definition_dimensions_and_usage():
+    from odf.modelstudio import service
+
+    _project()
+    with SessionLocal() as s:
+        ds = _asset(s, "dataset", "Search DS", {"mode": "visual",
+                                                "query": {"select": []}})
+        metric = _asset(s, "metric", "Search metric", {
+            "dataset_id": ds.id,
+            "measure": {"agg": "sum", "column": "searchrev", "as": "value"},
+            "dimensions": ["searchdim"], "filters": [],
+        })
+        _asset(s, "dashboard", "Search board", {
+            "widgets": [{"type": "metric", "metric_id": metric.id}],
+        })
+        assert [r["id"] for r in service.metric_catalog(
+            s, PROJECT_ID, "searchdim")] == [metric.id]
+        assert [r["id"] for r in service.metric_catalog(
+            s, PROJECT_ID, "searchrev")] == [metric.id]
+        assert [r["id"] for r in service.metric_catalog(
+            s, PROJECT_ID, "Search board")] == [metric.id]
+        assert service.metric_catalog(s, PROJECT_ID, "nothing-matches") == []
+        assert service.metric_catalog(s, 9999, "searchdim") == []

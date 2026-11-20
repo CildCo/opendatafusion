@@ -254,7 +254,7 @@ def _mentions_metric(node, metric_id):
     return False
 
 
-def metric_catalog(session, project_id):
+def metric_catalog(session, project_id, q=None):
     from odf.models import Asset
     metrics = (session.query(Asset)
                .filter_by(project_id=project_id, type="metric")
@@ -296,6 +296,21 @@ def metric_catalog(session, project_id):
             "updated_at": metric.updated_at.isoformat()
             if metric.updated_at else None,
         })
+    text = (q or "").strip().lower()
+    if text:
+        def haystack(row):
+            measure = row.get("measure") or {}
+            return " ".join([
+                row.get("name") or "", row.get("key") or "",
+                row.get("description") or "", row.get("owner") or "",
+                row.get("dataset_name") or "",
+                str(measure.get("agg") or ""),
+                str(measure.get("column") or ""),
+                str(measure.get("as") or ""),
+                " ".join(row.get("dimensions") or []),
+                " ".join(u.get("name") or "" for u in row.get("usage") or []),
+            ]).lower()
+        rows = [row for row in rows if text in haystack(row)]
     return rows
 
 

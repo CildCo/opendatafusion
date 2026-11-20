@@ -5,8 +5,9 @@
       <el-tab-pane :label="t('model.metrics')" name="metrics" />
     </el-tabs>
     <div class="toolbar">
-      <el-input v-model="q" :placeholder="t('model.search')" clearable
-                style="width: 260px" />
+      <el-input v-model="q" clearable style="width: 280px"
+                :placeholder="t(tab === 'metrics'
+                  ? 'model.searchMetrics' : 'model.search')" />
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("model.refresh") }}</el-button>
       <el-button type="primary" @click="create">
@@ -177,8 +178,13 @@ const compare = ref({ changes: [], published_version: null,
                       draft_version: null });
 const filtered = computed(() => rows.value.filter((r) => {
   if (!q.value) return true;
-  const text = [r.name, r.key, r.dataset_name,
-                (r.dimensions || []).join(" ")].join(" ").toLowerCase();
+  const measure = r.measure || {};
+  const text = [
+    r.name, r.key, r.dataset_name, r.owner, r.description,
+    measure.agg, measure.column, measure.as,
+    (r.dimensions || []).join(" "),
+    ...(r.usage || []).map((u) => u.name),
+  ].join(" ").toLowerCase();
   return text.includes(q.value.toLowerCase());
 }));
 

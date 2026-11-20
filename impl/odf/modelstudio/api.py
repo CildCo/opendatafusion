@@ -320,10 +320,11 @@ def metrics(s: Session = Depends(get_session),
 
 
 @router.get("/metrics/catalog")
-def metric_catalog_route(s: Session = Depends(get_session),
+def metric_catalog_route(q: str | None = None,
+                         s: Session = Depends(get_session),
                          claims: dict = Depends(require_user)):
     from odf.modelstudio.service import metric_catalog
-    return metric_catalog(s, claims["project_id"])
+    return metric_catalog(s, claims["project_id"], q)
 
 
 @router.get("/metrics/{asset_id}/lineage")
