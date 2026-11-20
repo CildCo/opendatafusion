@@ -184,7 +184,7 @@ export default {
     "model.type": "Type",
     "model.metricDefinition": "Definition",
     "model.metricUsage": "Used by",
-    "model.usageUnit": "",
+    "model.usageUnit": " refs",
     "model.metricDetail": "Metric details",
     "model.owner": "Owner",
     "model.dimensions": "Dimensions",
