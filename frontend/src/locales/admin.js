@@ -37,6 +37,7 @@ export default {
     "users.disabled": "已停用",
 
     // Security
+    "sec.intro": "修改密码与配置双因子认证。",
     "sec.totpEnabled": "已启用双因子",
     "sec.totpDisabled": "未启用双因子",
     "sec.changePassword": "修改密码",
@@ -187,6 +188,7 @@ export default {
     "users.disabled": "Disabled",
 
     // Security
+    "sec.intro": "Change your password and configure two-factor authentication.",
     "sec.totpEnabled": "Two-factor enabled",
     "sec.totpDisabled": "Two-factor disabled",
     "sec.changePassword": "Change password",

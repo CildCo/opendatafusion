@@ -1,5 +1,7 @@
 <template>
   <div class="page">
+    <page-header icon="workspace" :title="t('menu.workspace')"
+                 :intro="t('settings.intro')" />
     <div class="toolbar">
       <el-tag size="small" type="info">{{ t("settings.scope") }}</el-tag>
       <div class="spacer" />
@@ -64,6 +66,7 @@ import { onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { api, errMsg } from "../api";
 import { locale, setLocale, t } from "../i18n";
+import PageHeader from "../components/PageHeader.vue";
 import { MENU_ITEMS } from "../menu";
 
 function changeLocale(value) {

@@ -8,7 +8,8 @@
 import { computed } from "vue";
 import {
   Bell, CircleCheck, Coin, Collection, Connection, Cpu, DataAnalysis,
-  DataLine, Document, Grid, Odometer, Promotion, Share, Switch, User,
+  DataLine, Document, Grid, Key, Lock, Odometer, Promotion, Setting, Share,
+  Switch, User,
 } from "@element-plus/icons-vue";
 import { entityMeta } from "./entity";
 
@@ -20,7 +21,8 @@ const props = defineProps({
 
 const ICONS = {
   Bell, CircleCheck, Coin, Collection, Connection, Cpu, DataAnalysis,
-  DataLine, Document, Grid, Odometer, Promotion, Share, Switch, User,
+  DataLine, Document, Grid, Key, Lock, Odometer, Promotion, Setting, Share,
+  Switch, User,
 };
 
 const meta = computed(() => entityMeta(props.type));

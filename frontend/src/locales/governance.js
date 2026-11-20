@@ -1,5 +1,6 @@
 export default {
   zh: {
+    "grants.intro": "跨项目接口授权、访问申请与 AK/SK 密钥。",
     "grants.crossProject": "跨项目访问",
     "grants.refresh": "刷新",
     "grants.tabCatalog": "接口目录",
@@ -53,6 +54,7 @@ export default {
     "grants.revokeGrantTitle": "撤销授权",
     "grants.grantRevoked": "已撤销",
 
+    "hooks.intro": "HMAC 签名的事件订阅，告警和资产变更会推送到这里。",
     "hooks.refresh": "刷新",
     "hooks.create": "新建订阅",
     "hooks.empty": "还没有事件订阅",
@@ -202,6 +204,7 @@ export default {
     "tools.readOnly": "只读",
   },
   en: {
+    "grants.intro": "Cross-project interface grants, requests and access keys.",
     "grants.crossProject": "Cross-project access",
     "grants.refresh": "Refresh",
     "grants.tabCatalog": "Interface catalog",
@@ -255,6 +258,7 @@ export default {
     "grants.revokeGrantTitle": "Revoke grant",
     "grants.grantRevoked": "Grant revoked",
 
+    "hooks.intro": "HMAC-signed event subscriptions for alerts and asset changes.",
     "hooks.refresh": "Refresh",
     "hooks.create": "New subscription",
     "hooks.empty": "No webhook subscriptions",

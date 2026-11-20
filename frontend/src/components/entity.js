@@ -23,6 +23,9 @@ export const ENTITY_META = {
   change: { icon: "Switch", color: "#0f766e" },
   tool: { icon: "Connection", color: "#475569" },
   audit: { icon: "Document", color: "#475569" },
+  workspace: { icon: "Setting", color: "#475569" },
+  security: { icon: "Lock", color: "#475569" },
+  grant: { icon: "Key", color: "#1d4ed8" },
 };
 
 export function entityMeta(type) {

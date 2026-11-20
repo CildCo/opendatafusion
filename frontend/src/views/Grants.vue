@@ -1,5 +1,7 @@
 <template>
   <div class="page">
+    <page-header icon="grant" :title="t('menu.grants')"
+                 :intro="t('grants.intro')" />
     <div class="toolbar">
       <el-tag size="small" type="info">{{ t("grants.crossProject") }}</el-tag>
       <div class="spacer" />
@@ -181,6 +183,7 @@ import { onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getProject } from "../api";
 import { fmtDate, t } from "../i18n";
+import PageHeader from "../components/PageHeader.vue";
 
 function tr(key, vars = {}) {
   return Object.entries(vars).reduce(

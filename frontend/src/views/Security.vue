@@ -1,5 +1,7 @@
 <template>
   <div class="page">
+    <page-header icon="security" :title="t('menu.security')"
+                 :intro="t('sec.intro')" />
     <div class="toolbar">
       <div class="spacer" />
       <el-tag size="small" :type="totpEnabled ? 'success' : 'info'">
@@ -62,6 +64,7 @@ import { onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { api, errMsg, setToken } from "../api";
 import { t } from "../i18n";
+import PageHeader from "../components/PageHeader.vue";
 
 const oldPassword = ref("");
 const newPassword = ref("");
