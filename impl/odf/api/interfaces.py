@@ -6,7 +6,7 @@ from odf.db import get_session
 from odf.models import Interface
 from odf.services.approval import verify_token
 from odf.services.audit import write_audit
-from odf.services.auth import require_user
+from odf.services.auth import require_editor, require_user
 from odf.services.interface import (create_interface, execute_interface,
                                     interface_history, interface_stats,
                                     publish_interface)
@@ -14,24 +14,27 @@ from odf.services.interface import (create_interface, execute_interface,
 router = APIRouter()
 
 
+def _iface(session, interface_id: int, claims: dict) -> Interface:
+    i = session.get(Interface, interface_id)
+    if not i or i.project_id != claims.get("project_id"):
+        raise HTTPException(404, "interface not found")
+    return i
+
+
 @router.get("/interfaces")
-def list_(project_id: int | None = None,
-          s: Session = Depends(get_session),
+def list_(s: Session = Depends(get_session),
           claims: dict = Depends(require_user)):
-    q = s.query(Interface)
-    if project_id is not None:
-        q = q.filter_by(project_id=project_id)
     return [{"id": i.id, "key": i.interface_key, "name": i.name,
              "status": i.status, "datasource_id": i.datasource_id}
-            for i in q.order_by(Interface.id).all()]
+            for i in (s.query(Interface)
+                      .filter_by(project_id=claims["project_id"])
+                      .order_by(Interface.id).all())]
 
 
 @router.get("/interfaces/{interface_id}")
 def get_(interface_id: int, s: Session = Depends(get_session),
          claims: dict = Depends(require_user)):
-    i = s.get(Interface, interface_id)
-    if not i:
-        raise HTTPException(404, "interface not found")
+    i = _iface(s, interface_id, claims)
     return {"id": i.id, "key": i.interface_key, "name": i.name,
             "status": i.status, "datasource_id": i.datasource_id,
             "sql": i.sql_text, "params": i.params_json}
@@ -68,6 +71,8 @@ class IfaceIn(BaseModel):
 @router.post("/interfaces")
 def create(body: IfaceIn, s: Session = Depends(get_session),
            claims: dict = Depends(require_user)):
+    if body.project_id != claims["project_id"]:
+        raise HTTPException(403, "cross-project interface is not allowed")
     i = create_interface(s, body.project_id, body.datasource_id, body.name,
                          body.sql_text, body.params)
     write_audit(s, claims["sub"], "create_interface", str(i.id),
@@ -81,6 +86,7 @@ def publish(interface_id: int, approval_token: str,
             claims: dict = Depends(require_user)):
     if not verify_token(interface_id, "publish", approval_token):
         raise HTTPException(403, "approval required")
+    _iface(s, interface_id, claims)
     status = publish_interface(s, interface_id, actor=claims["sub"]).status
     write_audit(s, claims["sub"], "publish_interface", str(interface_id), {})
     return {"status": status}
@@ -92,9 +98,8 @@ def revoke(interface_id: int, approval_token: str,
            claims: dict = Depends(require_user)):
     if not verify_token(interface_id, "revoke", approval_token):
         raise HTTPException(403, "approval required")
+    _iface(s, interface_id, claims)
     i = s.get(Interface, interface_id)
-    if not i:
-        raise HTTPException(404, "interface not found")
     i.status = 0
     write_audit(s, claims["sub"], "revoke_interface", str(interface_id), {})
     return {"status": 0}
@@ -103,7 +108,18 @@ def revoke(interface_id: int, approval_token: str,
 @router.post("/interfaces/{interface_id}/execute")
 def execute(interface_id: int, params: dict, s: Session = Depends(get_session),
             claims: dict = Depends(require_user)):
+    _iface(s, interface_id, claims)
     rows, total = execute_interface(s, interface_id, params)
     write_audit(s, claims["sub"], "execute_interface", str(interface_id),
                 {"rows": total})
     return {"total": total, "results": rows}
+
+
+@router.delete("/interfaces/{interface_id}", status_code=204)
+def delete(interface_id: int, s: Session = Depends(get_session),
+           claims: dict = Depends(require_editor)):
+    i = _iface(s, interface_id, claims)
+    s.delete(i)
+    s.commit()
+    write_audit(s, claims["sub"], "delete_interface", str(interface_id), {})
+    return None

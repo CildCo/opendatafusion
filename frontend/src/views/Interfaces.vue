@@ -31,12 +31,13 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('iface.actions')" width="260" fixed="right">
+        <el-table-column :label="t('iface.actions')" width="330" fixed="right">
           <template #default="{ row }">
             <el-button link @click="openDetail(row)">{{ t("iface.detail") }}</el-button>
             <el-button v-if="row.status !== 1" link @click="publish(row)">{{ t("iface.publish") }}</el-button>
             <el-button v-else link @click="revoke(row)">{{ t("iface.revoke") }}</el-button>
             <el-button link :disabled="row.status !== 1" @click="execute(row)">{{ t("iface.execute") }}</el-button>
+            <el-button link type="danger" @click="remove(row)">{{ t("iface.delete") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -169,7 +170,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
 import { api, errMsg, getProject } from "../api";
@@ -195,6 +196,7 @@ const q = ref("");
 const statusFilter = ref(null);
 const page = ref(1);
 const pageSize = 10;
+watch([q, statusFilter], () => { page.value = 1; });
 
 const form = reactive({
   name: "", datasource_id: null, sql_text: "",
@@ -256,6 +258,24 @@ async function create() {
     ElMessage.error(errMsg(e));
   } finally {
     saving.value = false;
+  }
+}
+
+async function remove(row) {
+  try {
+    await ElMessageBox.confirm(
+      t("iface.deleteConfirm").replace("{name}", row.name),
+      t("iface.deleteTitle"), { type: "warning" });
+  } catch (e) {
+    return;
+  }
+  try {
+    await api.del(`/interfaces/${row.id}`);
+    if (drawer.value && detail.value.id === row.id) drawer.value = false;
+    await load();
+    ElMessage.success(t("iface.deleted"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
   }
 }
 

@@ -146,7 +146,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
 import { api, errMsg } from "../api";
@@ -167,6 +167,7 @@ const q = ref("");
 const kind = ref("");
 const page = ref(1);
 const pageSize = 10;
+watch([q, kind], () => { page.value = 1; });
 const form = reactive({ name: "", kind: "postgres", dsn: "" });
 const maintainOpen = ref(false);
 const maintain = reactive({ datasource_id: 0, schema: "", tables: "",

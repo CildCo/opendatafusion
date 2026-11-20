@@ -99,3 +99,46 @@ def test_new_flow_routes_are_project_scoped(flow):
                        headers=other).status_code == 404
     assert client.get(f"/api/v1/flows/{flow_id}/versions/1",
                       headers=other).status_code == 404
+
+
+def test_flow_list_and_detail_use_the_token_project(flow):
+    flow_id, _ = flow
+    client = TestClient(app)
+    rows = client.get("/api/v1/flows?project_id=9999",
+                      headers=_headers()).json()
+    assert flow_id in [f["id"] for f in rows]
+    assert client.get(f"/api/v1/flows/{flow_id}",
+                      headers=_headers(project_id=9999)).status_code == 404
+    assert client.get(f"/api/v1/flows/{flow_id}/versions",
+                      headers=_headers(project_id=9999)).status_code == 404
+
+
+def test_create_flow_rejects_another_project(flow):
+    client = TestClient(app)
+    r = client.post("/api/v1/flows", headers=_headers(), json={
+        "project_id": 9999, "name": "cross", "cron": "",
+        "dag": {"source_table": "a", "sink_table": "b"}})
+    assert r.status_code == 403
+
+
+def test_delete_flow_removes_runs_versions_and_jobs(flow):
+    flow_id, run_id = flow
+    with SessionLocal() as s:
+        job = Job(flow_id=flow_id, status="queued")
+        s.add(job)
+        s.commit()
+        job_id = job.id
+    client = TestClient(app)
+    assert client.delete(f"/api/v1/flows/{flow_id}",
+                         headers=_headers(project_id=9999)).status_code == 404
+    assert client.delete(f"/api/v1/flows/{flow_id}",
+                         headers=_headers()).status_code == 204
+    with SessionLocal() as s:
+        assert not s.get(Flow, flow_id)
+        assert s.query(FlowRun).filter_by(flow_id=flow_id).count() == 0
+        assert s.query(FlowVersion).filter_by(flow_id=flow_id).count() == 0
+        assert not s.get(Job, job_id)
+        audit = (s.query(AuditLog)
+                 .filter_by(action="delete_flow", target=str(flow_id)).first())
+        assert audit
+

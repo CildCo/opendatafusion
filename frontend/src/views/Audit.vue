@@ -51,7 +51,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { api, errMsg, getToken } from "../api";
 import { fmtDate, t } from "../i18n";
@@ -63,6 +63,7 @@ const action = ref("");
 const q = ref("");
 const page = ref(1);
 const pageSize = 20;
+watch([q, actor, action], () => { page.value = 1; });
 const drawer = ref(false);
 const current = ref({});
 

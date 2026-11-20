@@ -146,7 +146,10 @@ async function create() {
     await load();
     ElMessage.success(t("dep.created"));
   } catch (e) {
-    ElMessage.error(errMsg(e));
+    const text = errMsg(e);
+    if (/cycle/i.test(text)) ElMessage.error(t("dep.cycle"));
+    else if (/itself/i.test(text)) ElMessage.error(t("dep.self"));
+    else ElMessage.error(text);
   } finally {
     saving.value = false;
   }
