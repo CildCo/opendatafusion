@@ -21,6 +21,7 @@ const DashboardHome = () => import("./views/DashboardHome.vue");
 const DashboardEditor = () => import("./views/DashboardEditor.vue");
 const DashboardRun = () => import("./views/DashboardRun.vue");
 const AppHome = () => import("./views/AppHome.vue");
+const Dependencies = () => import("./views/Dependencies.vue");
 const AppEditor = () => import("./views/AppEditor.vue");
 const AppRun = () => import("./views/AppRun.vue");
 const OpsCenter = () => import("./views/OpsCenter.vue");
@@ -71,6 +72,7 @@ const routes = [
       { path: "apps/:id", component: AppEditor, meta: { title: "应用编辑" } },
       { path: "apps/:id/run", component: AppRun, meta: { title: "应用运行" } },
       { path: "ops", component: OpsCenter, meta: { title: "运维中心" } },
+      { path: "dependencies", component: Dependencies, meta: { title: "调度依赖" } },
       { path: "workbench", component: Workbench, meta: { title: "SQL 工作台" } },
       { path: "engines", component: Engines, meta: { title: "计算引擎" } },
       { path: "cdc", component: Cdc, meta: { title: "增量同步" } },

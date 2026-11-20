@@ -9,7 +9,8 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from odf.api import (alerts, approvals, audit, auth, catalog, changes,
-                     dashboard, datasources, flows, health, interfaces, mcp,
+                     dashboard, datasources, dependencies, flows, health,
+                     interfaces, mcp,
                      probe,
                      metadata, openapi_gateway, projects, quality, runs,
                      standards, users)
@@ -81,6 +82,8 @@ app.include_router(lakehouse_api.router, prefix="/api/v1", tags=["lakehouse"],
                    dependencies=[Depends(require_user)])
 app.include_router(cdc_api.router, prefix="/api/v1", tags=["cdc"],
                    dependencies=[Depends(require_user)])
+app.include_router(dependencies.router, prefix="/api/v1",
+                   tags=["dependencies"])
 app.include_router(probe.router)
 from odf.observability import configure_observability
 configure_observability(app)

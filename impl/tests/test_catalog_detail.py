@@ -173,3 +173,47 @@ def test_sample_routes_are_project_scoped(dataset):
     assert client.get(
         f"/api/v1/catalog/datasets/{dataset_id}/history",
         headers=other).status_code == 404
+
+
+def test_profile_reports_nulls_distinct_and_range(dataset):
+    dataset_id, _ = dataset
+    with SessionLocal() as s:
+        out = catalog_service.dataset_profile(s, PROJECT_ID, dataset_id,
+                                              sample=1000, role="admin")
+    by_name = {c["name"]: c for c in out["columns"]}
+    assert out["rows"] == 2
+    assert by_name["id"]["nulls"] == 0
+    assert by_name["id"]["distinct"] == 2
+    assert int(by_name["id"]["min"]) == 1
+    assert int(by_name["id"]["max"]) == 2
+
+
+def test_profile_hides_ranges_for_masked_columns(dataset):
+    dataset_id, datasource_id = dataset
+    with SessionLocal() as s:
+        policy = (s.query(ColumnPolicy)
+                  .filter_by(datasource_id=datasource_id).first())
+        if not policy:
+            s.add(ColumnPolicy(project_id=PROJECT_ID,
+                               datasource_id=datasource_id,
+                               schema_name="main", table_name="users",
+                               column_name="email", classification="pii",
+                               mask_type="redact", exempt_roles_json=[],
+                               created_by="tester"))
+            s.commit()
+        masked = catalog_service.dataset_profile(
+            s, PROJECT_ID, dataset_id, sample=1000, role="viewer")
+        email = next(c for c in masked["columns"] if c["name"] == "email")
+        assert email["masked"] is True
+        assert email["min"] is None and email["max"] is None
+        raw = catalog_service.dataset_profile(
+            s, PROJECT_ID, dataset_id, sample=1000, role="admin")
+        email = next(c for c in raw["columns"] if c["name"] == "email")
+        assert email["min"] == "a@example.com"
+
+
+def test_profile_is_project_scoped(dataset):
+    dataset_id, _ = dataset
+    with SessionLocal() as s:
+        with pytest.raises(ValueError):
+            catalog_service.dataset_profile(s, 9999, dataset_id)

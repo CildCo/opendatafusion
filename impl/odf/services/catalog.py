@@ -299,3 +299,67 @@ def lineage(session, project_id: int):
     nodes = sorted({e["from"] for e in edges} | {e["to"] for e in edges})
     return {"nodes": nodes, "edges": edges,
             "column_edges": column_edges}
+
+
+_PROFILE_SKIP = ("blob", "binary", "bytea", "clob", "json", "xml", "array",
+                 "map", "struct", "geometry", "geography")
+
+
+def dataset_profile(session, project_id, dataset_id, sample=50000,
+                    role=None, actor=""):
+    d, ds = _dataset_in_project(session, dataset_id, project_id)
+    if not d:
+        raise ValueError("dataset not found")
+    try:
+        size = max(100, min(int(sample or 50000), 200000))
+    except (TypeError, ValueError):
+        raise ValueError("sample must be a number")
+    cols = (session.query(Column).filter_by(dataset_id=dataset_id)
+            .order_by(Column.id).all())
+    usable = [c for c in cols if _IDENTIFIER.match(c.name or "")]
+    from odf.services.masking import masks_for_target
+    masks = masks_for_target(session, ds.id, d.schema_name, d.table_name,
+                             role)
+
+    def value(row, key):
+        for name in row:
+            if name.lower() == key.lower():
+                return row[name]
+        return None
+
+    parts = ["COUNT(*) AS odf_rows"]
+    for index, column in enumerate(usable):
+        name = column.name
+        parts.append("COUNT(%s) AS odf_c%d" % (name, index))
+        parts.append("COUNT(DISTINCT %s) AS odf_d%d" % (name, index))
+        kind = (column.data_type or "").lower()
+        if not any(token in kind for token in _PROFILE_SKIP):
+            parts.append("MIN(%s) AS odf_min%d" % (name, index))
+            parts.append("MAX(%s) AS odf_max%d" % (name, index))
+    inner = limited("SELECT * FROM %s" % _qualified(d), ds.kind, size)
+    sql = "SELECT %s FROM (%s) odf_src" % (", ".join(parts), inner)
+    started = time.time()
+    result = execute_query(session, ds, sql, None, 1, read_only=True)
+    row = result["rows"][0] if result["rows"] else {}
+    total = int(value(row, "odf_rows") or 0)
+    out = []
+    for index, column in enumerate(usable):
+        non_null = int(value(row, "odf_c%d" % index) or 0)
+        masked = column.name in masks
+        out.append({
+            "name": column.name,
+            "type": column.data_type,
+            "nulls": max(total - non_null, 0),
+            "null_ratio": round((total - non_null) * 100.0 / total, 1)
+            if total else 0.0,
+            "distinct": int(value(row, "odf_d%d" % index) or 0),
+            "min": None if masked else value(row, "odf_min%d" % index),
+            "max": None if masked else value(row, "odf_max%d" % index),
+            "masked": masked,
+        })
+    skipped = [c.name for c in cols if c not in usable]
+    write_audit(session, actor, "profile_dataset", str(dataset_id),
+                {"sample": size, "rows": total})
+    return {"rows": total, "sample": size,
+            "ms": int((time.time() - started) * 1000),
+            "columns": out, "skipped_columns": skipped}

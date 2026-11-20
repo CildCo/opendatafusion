@@ -29,6 +29,19 @@ def enqueue(session, flow_id: int, run_at: datetime | None = None) -> Job:
     return job
 
 
+def enqueue_skipped(session, reason: str, flow_id: int | None = None,
+                    asset_id: int | None = None,
+                    asset_type: str | None = None) -> Job:
+    job = Job(flow_id=flow_id, asset_id=asset_id, asset_type=asset_type,
+              status="skipped", run_at=_now(), attempts=0,
+              payload_json={}, last_error=(reason or "")[:500],
+              finished_at=_now())
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    return job
+
+
 def claim(session, worker_id: str) -> Job | None:
     if session.bind.dialect.name == "postgresql":
         row = session.execute(text(
@@ -218,6 +231,13 @@ def flow_tick(session, now=None):
             next_at = trigger.get_next_fire_time(None, _aware(last.created_at))
             if next_at and _aware(next_at) > now:
                 continue
+        from odf.services.dependencies import dependencies_satisfied
+        state = dependencies_satisfied(session, f.project_id, "flow", f.id,
+                                       now=now)
+        if not state["satisfied"]:
+            enqueue_skipped(session, "waiting for upstream: " + ", ".join(
+                item["name"] for item in state["blocked"]), flow_id=f.id)
+            continue
         enqueue(session, f.id)
 
 
@@ -244,6 +264,14 @@ def scheduler_tick(session, now=None):
             nxt = trig.get_next_fire_time(None, _aware(last.created_at))
             if nxt and _aware(nxt) > now:
                 continue
+        from odf.services.dependencies import dependencies_satisfied
+        state = dependencies_satisfied(session, a.project_id, "pipeline",
+                                       a.id, now=now)
+        if not state["satisfied"]:
+            enqueue_skipped(session, "waiting for upstream: " + ", ".join(
+                item["name"] for item in state["blocked"]),
+                asset_id=a.id, asset_type="pipeline")
+            continue
         enqueue_asset(session, a.id, "pipeline")
     try:
         deliver_due(session)
