@@ -155,3 +155,19 @@ def test_dependency_routes_validate_and_delete():
     assert cycle.status_code == 400
     assert client.delete(f"/api/v1/dependencies/{dep_id}",
                          headers=headers).status_code == 204
+
+
+def test_recent_blocked_lists_skipped_dependencies():
+    from odf.services.dependencies import recent_blocked
+
+    _project()
+    with SessionLocal() as s:
+        up = _flow(s, "blocked-up")
+        down = _flow(s, "blocked-down")
+        add_dependency(s, PROJECT_ID, "flow", down.id, "flow", up.id)
+        from datetime import datetime, timezone
+        scheduler_tick(s, now=datetime.now(timezone.utc))
+        rows = recent_blocked(s, PROJECT_ID, hours=1)
+        assert any(r["name"] == "blocked-down"
+                   and "blocked-up" in r["reason"] for r in rows)
+        assert recent_blocked(s, 9999, hours=1) == []

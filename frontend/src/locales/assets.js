@@ -125,6 +125,9 @@ export default {
     "files.deleteConfirmSuffix": "」？",
     "files.deleteTitle": "删除确认",
     "files.deleted": "已删除",
+    "files.deleteSelected": "删除所选 ({n})",
+    "files.deleteSelectedConfirm": "删除选中的 {n} 个文件？",
+    "files.deleteFailed": "{n} 个文件删除失败",
 
     "catd.overview": "概览",
     "catd.preview": "数据预览",
@@ -362,6 +365,9 @@ export default {
     "files.deleteConfirmSuffix": "\"?",
     "files.deleteTitle": "Confirm deletion",
     "files.deleted": "Deleted",
+    "files.deleteSelected": "Delete selected ({n})",
+    "files.deleteSelectedConfirm": "Delete the {n} selected files?",
+    "files.deleteFailed": "{n} files could not be deleted",
 
     "catd.overview": "Overview",
     "catd.preview": "Data preview",
