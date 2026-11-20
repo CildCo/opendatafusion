@@ -4,6 +4,46 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-11-20
+
+### Added
+
+- Dependency-aware scheduling: a downstream flow or pipeline waits for its
+  upstream to succeed within a 24-hour window, otherwise a skipped run is
+  recorded; cycles are rejected and a page manages the dependencies.
+- Dataset profiling: null counts, distinct values and ranges over a bounded
+  sample, with ranges hidden for masked columns.
+- A metric semantic layer: a metric catalogue with source dataset, definition,
+  owner and dashboard/app usage; lineage back to upstream tables; draft and
+  published comparison; dataset cross-links; publishing through review; and
+  search over definitions, dimensions and consumers.
+- MySQL and Oracle change data capture sources alongside PostgreSQL, with a
+  connector detail that shows task states and lets subscribed tables be edited.
+- Server-side audit filters with CSV export, SQL interface daily usage, and
+  alert mute rules that actually suppress matching alerts.
+- Flow and SQL interface deletion, and a flow detail route so operations jobs
+  open the flow they belong to.
+- Change withdrawal by the requester or an approver, bulk deletion on pipelines
+  and files, and empty-state create actions across the console.
+
+### Changed
+
+- The sidebar and workspace menu share one definition, and menu permissions
+  cover every page.
+- Lists show usernames instead of ids, timestamps follow the console language,
+  and muted text and glyph-only buttons are easier to read and reach.
+- List pagination returns to the first page whenever a filter changes.
+- Dialogs and drawers fit narrow screens.
+
+### Fixed
+
+- Flow and SQL interface routes are scoped to the current project, and creating
+  in another project is rejected.
+- The operations audit tab resolves actor ids to usernames, and alert filters
+  offer the error severity used by engine failures.
+- Dependency cycle rejections are translated, and change lists resolve the name
+  and action of the object they refer to.
+
 ## [1.2.0] - 2026-11-19
 
 ### Added
