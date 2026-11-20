@@ -2,8 +2,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import or_, select
 
-from odf.models import (Alert, Asset, AuditLog, Flow, FlowRun, HealthEvent,
-                        Job)
+from odf.models import (Alert, Asset, Flow, FlowRun, HealthEvent, Job)
 from odf.services.audit import write_audit
 from odf.services.health import compute_health, cron_period_seconds
 
@@ -200,18 +199,5 @@ def timeline(session, project_id, limit=50):
 
 
 def search_audit(session, actor=None, action=None, q=None, limit=100):
-    query = session.query(AuditLog)
-    if actor:
-        query = query.filter(AuditLog.actor == actor)
-    if action:
-        query = query.filter(AuditLog.action == action)
-    if q:
-        like = "%%%s%%" % q
-        query = query.filter(or_(AuditLog.action.ilike(like),
-                                 AuditLog.target.ilike(like),
-                                 AuditLog.actor.ilike(like)))
-    return [{"id": r.id, "actor": r.actor, "action": r.action,
-             "target": r.target, "detail": r.detail_json,
-             "at": _iso(r.at)} for r in
-            query.order_by(AuditLog.id.desc())
-            .limit(_limit(limit, 500)).all()]
+    from odf.services.audit import list_audit
+    return list_audit(session, limit, actor, action, q)

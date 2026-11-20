@@ -120,6 +120,7 @@
                        @change="loadAlerts">
               <el-option value="critical" label="critical" />
               <el-option value="warning" label="warning" />
+              <el-option value="error" label="error" />
               <el-option value="info" label="info" />
             </el-select>
             <el-button size="small" @click="router.push('/alerts')">

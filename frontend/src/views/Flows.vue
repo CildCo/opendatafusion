@@ -28,13 +28,14 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('flows.actions')" width="240" fixed="right">
+        <el-table-column :label="t('flows.actions')" width="300" fixed="right">
           <template #default="{ row }">
             <el-button link @click.stop="toggle(row)">
               {{ row.status === 1 ? t("flows.disabled") : t("flows.enabled") }}
             </el-button>
             <el-button link :disabled="row.status !== 1" @click.stop="run(row)">{{ t("flows.run") }}</el-button>
             <el-button link @click.stop="openDetail(row)">{{ t("flows.details") }}</el-button>
+            <el-button link type="danger" @click.stop="remove(row)">{{ t("flows.delete") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -304,7 +305,8 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search, Right } from "@element-plus/icons-vue";
 import { api, errMsg, getProject } from "../api";
@@ -316,6 +318,7 @@ function tr(key, vars = {}) {
 }
 
 const rows = ref([]);
+const route = useRoute();
 const datasources = ref([]);
 const sourceTables = ref([]);
 const sinkTables = ref([]);
@@ -334,6 +337,7 @@ const q = ref("");
 const statusFilter = ref(null);
 const page = ref(1);
 const pageSize = 10;
+watch([q, statusFilter], () => { page.value = 1; });
 const runOpen = ref(false);
 const runRow = ref({});
 const downstream = reactive({ edges: [], column_edges: [], tables: [] });
@@ -580,6 +584,27 @@ async function run(row) {
   }
 }
 
+async function remove(row) {
+  try {
+    await ElMessageBox.confirm(
+      t("flows.deleteConfirm").replace("{name}", row.name),
+      t("flows.deleteTitle"), { type: "warning" });
+  } catch (e) {
+    return;
+  }
+  try {
+    await api.del(`/flows/${row.id}`);
+    if (current.value.id === row.id) {
+      drawer.value = false;
+      if (timer) clearInterval(timer);
+    }
+    await load();
+    ElMessage.success(t("flows.deleted"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
 async function toggle(row) {
   const action = row.status === 1 ? "pause_flow" : "resume_flow";
   try {
@@ -609,7 +634,11 @@ async function rollback(row) {
   }
 }
 
-onMounted(load);
+onMounted(async () => {
+  await load();
+  const id = Number(route.params.id);
+  if (id) openDetail({ id });
+});
 onBeforeUnmount(() => timer && clearInterval(timer));
 </script>
 

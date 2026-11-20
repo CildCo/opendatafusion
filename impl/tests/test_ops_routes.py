@@ -1,10 +1,11 @@
+import uuid
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 
 from odf.db import SessionLocal
 from odf.main import app
-from odf.models import Alert, Asset, Flow, Job, Project, User
+from odf.models import Alert, Asset, AuditLog, Flow, Job, Project, User
 from odf.services.auth import create_token
 
 
@@ -115,3 +116,26 @@ def test_viewer_cannot_mutate_alerts():
     assert c.post("/api/v1/alerts/rules",
                   json={"name": "x", "kind": "lag"},
                   headers=h).status_code == 403
+
+
+def test_ops_audit_shows_usernames():
+    _user(1, "admin")
+    action = "ui_probe_%s" % uuid.uuid4().hex[:8]
+    with SessionLocal() as s:
+        s.add(AuditLog(actor="1", action=action, target="9501",
+                       at=datetime(2026, 1, 1, tzinfo=timezone.utc)))
+        s.add(AuditLog(actor="ops_u1", action=action, target="9502",
+                       at=datetime(2026, 1, 2, tzinfo=timezone.utc)))
+        s.commit()
+    try:
+        rows = TestClient(app).get(f"/api/v1/ops/audit?action={action}",
+                                   headers=_h()).json()
+        with SessionLocal() as s:
+            username = s.get(User, 1).username
+        assert [r["actor"] for r in rows] == ["ops_u1", username]
+        assert username != "1"
+    finally:
+        with SessionLocal() as s:
+            s.query(AuditLog).filter_by(action=action).delete()
+            s.commit()
+

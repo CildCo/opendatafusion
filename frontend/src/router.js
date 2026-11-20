@@ -59,6 +59,7 @@ const routes = [
       { path: "apis", component: ApiList, meta: { title: "数据接口" } },
       { path: "apis/:id", component: ApiEditor, meta: { title: "接口编辑" } },
       { path: "flows", component: Flows, meta: { title: "数据集成" } },
+      { path: "flows/:id", component: Flows, meta: { title: "数据集成" } },
       { path: "interfaces", component: Interfaces, meta: { title: "数据接口" } },
       { path: "tools", component: ToolCatalog, meta: { title: "AI 工具" } },
       { path: "datasets", component: ModelHome, meta: { title: "数据模型" } },

@@ -12,6 +12,7 @@
                  :placeholder="t('alerts.allSeverity')" style="width: 140px">
         <el-option value="critical" :label="t('alerts.severityCritical')" />
         <el-option value="warning" :label="t('alerts.severityWarning')" />
+        <el-option value="error" :label="t('alerts.severityError')" />
       </el-select>
       <div class="spacer" />
       <el-button @click="$router.push('/webhooks')">
