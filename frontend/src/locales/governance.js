@@ -113,6 +113,7 @@ export default {
     "alerts.ack": "确认",
     "alerts.close": "关闭",
     "alerts.rules": "告警规则",
+    "alerts.intro": "未处理告警、处理状态与静音规则集中在这里。",
     "alerts.newRule": "新建规则",
     "alerts.ruleName": "规则名称",
     "alerts.ruleKind": "类型",
@@ -135,6 +136,7 @@ export default {
     "alerts.closeTitle": "关闭告警",
     "alerts.closedMsg": "已关闭",
 
+    "changes.intro": "提交、审批、应用与撤回的变更记录。",
     "changes.allStatus": "全部状态",
     "changes.statusProposed": "待批准",
     "changes.statusApplied": "已执行",
@@ -189,6 +191,7 @@ export default {
     "changes.appliedMsg": "已执行",
     "changes.approvedAndApplied": "已批准并执行",
 
+    "tools.intro": "通过 MCP 暴露给外部操作方的工具与参数。",
     "tools.searchPlaceholder": "搜索工具",
     "tools.refresh": "刷新",
     "tools.colTool": "工具",
@@ -312,6 +315,7 @@ export default {
     "alerts.ack": "Acknowledge",
     "alerts.close": "Close",
     "alerts.rules": "Alert rules",
+    "alerts.intro": "Open alerts, acknowledgement state and mute rules in one place.",
     "alerts.newRule": "New rule",
     "alerts.ruleName": "Rule name",
     "alerts.ruleKind": "Kind",
@@ -334,6 +338,7 @@ export default {
     "alerts.closeTitle": "Close alert",
     "alerts.closedMsg": "Closed",
 
+    "changes.intro": "Changes submitted, approved, applied and withdrawn.",
     "changes.allStatus": "All statuses",
     "changes.statusProposed": "Proposed",
     "changes.statusApplied": "Applied",
@@ -388,6 +393,7 @@ export default {
     "changes.appliedMsg": "Applied",
     "changes.approvedAndApplied": "Approved and applied",
 
+    "tools.intro": "Tools and parameters exposed to external operators over MCP.",
     "tools.searchPlaceholder": "Search tools",
     "tools.refresh": "Refresh",
     "tools.colTool": "Tool",

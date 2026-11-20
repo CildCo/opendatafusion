@@ -1,5 +1,7 @@
 <template>
   <div class="page">
+    <page-header icon="pipeline" :title="t('menu.pipelines')"
+                 :intro="t('pipe.intro')" />
     <div class="toolbar">
       <el-button @click="load" :loading="loading">{{ t("pipe.refresh") }}</el-button>
       <el-button type="danger" :disabled="!selected.length"
@@ -9,21 +11,26 @@
       <el-button type="primary" @click="create">{{ t("pipe.newPipeline") }}</el-button>
     </div>
 
-    <p class="page-intro">{{ t("pipe.intro") }}</p>
-
     <el-card class="card" shadow="never">
       <el-table :data="rows" size="small" v-loading="loading"
                 row-class-name="clickable" @row-click="open"
                 @selection-change="selected = $event">
         <el-table-column type="selection" width="42" />
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="name" :label="t('pipe.name')" min-width="160" />
-        <el-table-column prop="cron" :label="t('pipe.schedule')" width="160" />
-        <el-table-column prop="enabled" :label="t('pipe.status')" width="100">
+        <el-table-column :label="t('pipe.name')" min-width="200">
           <template #default="{ row }">
-            <el-tag :type="row.enabled ? 'success' : 'info'" size="small">
-              {{ row.enabled ? t("pipe.enabled") : t("pipe.disabled") }}
-            </el-tag>
+            <span class="entity-cell">
+              <entity-icon type="pipeline" :size="20" />
+              <b>{{ row.name }}</b>
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="cron" :label="t('pipe.schedule')" width="160" />
+        <el-table-column :label="t('pipe.status')" width="110">
+          <template #default="{ row }">
+            <status-dot :status="row.enabled"
+                        :label="row.enabled
+                          ? t('pipe.enabled') : t('pipe.disabled')" />
           </template>
         </el-table-column>
         <el-table-column :label="t('pipe.actions')" width="90" fixed="right">
@@ -34,11 +41,9 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !rows.length" :description="t('pipe.empty')">
-        <el-button type="primary" @click="create">
-          {{ t("pipe.newPipeline") }}
-        </el-button>
-      </el-empty>
+      <empty-state v-if="!loading && !rows.length"
+                   :title="t('pipe.empty')" :description="t('pipe.intro')"
+                   :action-text="t('pipe.newPipeline')" @action="create" />
     </el-card>
   </div>
 </template>
@@ -49,6 +54,10 @@ import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
+import EmptyState from "../components/EmptyState.vue";
+import EntityIcon from "../components/EntityIcon.vue";
+import PageHeader from "../components/PageHeader.vue";
+import StatusDot from "../components/StatusDot.vue";
 
 const rows = ref([]);
 const selected = ref([]);
@@ -128,6 +137,11 @@ onMounted(load);
 </script>
 
 <style scoped>
+.entity-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .card { border-radius: 12px; border: 1px solid #e5e7eb; }
 :deep(.clickable) { cursor: pointer; }
 </style>

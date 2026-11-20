@@ -1,5 +1,7 @@
 <template>
   <div class="page">
+    <page-header icon="quality" :title="t('menu.quality')"
+                 :intro="t('quality.intro')" />
     <div class="toolbar">
       <el-input v-model="q" :placeholder="t('quality.search')" clearable style="width: 220px"
                 :prefix-icon="Search" />
@@ -8,12 +10,30 @@
       <el-button type="primary" @click="openCreate">{{ t("quality.new") }}</el-button>
     </div>
 
-    <p class="page-intro">{{ t("quality.intro") }}</p>
+    <div class="summary-row">
+      <stat-tile icon="quality" :label="t('quality.rulesTotal')"
+                 :value="summary.total" />
+      <stat-tile icon="alert" :label="t('quality.rulesFailing')"
+                 :value="summary.failing"
+                 :tone="summary.failing ? 'danger' : 'success'" />
+      <stat-tile icon="quality" :label="t('quality.avgPass')"
+                 :value="summary.avg === null ? '-' : `${summary.avg}%`"
+                 :tone="summary.avg === null ? ''
+                   : summary.avg >= 90 ? 'success'
+                   : summary.avg >= 60 ? 'warning' : 'danger'" />
+    </div>
 
     <el-card class="card" shadow="never">
       <el-table :data="filtered" size="small" v-loading="loading">
         <el-table-column prop="id" :label="t('quality.id')" width="70" />
-        <el-table-column prop="name" :label="t('quality.name')" min-width="150" />
+        <el-table-column :label="t('quality.name')" min-width="200">
+          <template #default="{ row }">
+            <span class="entity-cell">
+              <entity-icon type="quality" :size="20" />
+              <b>{{ row.name }}</b>
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column prop="kind" :label="t('quality.kind')" width="120">
           <template #default="{ row }">
             <el-tag size="small" effect="plain">{{ kindLabel(row.kind) }}</el-tag>
@@ -25,11 +45,7 @@
         </el-table-column>
         <el-table-column :label="t('quality.lastStatus')" width="140">
           <template #default="{ row }">
-            <el-tag v-if="row.last_status"
-                    :type="row.last_status === 'pass' ? 'success' : 'danger'"
-                    size="small">
-              {{ row.last_status }}
-            </el-tag>
+            <status-dot v-if="row.last_status" :status="row.last_status" />
             <span v-else class="muted">-</span>
           </template>
         </el-table-column>
@@ -51,11 +67,11 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" :description="t('quality.empty')">
-        <el-button type="primary" @click="openCreate">
-          {{ t("quality.new") }}
-        </el-button>
-      </el-empty>
+      <empty-state v-if="!loading && !filtered.length"
+                   :title="t('quality.empty')"
+                   :description="t('quality.intro')"
+                   :action-text="t('quality.new')"
+                   @action="openCreate" />
     </el-card>
 
     <el-dialog v-model="dialog" :title="t('quality.createTitle')" width="560px">
@@ -168,10 +184,26 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
 import { api, errMsg, getProject } from "../api";
 import { fmtDate, t } from "../i18n";
+import EmptyState from "../components/EmptyState.vue";
+import EntityIcon from "../components/EntityIcon.vue";
+import PageHeader from "../components/PageHeader.vue";
+import StatusDot from "../components/StatusDot.vue";
+import StatTile from "../components/StatTile.vue";
 
 const router = useRouter();
 
 const rows = ref([]);
+
+const summary = computed(() => {
+  const all = rows.value;
+  const failing = all.filter((r) => r.last_status && r.last_status !== "pass")
+    .length;
+  const rates = all.filter((r) => typeof r.pass_rate === "number")
+    .map((r) => r.pass_rate);
+  const avg = rates.length
+    ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : null;
+  return { total: all.length, failing, avg };
+});
 const datasets = ref([]);
 const columns = ref([]);
 const results = ref([]);
@@ -336,6 +368,20 @@ onMounted(load);
 </script>
 
 <style scoped>
+.summary-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+@media (max-width: 720px) {
+  .summary-row { grid-template-columns: 1fr; }
+}
+.entity-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .card {
   border-radius: 12px;
   border: 1px solid #e5e7eb;

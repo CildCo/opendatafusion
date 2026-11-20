@@ -1,5 +1,7 @@
 <template>
   <div class="page">
+    <page-header icon="change" :title="t('menu.changes')"
+                 :intro="t('changes.intro')" />
     <div class="toolbar">
       <el-select v-model="status" clearable
                  :placeholder="t('changes.allStatus')" style="width: 150px"
@@ -116,6 +118,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getProject } from "../api";
 import { fmtDate, t } from "../i18n";
+import PageHeader from "../components/PageHeader.vue";
 
 function tr(key, vars = {}) {
   return Object.entries(vars).reduce(

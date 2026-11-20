@@ -1,6 +1,12 @@
 <template>
   <div class="page">
+    <page-header icon="dependency" :title="t('menu.dependencies')"
+                 :intro="t('dep.intro')" />
     <div class="toolbar">
+      <el-radio-group v-model="view" size="small">
+        <el-radio-button value="table">{{ t("dep.viewTable") }}</el-radio-button>
+        <el-radio-button value="graph">{{ t("dep.viewGraph") }}</el-radio-button>
+      </el-radio-group>
       <div class="spacer" />
       <el-button @click="load" :loading="loading">
         {{ t("dep.refresh") }}
@@ -10,22 +16,23 @@
       </el-button>
     </div>
 
-    <p class="page-intro">{{ t("dep.intro") }}</p>
-
     <el-card class="card" shadow="never">
-      <el-table :data="rows" size="small" v-loading="loading">
-        <el-table-column :label="t('dep.downstream')" min-width="200">
+      <el-table v-if="view === 'table'" :data="rows" size="small"
+                v-loading="loading">
+        <el-table-column :label="t('dep.downstream')" min-width="220">
           <template #default="{ row }">
-            <el-tag size="small" effect="plain">{{ row.downstream_type }}</el-tag>
-            <span style="margin-left: 8px">{{ row.downstream_name }}</span>
+            <span class="entity-cell">
+              <entity-icon :type="row.downstream_type" :size="20" />
+              <b>{{ row.downstream_name }}</b>
+            </span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('dep.upstream')" min-width="200">
+        <el-table-column :label="t('dep.upstream')" min-width="220">
           <template #default="{ row }">
-            <el-tag size="small" effect="plain" type="info">
-              {{ row.upstream_type }}
-            </el-tag>
-            <span style="margin-left: 8px">{{ row.upstream_name }}</span>
+            <span class="entity-cell">
+              <entity-icon :type="row.upstream_type" :size="20" />
+              <span>{{ row.upstream_name }}</span>
+            </span>
           </template>
         </el-table-column>
         <el-table-column :label="t('dep.actions')" width="100">
@@ -36,11 +43,12 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !rows.length" :description="t('dep.empty')">
-        <el-button type="primary" @click="openCreate">
-          {{ t("dep.new") }}
-        </el-button>
-      </el-empty>
+      <empty-state v-if="view === 'table' && !loading && !rows.length"
+                   :title="t('dep.empty')" :description="t('dep.intro')"
+                   :action-text="t('dep.new')" @action="openCreate" />
+      <graph-canvas v-if="view === 'graph'" :nodes="depGraph.nodes"
+                    :edges="depGraph.edges" :height="480"
+                    :empty-text="t('dep.empty')" />
     </el-card>
 
     <el-dialog v-model="dialog" :title="t('dep.new')" width="600px">
@@ -86,12 +94,35 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
+import GraphCanvas from "../components/GraphCanvas.vue";
+import EmptyState from "../components/EmptyState.vue";
+import EntityIcon from "../components/EntityIcon.vue";
+import PageHeader from "../components/PageHeader.vue";
 import { t } from "../i18n";
 
 const rows = ref([]);
+const view = ref("table");
+
+const depGraph = computed(() => {
+  const nodes = new Map();
+  const edges = [];
+  const add = (type, id, name) => {
+    const key = `${type}:${id}`;
+    if (!nodes.has(key)) nodes.set(key, { id: key, name, type });
+    return key;
+  };
+  for (const row of rows.value) {
+    const upstream = add(row.upstream_type, row.upstream_id,
+                         row.upstream_name);
+    const downstream = add(row.downstream_type, row.downstream_id,
+                           row.downstream_name);
+    edges.push({ from: upstream, to: downstream });
+  }
+  return { nodes: [...nodes.values()], edges };
+});
 const flows = ref([]);
 const pipelines = ref([]);
 const loading = ref(false);
@@ -174,6 +205,11 @@ onMounted(load);
 </script>
 
 <style scoped>
+.entity-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .card { border-radius: 12px; border: 1px solid #e5e7eb; }
 .muted { color: #64748b; font-size: 12px; margin: 0; }
 </style>

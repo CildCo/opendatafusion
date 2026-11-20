@@ -1,5 +1,7 @@
 <template>
   <div class="page">
+    <page-header icon="audit" :title="t('menu.audit')"
+                 :intro="t('audit.intro')" />
     <div class="toolbar">
       <el-input v-model="actor" :placeholder="t('audit.filterActor')" clearable
                 style="width: 200px" />
@@ -55,6 +57,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { api, errMsg, getToken } from "../api";
 import { fmtDate, t } from "../i18n";
+import PageHeader from "../components/PageHeader.vue";
 
 const rows = ref([]);
 const loading = ref(false);

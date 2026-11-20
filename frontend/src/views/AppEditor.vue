@@ -97,11 +97,24 @@
             </el-button>
           </div>
           <div class="components">
-            <div v-for="c in currentPage.components" :key="c.id"
-                 class="comp-row" :class="{ active: c.id === selectedId }"
-                 @click="selectComponent(c.id)">
-              <span>{{ c.title || typeLabel(c.type) }}</span>
+            <div v-for="(c, i) in currentPage.components" :key="c.id"
+                 class="comp-row" draggable="true"
+                 :class="{ active: c.id === selectedId,
+                           dragging: dragFrom === i }"
+                 @click="selectComponent(c.id)"
+                 @dragstart="dragFrom = i" @dragover.prevent
+                 @drop.prevent="dropComponent(i)"
+                 @dragend="dragFrom = -1">
+              <span class="drag-handle">⋮⋮</span>
+              <span class="comp-name">{{ c.title || typeLabel(c.type) }}</span>
               <span class="comp-type">{{ typeLabel(c.type) }}</span>
+              <span class="comp-actions">
+                <el-button link size="small" :disabled="i === 0"
+                           @click.stop="moveComponent(i, -1)">↑</el-button>
+                <el-button link size="small"
+                           :disabled="i === currentPage.components.length - 1"
+                           @click.stop="moveComponent(i, 1)">↓</el-button>
+              </span>
             </div>
             <el-empty v-if="!currentPage.components.length"
                       :description="t('aedit.noComponents')" :image-size="48" />
@@ -300,6 +313,28 @@ const published = ref(false);
 const content = ref({ start_page: "p1", pages: [] });
 const currentId = ref("");
 const selectedId = ref("");
+const dragFrom = ref(-1);
+
+function moveComponent(index, delta) {
+  const list = currentPage.value?.components;
+  if (!list) return;
+  const target = index + delta;
+  if (target < 0 || target >= list.length) return;
+  const [item] = list.splice(index, 1);
+  list.splice(target, 0, item);
+}
+
+function dropComponent(index) {
+  if (dragFrom.value < 0 || dragFrom.value === index) {
+    dragFrom.value = -1;
+    return;
+  }
+  const list = currentPage.value?.components;
+  if (!list) return;
+  const [item] = list.splice(dragFrom.value, 1);
+  list.splice(index, 0, item);
+  dragFrom.value = -1;
+}
 const data = ref({});
 const paramValues = ref({});
 const loadingData = ref(false);
@@ -737,9 +772,17 @@ onMounted(load);
 .palette { display: flex; flex-direction: column; gap: 4px; }
 .palette .add { width: 100%; margin: 0; }
 .components { margin-top: 8px; display: flex; flex-direction: column; gap: 2px; }
-.comp-row { display: flex; justify-content: space-between; padding: 6px 8px;
-            border-radius: 6px; cursor: pointer; font-size: 12px;
-            color: #475569; }
+.comp-row { display: flex; align-items: center; gap: 8px;
+            padding: 6px 8px; border-radius: 6px; cursor: grab;
+            font-size: 12px; color: #475569; }
+.comp-row.dragging { opacity: 0.5; }
+.comp-name { flex: 1; min-width: 0; overflow: hidden;
+             text-overflow: ellipsis; white-space: nowrap; }
+.drag-handle { color: #cbd5e1; font-size: 11px; letter-spacing: -1px; }
+.comp-actions { display: inline-flex; opacity: 0; }
+.comp-row:hover .comp-actions, .comp-row.active .comp-actions {
+  opacity: 1;
+}
 .comp-row:hover { background: #f1f5f9; }
 .comp-row.active { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
 .comp-type { color: #6b7280; font-size: 11px; }

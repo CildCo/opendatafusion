@@ -1,5 +1,7 @@
 <template>
   <div class="page">
+    <page-header icon="source" :title="t('menu.datasources')"
+                 :intro="t('ds.intro')" />
     <div class="toolbar">
       <el-input v-model="q" :placeholder="t('ds.searchPlaceholder')" clearable
                 style="width: 240px" :prefix-icon="Search" />
@@ -24,7 +26,14 @@
     <el-card shadow="never" class="card">
       <el-table :data="paged" size="small" v-loading="loading">
         <el-table-column prop="id" :label="t('ds.colId')" width="70" />
-        <el-table-column prop="name" :label="t('ds.colName')" min-width="140" />
+        <el-table-column :label="t('ds.colName')" min-width="190">
+          <template #default="{ row }">
+            <span class="entity-cell">
+              <entity-icon type="source" :size="20" />
+              <b>{{ row.name }}</b>
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column prop="kind" :label="t('ds.colKind')" width="120">
           <template #default="{ row }">
             <el-tag size="small" effect="plain">{{ row.kind }}</el-tag>
@@ -43,7 +52,9 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" :description="t('ds.noDatasources')" />
+      <empty-state v-if="!loading && !filtered.length"
+                   :title="t('ds.noDatasources')" :description="t('ds.intro')"
+                   :action-text="t('ds.new')" @action="openCreate" />
       <div class="pager">
         <el-pagination v-model:current-page="page" :page-size="pageSize"
                        :total="filtered.length" layout="total, prev, pager, next"
@@ -151,6 +162,9 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
+import EmptyState from "../components/EmptyState.vue";
+import EntityIcon from "../components/EntityIcon.vue";
+import PageHeader from "../components/PageHeader.vue";
 
 const rows = ref([]);
 const tables = ref([]);
@@ -365,6 +379,11 @@ onMounted(load);
 </script>
 
 <style scoped>
+.entity-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .card {
   border-radius: 12px;
   border: 1px solid #e5e7eb;

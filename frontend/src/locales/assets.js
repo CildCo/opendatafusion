@@ -1,6 +1,7 @@
 export default {
   zh: {
     "ds.searchPlaceholder": "搜索名称 / 类型",
+    "ds.intro": "集中管理数据库、文件与湖仓连接，并在此测试连通性和同步元数据。",
     "ds.allKinds": "全部类型",
     "ds.fileKind": "本地文件 (CSV/Excel/Parquet/JSON)",
     "ds.refresh": "刷新",
@@ -109,6 +110,7 @@ export default {
     "wb.fillSources": "请完整填写每个数据源的别名、数据源和表",
 
     "files.storage": "内容寻址存储",
+    "files.intro": "内容寻址存储中的文件，可直接用于数据源与共享。",
     "files.refresh": "刷新",
     "files.upload": "上传文件",
     "files.empty": "还没有文件",
@@ -246,6 +248,7 @@ export default {
   },
   en: {
     "ds.searchPlaceholder": "Search name / type",
+    "ds.intro": "Databases, files and lakehouse connections in one place, with connectivity tests and metadata sync.",
     "ds.allKinds": "All types",
     "ds.fileKind": "Local file (CSV/Excel/Parquet/JSON)",
     "ds.refresh": "Refresh",
@@ -354,6 +357,7 @@ export default {
     "wb.fillSources": "Fill in the alias, source and table for every source",
 
     "files.storage": "Content-addressed storage",
+    "files.intro": "Files in content-addressed storage, ready for data sources and sharing.",
     "files.refresh": "Refresh",
     "files.upload": "Upload file",
     "files.empty": "No files yet",

@@ -209,6 +209,8 @@
         </el-tab-pane>
 
         <el-tab-pane :label="t('catd.impact')" name="impact">
+          <graph-canvas v-if="impact.edges.length" :nodes="impactNodes"
+                        :edges="impact.edges" :height="320" />
           <div v-if="impact.edges.length">
             <div class="muted" style="margin-bottom: 8px">
               {{ tr("catd.downstream", { n: impact.edges.length }) }}
@@ -287,6 +289,7 @@ import { ElMessage } from "element-plus";
 import { Right } from "@element-plus/icons-vue";
 import { api, errMsg, getProject } from "../api";
 import { fmtDate, t } from "../i18n";
+import GraphCanvas from "../components/GraphCanvas.vue";
 
 function tr(key, vars = {}) {
   return Object.entries(vars).reduce(
@@ -302,6 +305,25 @@ const loading = ref(false);
 const rules = ref([]);
 const history = ref([]);
 const impact = reactive({ edges: [], column_edges: [] });
+
+const impactNodes = computed(() => {
+  const nodes = new Map();
+  const add = (ref, type) => {
+    if (ref && !nodes.has(ref)) {
+      nodes.set(ref, { id: ref, name: ref, type: type || "table" });
+    }
+  };
+  for (const edge of impact.edges) {
+    add(edge.from, edge.from_type);
+    add(edge.to, edge.to_type);
+  }
+  for (const edge of impact.column_edges) {
+    add(edge.from, "table");
+    add(edge.to, "table");
+  }
+  return [...nodes.values()];
+});
+
 const limit = ref(20);
 const profileSample = ref(50000);
 const profile = reactive({ loading: false, error: "", rows: 0, ms: 0,

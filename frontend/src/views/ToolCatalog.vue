@@ -1,5 +1,7 @@
 <template>
   <div class="page">
+    <page-header icon="tool" :title="t('menu.tools')"
+                 :intro="t('tools.intro')" />
     <div class="toolbar">
       <el-input v-model="q" :placeholder="t('tools.searchPlaceholder')"
                 clearable style="width: 240px" />
@@ -39,6 +41,7 @@ import { computed, onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
+import PageHeader from "../components/PageHeader.vue";
 
 const rows = ref([]);
 const q = ref("");

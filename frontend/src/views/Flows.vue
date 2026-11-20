@@ -1,5 +1,7 @@
 <template>
   <div class="page">
+    <page-header icon="flow" :title="t('menu.flows')"
+                 :intro="t('flows.intro')" />
     <div class="toolbar">
       <el-input v-model="q" :placeholder="t('flows.searchPlaceholder')" clearable style="width: 220px"
                 :prefix-icon="Search" />
@@ -12,20 +14,25 @@
       <el-button type="primary" @click="openCreate">{{ t("flows.newFlow") }}</el-button>
     </div>
 
-    <p class="page-intro">{{ t("flows.intro") }}</p>
-
     <el-card class="card" shadow="never">
       <el-table :data="paged" size="small" v-loading="loading"
                 @row-click="openDetail" row-class-name="clickable">
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="name" :label="t('flows.name')" min-width="160" />
+        <el-table-column :label="t('flows.name')" min-width="200">
+          <template #default="{ row }">
+            <span class="entity-cell">
+              <entity-icon type="flow" :size="20" />
+              <b>{{ row.name }}</b>
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column prop="cron" :label="t('flows.schedule')" width="150" />
         <el-table-column prop="version" :label="t('flows.version')" width="80" />
-        <el-table-column prop="status" :label="t('flows.status')" width="90">
+        <el-table-column :label="t('flows.status')" width="110">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
-              {{ row.status === 1 ? t("flows.enabled") : t("flows.disabled") }}
-            </el-tag>
+            <status-dot :status="row.status"
+                        :label="row.status === 1
+                          ? t('flows.enabled') : t('flows.disabled')" />
           </template>
         </el-table-column>
         <el-table-column :label="t('flows.actions')" width="300" fixed="right">
@@ -39,11 +46,11 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" :description="t('flows.empty')">
-        <el-button type="primary" @click="openCreate">
-          {{ t("flows.newFlow") }}
-        </el-button>
-      </el-empty>
+      <empty-state v-if="!loading && !filtered.length"
+                   :title="t('flows.empty')"
+                   :description="t('flows.intro')"
+                   :action-text="t('flows.newFlow')"
+                   @action="openCreate" />
       <div class="pager">
         <el-pagination v-model:current-page="page" :page-size="pageSize"
                        :total="filtered.length" layout="total, prev, pager, next" small />
@@ -311,6 +318,10 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { Search, Right } from "@element-plus/icons-vue";
 import { api, errMsg, getProject } from "../api";
 import { fmtDate, t } from "../i18n";
+import EmptyState from "../components/EmptyState.vue";
+import EntityIcon from "../components/EntityIcon.vue";
+import PageHeader from "../components/PageHeader.vue";
+import StatusDot from "../components/StatusDot.vue";
 
 function tr(key, vars = {}) {
   return Object.entries(vars).reduce(
@@ -689,5 +700,10 @@ onBeforeUnmount(() => timer && clearInterval(timer));
 }
 :deep(.clickable) {
   cursor: pointer;
+}
+.entity-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>
