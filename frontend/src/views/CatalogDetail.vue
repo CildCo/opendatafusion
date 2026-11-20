@@ -105,6 +105,66 @@
           <el-empty v-else :description="t('catd.noSample')" :image-size="70" />
         </el-tab-pane>
 
+        <el-tab-pane :label="t('catd.profile')" name="profile">
+          <div class="preview-bar">
+            <span class="muted">
+              {{ tr("catd.profileHint", { n: profileSample }) }}
+            </span>
+            <div class="spacer" />
+            <el-select v-model="profileSample" size="small"
+                       style="width: 130px">
+              <el-option :value="5000" label="5,000" />
+              <el-option :value="50000" label="50,000" />
+              <el-option :value="200000" label="200,000" />
+            </el-select>
+            <el-button size="small" type="primary"
+                       :loading="profile.loading" @click="runProfile">
+              {{ t("catd.profileRun") }}
+            </el-button>
+          </div>
+          <el-alert v-if="profile.error" :title="profile.error" type="error"
+                    :closable="false" style="margin-bottom: 10px" />
+          <template v-else-if="profile.columns.length">
+            <div class="sample-head">
+              <span class="muted">
+                {{ tr("catd.profileRows", { n: profile.rows }) }} ·
+                {{ profile.ms }} ms
+              </span>
+            </div>
+            <el-table :data="profile.columns" size="small" border>
+              <el-table-column prop="name" :label="t('catd.profileName')"
+                               min-width="140" />
+              <el-table-column prop="type" :label="t('catd.profileType')"
+                               width="140" />
+              <el-table-column prop="nulls" :label="t('catd.profileNulls')"
+                               width="90" />
+              <el-table-column :label="t('catd.profileNullRatio')" width="100">
+                <template #default="{ row }">{{ row.null_ratio }}%</template>
+              </el-table-column>
+              <el-table-column prop="distinct"
+                               :label="t('catd.profileDistinct')" width="110" />
+              <el-table-column :label="t('catd.profileMin')" min-width="120">
+                <template #default="{ row }">
+                  <el-tag v-if="row.masked" size="small" type="info">
+                    {{ t("catd.profileMasked") }}
+                  </el-tag>
+                  <span v-else>{{ row.min === null ? "-" : row.min }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column :label="t('catd.profileMax')" min-width="120">
+                <template #default="{ row }">
+                  <el-tag v-if="row.masked" size="small" type="info">
+                    {{ t("catd.profileMasked") }}
+                  </el-tag>
+                  <span v-else>{{ row.max === null ? "-" : row.max }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
+          <el-empty v-else :description="t('catd.profileEmpty')"
+                    :image-size="70" />
+        </el-tab-pane>
+
         <el-tab-pane :label="t('catd.fields')" name="fields">
           <el-table :data="detail.columns || []" size="small">
             <el-table-column prop="name" :label="t('cat.columns')" />
@@ -233,6 +293,9 @@ const rules = ref([]);
 const history = ref([]);
 const impact = reactive({ edges: [], column_edges: [] });
 const limit = ref(20);
+const profileSample = ref(50000);
+const profile = reactive({ loading: false, error: "", rows: 0, ms: 0,
+                           columns: [] });
 const sample = reactive({ loading: false, error: "", rows: [],
                           columns: [], row_count: 0, ms: 0, truncated: false });
 const tagDialog = ref(false);
@@ -245,7 +308,8 @@ const stats = computed(() => detail.value.stats || {
   column_count: 0, rule_count: 0, last_quality: null, last_activity_at: null,
 });
 const isLakehouse = computed(() => detail.value.datasource_kind === "trino");
-const loaded = { preview: false, quality: false, impact: false, history: false };
+const loaded = { preview: false, quality: false, impact: false,
+                 history: false, profile: false };
 
 const fmt = fmtDate;
 
@@ -284,6 +348,23 @@ async function loadSample() {
   }
 }
 
+async function runProfile() {
+  profile.loading = true;
+  profile.error = "";
+  try {
+    const out = await api.get(
+      `/catalog/datasets/${datasetId.value}/profile?sample=${profileSample.value}`);
+    profile.rows = out.rows;
+    profile.ms = out.ms;
+    profile.columns = out.columns;
+  } catch (e) {
+    profile.error = errMsg(e);
+    profile.columns = [];
+  } finally {
+    profile.loading = false;
+  }
+}
+
 async function loadRules() {
   try {
     const rows = await api.get("/quality/rules");
@@ -319,6 +400,7 @@ async function loadHistory() {
 watch(tab, (name) => {
   if (loaded[name]) return;
   loaded[name] = true;
+  if (name === "profile") loaded.profile = true;
   if (name === "quality") loadRules();
   if (name === "impact") loadImpact();
   if (name === "history") loadHistory();

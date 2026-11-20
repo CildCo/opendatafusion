@@ -23,6 +23,7 @@ export const MENU_GROUPS = [
     { path: "/datasets", key: "menu.datasets", icon: Collection },
     { path: "/dashboards", key: "menu.dashboards", icon: Odometer },
     { path: "/apps", key: "menu.apps", icon: Grid },
+    { path: "/dependencies", key: "menu.dependencies", icon: Switch },
   ] },
   { key: "nav.governance", items: [
     { path: "/apis", key: "menu.apis", icon: Connection },

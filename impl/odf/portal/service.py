@@ -5,7 +5,8 @@ from odf.services.audit import write_audit
 
 MENUS = {"/dashboard", "/ops", "/datasources", "/catalog", "/workbench",
          "/files", "/pipelines", "/engines", "/cdc", "/flows", "/datasets",
-         "/dashboards", "/apps", "/apis", "/interfaces", "/tools",
+         "/dashboards", "/apps", "/dependencies", "/apis", "/interfaces",
+         "/tools",
          "/grants", "/webhooks", "/quality", "/alerts", "/changes",
          "/workspace", "/security", "/users", "/audit"}
 DEFAULTS = {"brand_name": "OpenDataFusion", "primary_color": "#1d4ed8",

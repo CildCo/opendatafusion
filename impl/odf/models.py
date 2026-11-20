@@ -576,3 +576,19 @@ class CdcSource(Base):
                                                  default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  default=now, onupdate=now)
+
+
+class JobDependency(Base):
+    __tablename__ = "job_dependency"
+    __table_args__ = (UniqueConstraint("project_id", "downstream_type",
+                                       "downstream_id", "upstream_type",
+                                       "upstream_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"),
+                                            index=True)
+    downstream_type: Mapped[str] = mapped_column(String(16))
+    downstream_id: Mapped[int] = mapped_column(Integer)
+    upstream_type: Mapped[str] = mapped_column(String(16))
+    upstream_id: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now)
