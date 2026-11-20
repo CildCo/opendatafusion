@@ -174,7 +174,12 @@ Lists the tools exposed by the MCP server with type (read-only or change), descr
 ## 22. Users and members
 
 - **New user**: username, password (upper case, lower case, digit and symbol) and role.
-- Change the role inline and toggle the account on or off.
+- Change the role inline and toggle the account on or off. Your own role and
+  active switch are locked, and the last active administrator cannot be
+  demoted or disabled.
+- If a workspace is locked out anyway, run
+  `python -m odf.cli set-user-active --username <name> --active true` on the
+  server to restore an account.
 - **Project members**: choose a project, add a user with a project role, or remove a member. Users must belong to a project before they can sign in.
 
 ## 23. Workspace settings

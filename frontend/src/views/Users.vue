@@ -16,6 +16,7 @@
         <el-table-column :label="t('users.role')" width="180">
           <template #default="{ row }">
             <el-select :model-value="row.role" size="small" style="width: 140px"
+                       :disabled="locked(row)" :title="lockReason(row)"
                        @change="(v) => changeRole(row, v)">
               <el-option value="viewer" label="viewer" />
               <el-option value="editor" label="editor" />
@@ -26,7 +27,8 @@
         </el-table-column>
         <el-table-column :label="t('users.active')" width="100">
           <template #default="{ row }">
-            <el-switch :model-value="row.active"
+            <el-switch :model-value="row.active" :disabled="locked(row)"
+                       :title="lockReason(row)"
                        @change="(v) => changeActive(row, v)" />
           </template>
         </el-table-column>
@@ -111,6 +113,22 @@ const loading = ref(false);
 const saving = ref(false);
 const dialog = ref(false);
 const q = ref("");
+const me = ref("");
+const activeAdmins = computed(() =>
+  rows.value.filter((u) => u.role === "admin" && u.active));
+
+function locked(row) {
+  if (row.username === me.value) return true;
+  return row.role === "admin" && row.active && activeAdmins.value.length === 1;
+}
+
+function lockReason(row) {
+  if (row.username === me.value) return t("users.selfLockHint");
+  if (row.role === "admin" && row.active && activeAdmins.value.length === 1) {
+    return t("users.lastAdminHint");
+  }
+  return "";
+}
 const form = reactive({ username: "", password: "", role: "viewer" });
 const membersOpen = ref(false);
 const projects = ref([]);
@@ -190,6 +208,7 @@ async function load() {
   loading.value = true;
   try {
     rows.value = await api.get("/users");
+    me.value = (await api.get("/auth/me")).username || "";
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {

@@ -67,15 +67,19 @@ def reset(user_id: int, body: ResetIn,
 def role(user_id: int, role: str, s: Session = Depends(get_session),
          claims: dict = Depends(require_admin)):
     try:
-        return _out(set_role(s, user_id, role))
+        return _out(set_role(s, user_id, role,
+                             actor_id=int(claims["sub"])))
     except ValueError as e:
-        raise HTTPException(404, str(e))
+        raise HTTPException(
+            404 if str(e) == "user not found" else 400, str(e))
 
 
 @router.put("/users/{user_id}/active")
 def active(user_id: int, active: bool, s: Session = Depends(get_session),
            claims: dict = Depends(require_admin)):
     try:
-        return _out(set_active(s, user_id, active))
+        return _out(set_active(s, user_id, active,
+                               actor_id=int(claims["sub"])))
     except ValueError as e:
-        raise HTTPException(404, str(e))
+        raise HTTPException(
+            404 if str(e) == "user not found" else 400, str(e))
