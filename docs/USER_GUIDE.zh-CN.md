@@ -89,7 +89,7 @@
 
 ## 10. 增量同步
 
-- **新建 CDC 源**：填写名称、数据库主机、端口、库、用户、密码、schema、订阅表与 topic 前缀。创建后连接器注册到 Debezium。
+- **新建 CDC 源**：先选择 PostgreSQL、MySQL 或 Oracle，再填写名称、数据库主机、端口、库、用户、密码、schema、订阅表与 topic 前缀。MySQL 的 schema 字段表示数据库列表；Oracle 的 schema 字段表示 owner。创建后连接器注册到 Debezium。
 - **暂停/恢复**：切换连接器运行状态。
 - **同步状态**：从 Debezium 刷新当前状态。
 - **详情**：查看连接器状态、各任务状态与错误 trace，并可编辑订阅表后保存。

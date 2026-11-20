@@ -88,7 +88,7 @@ Node palette: source, filter, select columns, rename, cast, join, aggregate, uni
 
 ## 10. Change data capture
 
-- **New CDC source**: name, database host, port, database, user, password, schema, tables and topic prefix.
+- **New CDC source**: choose PostgreSQL, MySQL or Oracle, then fill database host, port, database, user, password, schema, tables and topic prefix. MySQL treats the schema field as the database list; Oracle uses the schema list for the owner.
 - **Pause/Resume** toggles the connector.
 - **Refresh status** reads the connector state from Debezium.
 - **Details** opens the connector state, the task states with error traces, and the subscribed tables, which can be edited and saved.

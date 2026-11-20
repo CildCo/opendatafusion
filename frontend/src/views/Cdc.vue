@@ -19,6 +19,13 @@
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="name" :label="t('cdc.name')" min-width="160" />
         <el-table-column prop="connector_name" :label="t('cdc.connector')" min-width="200" />
+        <el-table-column :label="t('cdc.engine')" width="110">
+          <template #default="{ row }">
+            <el-tag size="small" effect="plain">
+              {{ (row.config && row.config.engine) || "postgres" }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column :label="t('cdc.subscribedTables')" min-width="200">
           <template #default="{ row }">
             {{ (row.config && row.config.table_list) || "-" }}
@@ -60,6 +67,14 @@
         <el-form-item :label="t('cdc.name')" required>
           <el-input v-model="form.name" :placeholder="t('cdc.namePlaceholder')" />
         </el-form-item>
+        <el-form-item :label="t('cdc.engine')">
+          <el-select v-model="form.engine" style="width: 100%"
+                     @change="onEngine">
+            <el-option value="postgres" label="PostgreSQL" />
+            <el-option value="mysql" label="MySQL" />
+            <el-option value="oracle" label="Oracle" />
+          </el-select>
+        </el-form-item>
         <el-form-item :label="t('cdc.host')" required>
           <el-input v-model="form.host" placeholder="cdc-postgres.stream.svc" />
         </el-form-item>
@@ -76,11 +91,13 @@
           <el-input v-model="form.password" type="password" show-password />
         </el-form-item>
         <el-form-item label="Schema">
-          <el-input v-model="form.schema_list" placeholder="public" />
+          <el-input v-model="form.schema_list" :placeholder="schemaHint" />
         </el-form-item>
         <el-form-item :label="t('cdc.table')">
-          <el-input v-model="form.table_list"
-                    placeholder="public.events,public.orders" />
+          <el-input v-model="form.table_list" :placeholder="tableHint" />
+        </el-form-item>
+        <el-form-item :label="t('cdc.kafkaBootstrap')">
+          <el-input v-model="form.kafka_bootstrap" placeholder="kafka:9092" />
         </el-form-item>
         <el-form-item :label="t('cdc.topicPrefix')">
           <el-input v-model="form.topic_prefix" placeholder="odf" />
@@ -97,6 +114,9 @@
       <el-descriptions :column="1" border v-loading="detailLoading">
         <el-descriptions-item :label="t('cdc.connector')">
           <span class="mono">{{ detail.connector_name }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('cdc.engine')">
+          {{ (detail.config && detail.config.engine) || "postgres" }}
         </el-descriptions-item>
         <el-descriptions-item :label="t('cdc.connectorState')">
           <el-tag :type="statusType(detail.status)" size="small">
@@ -165,10 +185,29 @@ const tablesText = ref("");
 const savingTables = ref(false);
 
 const blank = () => ({
-  name: "", host: "cdc-postgres.stream.svc", port: 5432,
+  engine: "postgres", name: "", host: "cdc-postgres.stream.svc", port: 5432,
   database: "cdc", user: "cdc", password: "",
   schema_list: "public", table_list: "", topic_prefix: "odf",
+  kafka_bootstrap: "kafka:9092",
 });
+
+const PORTS = { postgres: 5432, mysql: 3306, oracle: 1521 };
+const schemaHint = computed(() => ({
+  postgres: "public", mysql: "shop", oracle: "ODF",
+}[form.engine] || "public"));
+const tableHint = computed(() => ({
+  postgres: "public.events,public.orders",
+  mysql: "shop.orders,shop.items",
+  oracle: "ODF.EVENTS,ODF.ORDERS",
+}[form.engine] || "public.events"));
+
+function onEngine(value) {
+  form.port = PORTS[value] || form.port;
+  form.schema_list = { postgres: "public", mysql: "shop",
+                       oracle: "ODF" }[value] || "public";
+  form.table_list = "";
+  if (/^cdc-postgres/.test(form.host)) form.host = "";
+}
 const form = reactive(blank());
 
 const filtered = computed(() =>

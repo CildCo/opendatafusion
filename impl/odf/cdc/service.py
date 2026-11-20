@@ -10,8 +10,12 @@ from odf.settings import get_settings
 
 STATES = {"RUNNING": "running", "PAUSED": "paused", "FAILED": "failed",
           "STOPPED": "stopped", "UNASSIGNED": "pending"}
-CONNECTOR_CLASS = (
-    "io.debezium.connector.postgresql.PostgresConnector")
+CONNECTOR_CLASSES = {
+    "postgres": "io.debezium.connector.postgresql.PostgresConnector",
+    "mysql": "io.debezium.connector.mysql.MySqlConnector",
+    "oracle": "io.debezium.connector.oracle.OracleConnector",
+}
+CONNECTOR_CLASS = CONNECTOR_CLASSES["postgres"]
 
 
 def _now():
@@ -39,23 +43,58 @@ def _require(config: dict, key: str) -> str:
     return value
 
 
-def connector_payload(config: dict, password: str | None) -> dict:
+def connector_payload(config: dict, password: str | None,
+                      name: str = "") -> dict:
+    import zlib
+    engine = str(config.get("engine") or "postgres").lower()
+    if engine not in CONNECTOR_CLASSES:
+        raise ValueError("unsupported cdc engine: %s" % engine)
+    database = _require(config, "database")
     payload = {
-        "connector.class": CONNECTOR_CLASS,
+        "connector.class": CONNECTOR_CLASSES[engine],
         "tasks.max": "1",
-        "plugin.name": "pgoutput",
         "database.hostname": _require(config, "host"),
-        "database.port": str(config.get("port") or 5432),
         "database.user": _require(config, "user"),
         "database.password": password or "",
-        "database.dbname": _require(config, "database"),
         "topic.prefix": str(config.get("topic_prefix") or "odf"),
-        "schema.include.list": str(config.get("schema_list") or "public"),
-        "publication.autocreate.mode": "filtered",
     }
     tables = str(config.get("table_list") or "").strip()
     if tables:
         payload["table.include.list"] = tables
+    if engine == "postgres":
+        payload.update({
+            "plugin.name": "pgoutput",
+            "database.port": str(config.get("port") or 5432),
+            "database.dbname": database,
+            "schema.include.list": str(config.get("schema_list") or "public"),
+            "publication.autocreate.mode": "filtered",
+        })
+    elif engine == "mysql":
+        seed = "%s/%s" % (config.get("host"), database)
+        payload.update({
+            "database.port": str(config.get("port") or 3306),
+            "database.include.list": str(config.get("schema_list")
+                                         or database),
+            "database.server.id": str(zlib.crc32(seed.encode()) % 1000000
+                                      + 1000),
+            "schema.history.internal.kafka.bootstrap.servers": str(
+                config.get("kafka_bootstrap") or "kafka:9092"),
+            "schema.history.internal.kafka.topic": "schema-history-%s" % (
+                name or config.get("topic_prefix") or "odf"),
+        })
+    else:
+        payload.update({
+            "database.port": str(config.get("port") or 1521),
+            "database.dbname": database,
+            "database.connector": "logminer",
+            "database.connection.adapter": "logminer",
+            "schema.include.list": str(config.get("schema_list")
+                                       or database.upper()),
+            "schema.history.internal.kafka.bootstrap.servers": str(
+                config.get("kafka_bootstrap") or "kafka:9092"),
+            "schema.history.internal.kafka.topic": "schema-history-%s" % (
+                name or config.get("topic_prefix") or "odf"),
+        })
     return payload
 
 
@@ -88,12 +127,12 @@ def list_sources(session, project_id: int) -> list:
 
 def create_source(session, project_id: int, name: str, config: dict,
                   password: str | None, actor: str) -> CdcSource:
-    payload = connector_payload(config or {}, password)
     existing = (session.query(CdcSource)
                 .filter_by(project_id=project_id, name=name).first())
     if existing:
         raise ValueError("cdc source already exists")
     connector = connector_name(project_id, name)
+    payload = connector_payload(config or {}, password, connector)
     response = _client().put("/connectors/%s/config" % connector,
                              json=payload)
     response.raise_for_status()
@@ -194,7 +233,8 @@ def update_tables(session, source: CdcSource, table_list: str,
     config["table_list"] = table_list
     password = decrypt_secret(source.password_encrypted) \
         if source.password_encrypted else ""
-    payload = connector_payload(config, password)
+    payload = connector_payload(config, password,
+                                source.connector_name)
     response = _client().put(
         "/connectors/%s/config" % source.connector_name, json=payload)
     response.raise_for_status()
