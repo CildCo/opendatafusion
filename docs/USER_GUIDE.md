@@ -26,6 +26,7 @@ Tabs: overview, tasks, alerts, health, API calls, timeline and audit.
 - **API calls**: calls, errors and average latency per interface and access key.
 - Rows in tasks and recent failures link to the related object; the alerts tab links to the alert page.
 - **Timeline**: alerts and health events in time order.
+- **Dependency skips**: runs skipped in the last 24 hours because an upstream dependency had not succeeded are listed in the Tasks tab. `scripts/check_dependency_health.py` reports the same state and exits non-zero when any exist.
 - **Audit**: the same records as the Audit page.
 
 ## 4. Data sources
@@ -101,6 +102,8 @@ The flow list shows schedule, version and status. Run executes a flow immediatel
 - **Run history** shows start, finish and duration; open a run for throughput and the cursor, and use Retry to queue the flow again.
 - **Versions** can be compared with the current configuration, listing changed keys.
 - **Downstream impact** follows the lineage of the sink table.
+
+Scheduling dependencies live on the **Scheduling dependencies** page: a downstream flow or pipeline queues only after its upstream succeeded within the last 24 hours, and blocked schedules are recorded as skipped runs.
 
 ## 12. Data models
 

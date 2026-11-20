@@ -55,6 +55,20 @@
             </el-select>
             <el-button size="small" @click="loadJobs">{{ t("ops.query") }}</el-button>
           </div>
+          <template v-if="dependencyBlocked.length">
+            <div class="section-title">{{ t("ops.dependencySkips") }}</div>
+            <el-table :data="dependencyBlocked" size="small"
+                      style="margin-bottom: 14px">
+              <el-table-column prop="name" :label="t('ops.dependencyObject')"
+                               min-width="180" />
+              <el-table-column prop="reason"
+                               :label="t('ops.dependencyReason')"
+                               min-width="260" />
+              <el-table-column :label="t('ops.createdAt')" width="180">
+                <template #default="{ row }">{{ fmt(row.at) }}</template>
+              </el-table-column>
+            </el-table>
+          </template>
           <el-table :data="jobs" size="small" :empty-text="t('ops.emptyJobs')">
             <el-table-column prop="id" :label="t('ops.job')" width="80" />
             <el-table-column prop="target_name" :label="t('ops.target')" min-width="160" />
@@ -265,6 +279,7 @@ const health = ref({ flows: [], counts: {}, events: [] });
 const timeline = ref([]);
 const apiStats = ref([]);
 const audit = ref([]);
+const dependencyBlocked = ref([]);
 const jobStatus = ref("");
 const alertStatus = ref("");
 const alertSeverity = ref("");
@@ -349,6 +364,14 @@ async function loadTimeline() {
 async function loadApiStats() {
   apiStats.value = await api.get("/api-stats");
 }
+async function loadDependencyStatus() {
+  try {
+    dependencyBlocked.value = await api.get("/ops/dependency-status");
+  } catch {
+    dependencyBlocked.value = [];
+  }
+}
+
 async function loadAudit() {
   if (!isAdmin) return;
   const p = new URLSearchParams();
@@ -365,6 +388,7 @@ async function load() {
     await Promise.all([
       loadSummary(), loadJobs(), loadAlerts(), loadHealth(),
       loadTimeline(), loadApiStats(), loadAudit(),
+      loadDependencyStatus(),
     ]);
     updated.value = new Date().toLocaleTimeString("zh-CN");
   } catch (e) {

@@ -2,6 +2,10 @@
   <div class="page">
     <div class="toolbar">
       <el-button @click="load" :loading="loading">{{ t("pipe.refresh") }}</el-button>
+      <el-button type="danger" :disabled="!selected.length"
+                 @click="removeSelected">
+        {{ t("pipe.deleteSelected").replace("{n}", selected.length) }}
+      </el-button>
       <el-button type="primary" @click="create">{{ t("pipe.newPipeline") }}</el-button>
     </div>
 
@@ -9,7 +13,9 @@
 
     <el-card class="card" shadow="never">
       <el-table :data="rows" size="small" v-loading="loading"
-                row-class-name="clickable" @row-click="open">
+                row-class-name="clickable" @row-click="open"
+                @selection-change="selected = $event">
+        <el-table-column type="selection" width="42" />
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="name" :label="t('pipe.name')" min-width="160" />
         <el-table-column prop="cron" :label="t('pipe.schedule')" width="160" />
@@ -45,6 +51,7 @@ import { api, errMsg } from "../api";
 import { t } from "../i18n";
 
 const rows = ref([]);
+const selected = ref([]);
 const loading = ref(false);
 const router = useRouter();
 
@@ -56,6 +63,30 @@ async function load() {
     ElMessage.error(errMsg(e));
   } finally {
     loading.value = false;
+  }
+}
+
+async function removeSelected() {
+  if (!selected.value.length) return;
+  try {
+    await ElMessageBox.confirm(
+      t("pipe.deleteSelectedConfirm").replace("{n}", selected.value.length),
+      t("pipe.deleteTitle"), { type: "warning" });
+  } catch (e) {
+    return;
+  }
+  let failed = 0;
+  for (const row of selected.value) {
+    try {
+      await api.del(`/pipelines/${row.id}`);
+    } catch (e) {
+      failed += 1;
+    }
+  }
+  selected.value = [];
+  await load();
+  if (failed) {
+    ElMessage.error(t("pipe.deleteFailed").replace("{n}", failed));
   }
 }
 

@@ -694,3 +694,24 @@ code {
 .el-tree-node.is-current > .el-tree-node__content {
   box-shadow: inset 2px 0 0 var(--odf-accent);
 }
+
+@media (max-width: 640px) {
+  .page {
+    padding: 14px 12px 24px;
+  }
+  .toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .el-dialog {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px);
+  }
+  .el-drawer {
+    width: 100% !important;
+  }
+  .el-message-box,
+  .el-message {
+    max-width: calc(100vw - 24px);
+  }
+}

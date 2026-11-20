@@ -4,6 +4,10 @@
       <el-tag size="small" type="info">{{ t("files.storage") }}</el-tag>
       <div class="spacer" />
       <el-button size="small" @click="load" :loading="loading">{{ t("files.refresh") }}</el-button>
+      <el-button v-if="canEdit" size="small" type="danger"
+                 :disabled="!selected.length" @click="removeSelected">
+        {{ t("files.deleteSelected").replace("{n}", selected.length) }}
+      </el-button>
       <el-upload :show-file-list="false" :http-request="upload">
         <el-button type="primary" size="small" :loading="uploading">
           {{ t("files.upload") }}
@@ -12,7 +16,9 @@
     </div>
 
     <el-card shadow="never">
-      <el-table :data="rows" size="small" :empty-text="t('files.empty')">
+      <el-table :data="rows" size="small" :empty-text="t('files.empty')"
+                @selection-change="selected = $event">
+        <el-table-column v-if="canEdit" type="selection" width="42" />
         <el-table-column prop="name" :label="t('files.name')" min-width="200" />
         <el-table-column prop="content_type" :label="t('files.type')" width="150" />
         <el-table-column :label="t('files.size')" width="110">
@@ -42,6 +48,7 @@ import { locale, t } from "../i18n";
 
 const canEdit = ["editor", "approver", "admin"].includes(getRole());
 const rows = ref([]);
+const selected = ref([]);
 const loading = ref(false);
 const uploading = ref(false);
 
@@ -110,6 +117,30 @@ async function download(row) {
     URL.revokeObjectURL(a.href);
   } catch (e) {
     ElMessage.error(errMsg(e));
+  }
+}
+
+async function removeSelected() {
+  if (!selected.value.length) return;
+  try {
+    await ElMessageBox.confirm(
+      t("files.deleteSelectedConfirm").replace("{n}", selected.value.length),
+      t("files.deleteTitle"));
+  } catch (e) {
+    return;
+  }
+  let failed = 0;
+  for (const row of selected.value) {
+    try {
+      await api.del(`/files/${row.id}`);
+    } catch (e) {
+      failed += 1;
+    }
+  }
+  selected.value = [];
+  await load();
+  if (failed) {
+    ElMessage.error(t("files.deleteFailed").replace("{n}", failed));
   }
 }
 

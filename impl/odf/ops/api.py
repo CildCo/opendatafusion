@@ -75,6 +75,14 @@ def timeline(limit: int = 50, s: Session = Depends(get_session),
     return service.timeline(s, claims["project_id"], limit)
 
 
+@router.get("/ops/dependency-status")
+def dependency_status(hours: int = 24, limit: int = 50,
+                      s: Session = Depends(get_session),
+                      claims: dict = Depends(require_user)):
+    from odf.services.dependencies import recent_blocked
+    return recent_blocked(s, claims["project_id"], hours, limit)
+
+
 @router.get("/ops/audit")
 def audit(actor: str | None = None, action: str | None = None,
           q: str | None = None, limit: int = 100,

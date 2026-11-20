@@ -152,3 +152,41 @@ def dependencies_satisfied(session, project_id, downstream_type,
                                       % window})
     return {"satisfied": not blocked, "blocked": blocked,
             "window_hours": window}
+
+
+def recent_blocked(session, project_id=None, hours=24, limit=50):
+    from datetime import datetime, timedelta, timezone
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=int(hours or 24))
+    rows = (session.query(Job)
+            .filter(Job.status == "skipped")
+            .order_by(Job.id.desc()).limit(200).all())
+    out = []
+    for job in rows:
+        if not (job.last_error or "").startswith("waiting for upstream"):
+            continue
+        created = job.created_at
+        if created and created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        if created and created < cutoff:
+            continue
+        kind, object_id, name = None, None, None
+        if job.flow_id:
+            flow = session.get(Flow, job.flow_id)
+            if flow:
+                kind, object_id, name = "flow", flow.id, flow.name
+                if project_id is not None and flow.project_id != project_id:
+                    continue
+        elif job.asset_id:
+            asset = session.get(Asset, job.asset_id)
+            if asset:
+                kind, object_id, name = "pipeline", asset.id, asset.name
+                if project_id is not None and asset.project_id != project_id:
+                    continue
+        if not kind:
+            continue
+        out.append({"job_id": job.id, "type": kind, "object_id": object_id,
+                    "name": name, "reason": job.last_error,
+                    "at": created.isoformat() if created else None})
+        if len(out) >= int(limit or 50):
+            break
+    return out
