@@ -165,3 +165,35 @@ def test_metric_diff_lists_changed_fields():
         assert "measure.agg" in keys
         assert "dimensions" in keys
         assert service.metric_diff(s, 9999, metric.id) is None
+
+
+def test_metrics_for_dataset_and_dataset_detail():
+    from odf.models import Dataset, Datasource
+    from odf.services.crypto import encrypt_secret
+    from odf.modelstudio import service
+    from odf.services.catalog import dataset_detail
+
+    _project()
+    with SessionLocal() as s:
+        ds = Datasource(project_id=PROJECT_ID, name="link-pg", kind="sqlite",
+                        dsn_encrypted=encrypt_secret("sqlite://"))
+        s.add(ds)
+        s.commit()
+        physical = Dataset(datasource_id=ds.id, schema_name="main",
+                           table_name="link_table")
+        s.add(physical)
+        s.commit()
+        source = _asset(s, "dataset", "Link source", {
+            "mode": "visual",
+            "query": {"datasource_id": ds.id, "table": "main.link_table"},
+        })
+        metric = _asset(s, "metric", "Link metric", {
+            "dataset_id": source.id,
+            "measure": {"agg": "count", "column": "*", "as": "value"},
+            "dimensions": [], "filters": [],
+        })
+        related = service.metrics_for_dataset(s, PROJECT_ID, physical.id)
+        assert [m["name"] for m in related] == ["Link metric"]
+        detail = dataset_detail(s, physical.id, PROJECT_ID)
+        assert [m["id"] for m in detail["metrics"]] == [metric.id]
+        assert service.metrics_for_dataset(s, 9999, physical.id) == []

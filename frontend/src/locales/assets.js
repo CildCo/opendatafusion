@@ -178,6 +178,8 @@ export default {
     "catd.profileMasked": "已脱敏",
     "catd.profileEmpty": "尚未生成探查",
     "catd.profileFailed": "探查失败",
+    "catd.metricsUsedBy": "引用指标",
+    "catd.noMetrics": "暂无指标引用该数据集",
     "catd.enabled": "启用",
     "catd.disabled": "停用",
 
@@ -418,6 +420,8 @@ export default {
     "catd.profileMasked": "Masked",
     "catd.profileEmpty": "No profile yet",
     "catd.profileFailed": "Profile failed",
+    "catd.metricsUsedBy": "Metrics",
+    "catd.noMetrics": "No metric uses this dataset yet",
     "catd.enabled": "Enabled",
     "catd.disabled": "Disabled",
 

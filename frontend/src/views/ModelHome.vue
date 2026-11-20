@@ -86,6 +86,10 @@
                    @click="compareVersions">
           {{ t("model.compare") }}
         </el-button>
+        <el-button v-if="current.dataset_id" size="small"
+                   @click="$router.push(`/datasets/${current.dataset_id}`)">
+          {{ t("model.openDataset") }}
+        </el-button>
       </div>
       <h4>{{ t("model.usageTitle") }}</h4>
       <el-table :data="current.usage || []" size="small">
