@@ -108,23 +108,17 @@
                 :description="t('model.noUsage')" :image-size="60" />
 
       <el-divider content-position="left">{{ t("model.lineage") }}</el-divider>
-      <div v-if="lineage.edges.length" class="lineage">
-        <div v-for="(e, i) in lineage.edges" :key="i" class="edge">
-          <span class="node-tag">{{ e.from }}</span>
-          <el-icon><Right /></el-icon>
-          <span class="node-tag dst">{{ e.to }}</span>
-        </div>
-        <div v-if="lineage.column_edges.length" class="column-lineage">
-          <div class="muted">{{ t("model.columnLineage") }}</div>
-          <el-table :data="lineage.column_edges" size="small">
-            <el-table-column prop="from" label="From" min-width="150" />
-            <el-table-column prop="from_column" label="Column" width="120" />
-            <el-table-column prop="to" label="To" min-width="150" />
-            <el-table-column prop="to_column" label="Column" width="120" />
-          </el-table>
-        </div>
+      <graph-canvas :nodes="lineage.nodes || []" :edges="lineage.edges || []"
+                    :height="280" :empty-text="t('model.noLineage')" />
+      <div v-if="lineage.column_edges.length" class="column-lineage">
+        <div class="muted">{{ t("model.columnLineage") }}</div>
+        <el-table :data="lineage.column_edges" size="small">
+          <el-table-column prop="from" label="From" min-width="150" />
+          <el-table-column prop="from_column" label="Column" width="120" />
+          <el-table-column prop="to" label="To" min-width="150" />
+          <el-table-column prop="to_column" label="Column" width="120" />
+        </el-table>
       </div>
-      <el-empty v-else :description="t('model.noLineage')" :image-size="60" />
     </el-drawer>
 
     <el-dialog v-model="compareOpen" :title="t('model.compareTitle')"
@@ -160,9 +154,9 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Right } from "@element-plus/icons-vue";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
+import GraphCanvas from "../components/GraphCanvas.vue";
 
 const route = useRoute();
 const router = useRouter();

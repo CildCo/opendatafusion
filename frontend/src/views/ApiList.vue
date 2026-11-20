@@ -1,5 +1,6 @@
 <template>
   <div class="page">
+    <page-header icon="api" :title="t('menu.apis')" :intro="t('api.intro')" />
     <div class="toolbar">
       <el-input v-model="q" :placeholder="t('api.search')" clearable
                 style="width: 260px" />
@@ -7,22 +8,27 @@
       <el-button @click="load" :loading="loading">{{ t("api.refresh") }}</el-button>
       <el-button type="primary" @click="create">{{ t("api.new") }}</el-button>
     </div>
-    <p class="page-intro">{{ t("api.intro") }}</p>
-
     <el-card shadow="never">
       <el-table :data="filtered" size="small" v-loading="loading">
-        <el-table-column prop="name" :label="t('api.name')" min-width="160" />
+        <el-table-column :label="t('api.name')" min-width="210">
+          <template #default="{ row }">
+            <span class="entity-cell">
+              <entity-icon type="api" :size="20" />
+              <b>{{ row.name }}</b>
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column prop="key" :label="t('api.key')" min-width="240">
           <template #default="{ row }">
             <span class="mono">{{ row.key }}</span>
             <el-button link @click="copy(row.key)">{{ t("api.copy") }}</el-button>
           </template>
         </el-table-column>
-        <el-table-column :label="t('api.status')" width="110">
+        <el-table-column :label="t('api.status')" width="120">
           <template #default="{ row }">
-            <el-tag :type="row.enabled ? 'success' : 'info'" size="small">
-              {{ row.enabled ? t("api.published") : t("api.draft") }}
-            </el-tag>
+            <status-dot :status="row.enabled"
+                        :label="row.enabled
+                          ? t('api.published') : t('api.draft')" />
           </template>
         </el-table-column>
         <el-table-column :label="t('api.actions')" width="180">
@@ -36,9 +42,9 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" :description="t('api.empty')">
-        <el-button type="primary" @click="create">{{ t("api.new") }}</el-button>
-      </el-empty>
+      <empty-state v-if="!loading && !filtered.length"
+                   :title="t('api.empty')" :description="t('api.intro')"
+                   :action-text="t('api.new')" @action="create" />
     </el-card>
   </div>
 </template>
@@ -49,6 +55,10 @@ import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
+import EmptyState from "../components/EmptyState.vue";
+import EntityIcon from "../components/EntityIcon.vue";
+import PageHeader from "../components/PageHeader.vue";
+import StatusDot from "../components/StatusDot.vue";
 
 const router = useRouter();
 const rows = ref([]);
@@ -111,6 +121,11 @@ onMounted(load);
 </script>
 
 <style scoped>
+.entity-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .toolbar { display: flex; gap: 10px; margin-bottom: 12px; align-items: center; }
 .spacer { flex: 1; }
 .mono { font-family: ui-monospace, monospace; font-size: 12px; }

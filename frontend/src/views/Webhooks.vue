@@ -1,5 +1,7 @@
 <template>
   <div class="page">
+    <page-header icon="webhook" :title="t('menu.webhooks')"
+                 :intro="t('hooks.intro')" />
     <div class="toolbar">
       <el-tag size="small" type="info">HMAC Webhook</el-tag>
       <div class="spacer" />
@@ -140,6 +142,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getRole } from "../api";
 import { fmtDate, t } from "../i18n";
+import PageHeader from "../components/PageHeader.vue";
 
 function tr(key, vars = {}) {
   return Object.entries(vars).reduce(

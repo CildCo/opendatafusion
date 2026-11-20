@@ -1,5 +1,7 @@
 <template>
   <div class="page">
+    <page-header icon="user" :title="t('menu.users')"
+                 :intro="t('users.intro')" />
     <div class="toolbar">
       <el-input v-model="q" :placeholder="t('users.searchPlaceholder')" clearable
                 style="width: 220px" :prefix-icon="Search" />
@@ -12,7 +14,14 @@
     <el-card class="card" shadow="never">
       <el-table :data="filtered" size="small" v-loading="loading">
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="username" :label="t('users.username')" min-width="150" />
+        <el-table-column :label="t('users.username')" min-width="190">
+          <template #default="{ row }">
+            <span class="entity-cell">
+              <entity-icon type="user" :size="20" />
+              <b>{{ row.username }}</b>
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column :label="t('users.role')" width="180">
           <template #default="{ row }">
             <el-select :model-value="row.role" size="small" style="width: 140px"
@@ -107,6 +116,8 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
+import PageHeader from "../components/PageHeader.vue";
+import EntityIcon from "../components/EntityIcon.vue";
 
 const rows = ref([]);
 const loading = ref(false);
@@ -265,6 +276,11 @@ onMounted(load);
 </script>
 
 <style scoped>
+.entity-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .card {
   border-radius: 12px;
   border: 1px solid #e5e7eb;

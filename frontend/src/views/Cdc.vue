@@ -1,5 +1,6 @@
 <template>
   <div class="page">
+    <page-header icon="cdc" :title="t('menu.cdc')" :intro="t('cdc.intro')" />
     <div class="toolbar">
       <el-select v-model="status" clearable :placeholder="t('cdc.allStatus')" style="width: 140px">
         <el-option value="running" :label="t('cdc.running')" />
@@ -11,13 +12,18 @@
       <el-button :loading="loading" @click="load">{{ t("cdc.refresh") }}</el-button>
     </div>
 
-    <p class="page-intro">{{ t("cdc.intro") }}</p>
-
     <el-card class="card" shadow="never">
       <el-table :data="filtered" size="small" v-loading="loading"
                 @row-click="openDetail" row-class-name="clickable">
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="name" :label="t('cdc.name')" min-width="160" />
+        <el-table-column :label="t('cdc.name')" min-width="200">
+          <template #default="{ row }">
+            <span class="entity-cell">
+              <entity-icon type="cdc" :size="20" />
+              <b>{{ row.name }}</b>
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column prop="connector_name" :label="t('cdc.connector')" min-width="200" />
         <el-table-column :label="t('cdc.engine')" width="110">
           <template #default="{ row }">
@@ -31,11 +37,9 @@
             {{ (row.config && row.config.table_list) || "-" }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" :label="t('cdc.status')" width="100">
+        <el-table-column :label="t('cdc.status')" width="110">
           <template #default="{ row }">
-            <el-tag :type="statusType(row.status)" size="small">
-              {{ statusLabel(row.status) }}
-            </el-tag>
+            <status-dot :status="row.status" :label="statusLabel(row.status)" />
           </template>
         </el-table-column>
         <el-table-column :label="t('cdc.createdAt')" width="200">
@@ -54,12 +58,11 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length"
-                :description="t('cdc.empty')">
-        <el-button type="primary" @click="openCreate">
-          {{ t("cdc.newSource") }}
-        </el-button>
-      </el-empty>
+      <empty-state v-if="!loading && !filtered.length"
+                   :title="t('cdc.empty')"
+                   :description="t('cdc.intro')"
+                   :action-text="t('cdc.newSource')"
+                   @action="openCreate" />
     </el-card>
 
     <el-dialog v-model="dialog" :title="t('cdc.newSource')" width="560px">
@@ -172,6 +175,10 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { fmtDate, t } from "../i18n";
+import EmptyState from "../components/EmptyState.vue";
+import EntityIcon from "../components/EntityIcon.vue";
+import PageHeader from "../components/PageHeader.vue";
+import StatusDot from "../components/StatusDot.vue";
 
 const rows = ref([]);
 const loading = ref(false);
@@ -333,6 +340,11 @@ onMounted(load);
 </script>
 
 <style scoped>
+.entity-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .card { border-radius: 12px; border: 1px solid #e5e7eb; }
 .mono { font-family: Consolas, "Courier New", monospace; font-size: 12px; }
 .hint { color: #6b7280; font-size: 12px; }

@@ -5,6 +5,7 @@ export default {
     "users.refresh": "刷新",
     "users.members": "项目成员",
     "users.create": "新建用户",
+    "users.intro": "账号、角色与项目成员关系。",
     "users.username": "用户名",
     "users.role": "角色",
     "users.active": "启用",
@@ -36,6 +37,7 @@ export default {
     "users.disabled": "已停用",
 
     // Security
+    "sec.intro": "修改密码与配置双因子认证。",
     "sec.totpEnabled": "已启用双因子",
     "sec.totpDisabled": "未启用双因子",
     "sec.changePassword": "修改密码",
@@ -66,6 +68,7 @@ export default {
     "audit.export": "导出 CSV",
     "audit.exportFailed": "导出失败",
     "audit.refresh": "刷新",
+    "audit.intro": "管理动作记录，可按操作人、动作与对象过滤。",
     "audit.actor": "操作人",
     "audit.action": "动作",
     "audit.target": "目标",
@@ -153,6 +156,7 @@ export default {
     "users.refresh": "Refresh",
     "users.members": "Project members",
     "users.create": "New user",
+    "users.intro": "Accounts, roles and project membership.",
     "users.username": "Username",
     "users.role": "Role",
     "users.active": "Active",
@@ -184,6 +188,7 @@ export default {
     "users.disabled": "Disabled",
 
     // Security
+    "sec.intro": "Change your password and configure two-factor authentication.",
     "sec.totpEnabled": "Two-factor enabled",
     "sec.totpDisabled": "Two-factor disabled",
     "sec.changePassword": "Change password",
@@ -214,6 +219,7 @@ export default {
     "audit.export": "Export CSV",
     "audit.exportFailed": "Export failed",
     "audit.refresh": "Refresh",
+    "audit.intro": "Management actions, filterable by actor, action and target.",
     "audit.actor": "Actor",
     "audit.action": "Action",
     "audit.target": "Target",

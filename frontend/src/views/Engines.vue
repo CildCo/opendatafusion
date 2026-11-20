@@ -1,5 +1,7 @@
 <template>
   <div class="page">
+    <page-header icon="engine" :title="t('menu.engines')"
+                 :intro="t('eng.intro')" />
     <div class="toolbar">
       <el-select v-model="status" clearable :placeholder="t('eng.allStatus')" style="width: 150px"
                  @change="load">
@@ -25,13 +27,18 @@
       <el-table :data="rows" size="small" v-loading="loading"
                 @row-click="showDetail" row-class-name="clickable">
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="name" :label="t('eng.job')" min-width="200" />
-        <el-table-column prop="engine" :label="t('eng.engine')" width="90" />
-        <el-table-column prop="status" :label="t('eng.status')" width="110">
+        <el-table-column :label="t('eng.job')" min-width="230">
           <template #default="{ row }">
-            <el-tag :type="statusType(row.status)" size="small">
-              {{ statusLabel(row.status) }}
-            </el-tag>
+            <span class="entity-cell">
+              <entity-icon type="job" :size="20" />
+              <b>{{ row.name }}</b>
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="engine" :label="t('eng.engine')" width="90" />
+        <el-table-column :label="t('eng.status')" width="120">
+          <template #default="{ row }">
+            <status-dot :status="row.status" :label="statusLabel(row.status)" />
           </template>
         </el-table-column>
         <el-table-column prop="attempts" :label="t('eng.attempts')" width="80" />
@@ -50,7 +57,8 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !rows.length" :description="t('eng.empty')" />
+      <empty-state v-if="!loading && !rows.length" :title="t('eng.empty')"
+                   :description="t('eng.intro')" />
     </el-card>
 
     <el-dialog v-model="submitOpen" :title="t('eng.submitDialogTitle')" width="620px">
@@ -159,6 +167,10 @@ import { computed, onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { fmtDate, t } from "../i18n";
+import EmptyState from "../components/EmptyState.vue";
+import EntityIcon from "../components/EntityIcon.vue";
+import PageHeader from "../components/PageHeader.vue";
+import StatusDot from "../components/StatusDot.vue";
 
 const rows = ref([]);
 const loading = ref(false);
@@ -203,13 +215,6 @@ function statusLabel(s) {
     succeeded: t("eng.succeeded"), failed: t("eng.failed"),
     cancelled: t("eng.cancelled"), unknown: t("eng.unknown"),
   }[s] || s;
-}
-
-function statusType(s) {
-  return {
-    pending: "info", running: "warning", succeeded: "success",
-    failed: "danger", cancelled: "info",
-  }[s] || "info";
 }
 
 async function load() {
@@ -338,6 +343,11 @@ onMounted(load);
 </script>
 
 <style scoped>
+.entity-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .hint {
   margin: 0 8px 0 6px;
   color: var(--el-text-color-secondary);

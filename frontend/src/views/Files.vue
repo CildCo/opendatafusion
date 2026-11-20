@@ -1,5 +1,7 @@
 <template>
   <div class="page">
+    <page-header icon="file" :title="t('menu.files')"
+                 :intro="t('files.intro')" />
     <div class="toolbar">
       <el-tag size="small" type="info">{{ t("files.storage") }}</el-tag>
       <div class="spacer" />
@@ -19,7 +21,14 @@
       <el-table :data="rows" size="small" :empty-text="t('files.empty')"
                 @selection-change="selected = $event">
         <el-table-column v-if="canEdit" type="selection" width="42" />
-        <el-table-column prop="name" :label="t('files.name')" min-width="200" />
+        <el-table-column :label="t('files.name')" min-width="240">
+          <template #default="{ row }">
+            <span class="entity-cell">
+              <entity-icon type="file" :size="20" />
+              <b>{{ row.name }}</b>
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column prop="content_type" :label="t('files.type')" width="150" />
         <el-table-column :label="t('files.size')" width="110">
           <template #default="{ row }">{{ sizeText(row.size) }}</template>
@@ -45,6 +54,8 @@ import { onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getRole, getToken } from "../api";
 import { locale, t } from "../i18n";
+import EntityIcon from "../components/EntityIcon.vue";
+import PageHeader from "../components/PageHeader.vue";
 
 const canEdit = ["editor", "approver", "admin"].includes(getRole());
 const rows = ref([]);
@@ -161,6 +172,11 @@ onMounted(load);
 </script>
 
 <style scoped>
+.entity-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .toolbar { display: flex; gap: 10px; align-items: center;
            margin-bottom: 12px; }
 .title { font-size: 16px; font-weight: 700; color: #0f172a; }

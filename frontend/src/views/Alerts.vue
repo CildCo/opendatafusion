@@ -1,5 +1,7 @@
 <template>
   <div class="page">
+    <page-header icon="alert" :title="t('menu.alerts')"
+                 :intro="t('alerts.intro')" />
     <div class="toolbar">
       <el-select v-model="status" clearable
                  :placeholder="t('alerts.allStatus')" style="width: 140px"
@@ -36,11 +38,9 @@
         </el-table-column>
         <el-table-column prop="title" :label="t('alerts.colTitle')"
                          min-width="220" />
-        <el-table-column prop="status" :label="t('alerts.colStatus')"
-                         width="100">
+        <el-table-column :label="t('alerts.colStatus')" width="110">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'open' ? 'danger' : row.status === 'acked' ? 'warning' : 'info'"
-                    size="small">{{ statusLabel(row.status) }}</el-tag>
+            <status-dot :status="row.status" :label="statusLabel(row.status)" />
           </template>
         </el-table-column>
         <el-table-column prop="created_at" :label="t('alerts.colTime')"
@@ -59,8 +59,8 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length"
-                :description="t('alerts.empty')" />
+      <empty-state v-if="!loading && !filtered.length"
+                   :title="t('alerts.empty')" />
     </el-card>
 
     <el-card class="card" shadow="never" style="margin-top: 16px">
@@ -86,8 +86,8 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!rules.length" :description="t('alerts.noRules')"
-                :image-size="60" />
+      <empty-state v-if="!rules.length" :title="t('alerts.noRules')"
+                   :action-text="t('alerts.newRule')" @action="openRule" />
     </el-card>
 
     <el-drawer v-model="drawer"
@@ -138,6 +138,9 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
+import EmptyState from "../components/EmptyState.vue";
+import PageHeader from "../components/PageHeader.vue";
+import StatusDot from "../components/StatusDot.vue";
 
 const rows = ref([]);
 const rules = ref([]);

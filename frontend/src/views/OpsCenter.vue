@@ -12,6 +12,10 @@
       <div v-for="c in cards" :key="c.label" class="card"
            :class="c.tone">
         <div class="card-value">{{ c.value }}</div>
+        <sparkline v-if="c.values && c.values.length" :values="c.values"
+                   :tone="c.tone === 'red' ? 'danger'
+                     : c.tone === 'amber' ? 'warning' : 'primary'"
+                   :width="110" :height="22" />
         <div class="card-label">{{ c.label }}</div>
       </div>
     </div>
@@ -265,6 +269,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { useRouter } from "vue-router";
 import { api, errMsg, getRole } from "../api";
 import { fmtDate, t } from "../i18n";
+import Sparkline from "../components/Sparkline.vue";
 
 const router = useRouter();
 
@@ -274,6 +279,20 @@ const canOperate = ["editor", "approver", "admin"].includes(role);
 const projectLabel = computed(() => t("ops.projectLabel"));
 const tab = ref("overview");
 const summary = ref({});
+const trendJobs = ref([]);
+
+function hourly(status) {
+  const buckets = new Array(24).fill(0);
+  const now = Date.now();
+  for (const job of trendJobs.value) {
+    if (status && job.status !== status) continue;
+    const stamp = Date.parse(job.run_at || job.created_at || "");
+    if (Number.isNaN(stamp)) continue;
+    const hoursAgo = Math.floor((now - stamp) / 3600000);
+    if (hoursAgo >= 0 && hoursAgo < 24) buckets[23 - hoursAgo] += 1;
+  }
+  return buckets.some((n) => n > 0) ? buckets : [];
+}
 const jobs = ref([]);
 const alerts = ref([]);
 const health = ref({ flows: [], counts: {}, events: [] });
@@ -300,9 +319,11 @@ const cards = computed(() => {
   const assets = summary.value.assets || {};
   const unhealthy = (h.critical || 0) + (h.warning || 0);
   return [
-    { label: t("ops.cardQueued"), value: j.queued || 0, tone: "blue" },
+    { label: t("ops.cardQueued"), value: j.queued || 0, tone: "blue",
+      values: hourly() },
     { label: t("ops.cardRunning"), value: j.running || 0, tone: "blue" },
-    { label: t("ops.cardFailed"), value: j.failed || 0, tone: "red" },
+    { label: t("ops.cardFailed"), value: j.failed || 0, tone: "red",
+      values: hourly("failed") },
     { label: t("ops.cardOpenAlerts"), value: a.open || 0, tone: "amber" },
     { label: t("ops.cardUnhealthy"), value: unhealthy, tone: "amber" },
     { label: t("ops.cardAssets"),
@@ -343,6 +364,11 @@ function healthTone(s) {
 
 async function loadSummary() {
   summary.value = await api.get("/ops/summary");
+  try {
+    trendJobs.value = await api.get("/ops/jobs?limit=200");
+  } catch {
+    trendJobs.value = [];
+  }
 }
 async function loadJobs() {
   const q = jobStatus.value
