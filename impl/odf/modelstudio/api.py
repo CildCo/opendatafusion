@@ -326,6 +326,16 @@ def metric_catalog_route(s: Session = Depends(get_session),
     return metric_catalog(s, claims["project_id"])
 
 
+@router.get("/metrics/{asset_id}/lineage")
+def metric_lineage_route(asset_id: int, s: Session = Depends(get_session),
+                         claims: dict = Depends(require_user)):
+    from odf.modelstudio.service import metric_lineage
+    out = metric_lineage(s, claims["project_id"], asset_id)
+    if out is None:
+        raise HTTPException(404, "metric not found")
+    return out
+
+
 @router.post("/metrics")
 def create_metric(body: ModelIn, s: Session = Depends(get_session),
                   claims: dict = Depends(require_editor)):
