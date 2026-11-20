@@ -95,6 +95,25 @@
       </el-table>
       <el-empty v-if="!(current.usage || []).length"
                 :description="t('model.noUsage')" :image-size="60" />
+
+      <el-divider content-position="left">{{ t("model.lineage") }}</el-divider>
+      <div v-if="lineage.edges.length" class="lineage">
+        <div v-for="(e, i) in lineage.edges" :key="i" class="edge">
+          <span class="node-tag">{{ e.from }}</span>
+          <el-icon><Right /></el-icon>
+          <span class="node-tag dst">{{ e.to }}</span>
+        </div>
+        <div v-if="lineage.column_edges.length" class="column-lineage">
+          <div class="muted">{{ t("model.columnLineage") }}</div>
+          <el-table :data="lineage.column_edges" size="small">
+            <el-table-column prop="from" label="From" min-width="150" />
+            <el-table-column prop="from_column" label="Column" width="120" />
+            <el-table-column prop="to" label="To" min-width="150" />
+            <el-table-column prop="to_column" label="Column" width="120" />
+          </el-table>
+        </div>
+      </div>
+      <el-empty v-else :description="t('model.noLineage')" :image-size="60" />
     </el-drawer>
   </div>
 </template>
@@ -103,6 +122,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { Right } from "@element-plus/icons-vue";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
 
@@ -114,6 +134,7 @@ const q = ref("");
 const loading = ref(false);
 const usageOpen = ref(false);
 const current = ref({});
+const lineage = ref({ edges: [], column_edges: [] });
 const filtered = computed(() => rows.value.filter((r) => {
   if (!q.value) return true;
   const text = [r.name, r.key, r.dataset_name,
@@ -130,9 +151,15 @@ function definition(row) {
   return dims.length ? `${base} by ${dims.join(", ")}` : base;
 }
 
-function openUsage(row) {
+async function openUsage(row) {
   current.value = row;
+  lineage.value = { edges: [], column_edges: [] };
   usageOpen.value = true;
+  try {
+    lineage.value = await api.get(`/metrics/${row.id}/lineage`);
+  } catch {
+    lineage.value = { edges: [], column_edges: [] };
+  }
 }
 
 async function remove(row) {
@@ -191,4 +218,11 @@ onMounted(load);
 .toolbar { display: flex; gap: 10px; margin: 12px 0; align-items: center; }
 .spacer { flex: 1; }
 .mono { font-family: ui-monospace, monospace; font-size: 11px; }
+.lineage { display: flex; flex-direction: column; gap: 8px; }
+.edge { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.node-tag { background: #eff6ff; color: #1d4ed8; padding: 3px 8px;
+            border-radius: 6px; }
+.node-tag.dst { background: #ecfdf5; color: #047857; }
+.muted { color: #64748b; font-size: 12px; }
+.column-lineage { margin-top: 8px; }
 </style>
