@@ -8,7 +8,7 @@ from odf.services.aksk_admin import issue_aksk
 from odf.services.passwords import validate_password
 from odf.services.projects import create_project
 from odf.services.rotation import rotate_aksk, rotate_fernet, rotate_webhook
-from odf.services.users import create_user
+from odf.services.users import create_user, set_active_by_name
 
 
 def main():
@@ -22,6 +22,10 @@ def main():
     p = sub.add_parser("create-project")
     p.add_argument("--code", required=True)
     p.add_argument("--name", required=True)
+
+    su = sub.add_parser("set-user-active")
+    su.add_argument("--username", required=True)
+    su.add_argument("--active", choices=["true", "false"], required=True)
 
     k = sub.add_parser("issue-aksk")
     k.add_argument("--project-id", type=int, required=True)
@@ -53,6 +57,12 @@ def main():
         elif args.cmd == "create-project":
             proj = create_project(s, args.code, args.name)
             print("created project id=%s" % proj.id)
+        elif args.cmd == "set-user-active":
+            u = set_active_by_name(s, args.username,
+                                   args.active == "true")
+            write_audit(s, "cli", "set_user_active", str(u.id),
+                        {"active": u.active})
+            print("user id=%s active=%s" % (u.id, u.active))
         elif args.cmd == "issue-aksk":
             row, sk = issue_aksk(s, args.project_id)
             print("ak=%s\nsk=%s" % (row.ak, sk))

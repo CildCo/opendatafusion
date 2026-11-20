@@ -35,17 +35,46 @@ def list_users(session):
     return session.query(User).order_by(User.id).all()
 
 
-def set_role(session, user_id: int, role: str) -> User:
+def _other_active_admins(session, user_id: int) -> int:
+    return (session.query(User)
+            .filter(User.id != user_id, User.role == "admin",
+                    User.active.is_(True))
+            .count())
+
+
+def set_role(session, user_id: int, role: str,
+             actor_id: int | None = None) -> User:
     u = session.get(User, user_id)
     if not u:
         raise ValueError("user not found")
+    if actor_id is not None and u.id == actor_id and role != u.role:
+        raise ValueError("you cannot change your own role")
+    if (u.role == "admin" and role != "admin" and u.active
+            and _other_active_admins(session, u.id) == 0):
+        raise ValueError("at least one active administrator is required")
     u.role = role
     session.commit()
     return u
 
 
-def set_active(session, user_id: int, active: bool) -> User:
+def set_active(session, user_id: int, active: bool,
+               actor_id: int | None = None) -> User:
     u = session.get(User, user_id)
+    if not u:
+        raise ValueError("user not found")
+    if not active and actor_id is not None and u.id == actor_id:
+        raise ValueError("you cannot deactivate your own account")
+    if (not active and u.role == "admin" and u.active
+            and _other_active_admins(session, u.id) == 0):
+        raise ValueError("at least one active administrator is required")
+    u.active = active
+    session.commit()
+    return u
+
+
+def set_active_by_name(session, username: str, active: bool) -> User:
+    """Break-glass helper for the CLI; bypasses the policy guards."""
+    u = session.query(User).filter_by(username=username).first()
     if not u:
         raise ValueError("user not found")
     u.active = active
