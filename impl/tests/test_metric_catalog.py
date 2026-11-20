@@ -121,3 +121,47 @@ def test_metric_lineage_walks_upstream_tables():
         assert ("dataset:%d" % dataset.id, "metric:%d" % metric.id) in refs
         assert out["column_edges"][0]["from_column"] == "amount"
         assert service.metric_lineage(s, 9999, metric.id) is None
+
+
+def test_metric_diff_lists_changed_fields():
+    from odf.modelstudio import service
+
+    _project()
+    with SessionLocal() as s:
+        ds = _asset(s, "dataset", "Diff DS", {"mode": "visual",
+                                              "query": {"select": []}})
+        metric = Asset(project_id=PROJECT_ID, type="metric",
+                       key=uuid.uuid4().hex, name="Diff metric",
+                       owner="tester", enabled=True)
+        s.add(metric)
+        s.commit()
+        pub = AssetVersion(asset_id=metric.id, version=1, status="published",
+                           created_by="tester", content_json={
+                               "dataset_id": ds.id,
+                               "measure": {"agg": "sum", "column": "amount",
+                                           "as": "value"},
+                               "dimensions": ["city"],
+                               "filters": [],
+                               "format": {"type": "number", "unit": "CNY"},
+                           })
+        draft = AssetVersion(asset_id=metric.id, version=2, status="draft",
+                             created_by="tester", content_json={
+                                 "dataset_id": ds.id,
+                                 "measure": {"agg": "avg", "column": "amount",
+                                             "as": "value"},
+                                 "dimensions": ["city", "channel"],
+                                 "filters": [],
+                                 "format": {"type": "number", "unit": "CNY"},
+                             })
+        s.add_all([pub, draft])
+        s.commit()
+        metric.published_version_id = pub.id
+        metric.draft_version_id = draft.id
+        s.commit()
+        out = service.metric_diff(s, PROJECT_ID, metric.id)
+        assert out["published_version"] == 1
+        assert out["draft_version"] == 2
+        keys = {c["key"] for c in out["changes"]}
+        assert "measure.agg" in keys
+        assert "dimensions" in keys
+        assert service.metric_diff(s, 9999, metric.id) is None

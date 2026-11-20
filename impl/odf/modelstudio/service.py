@@ -292,6 +292,7 @@ def metric_catalog(session, project_id):
             "dimensions": content.get("dimensions") or [],
             "format": content.get("format") or {},
             "usage_count": len(usage), "usage": usage,
+            "has_draft": metric.draft_version_id is not None,
             "updated_at": metric.updated_at.isoformat()
             if metric.updated_at else None,
         })
@@ -389,3 +390,40 @@ def metric_lineage(session, project_id, metric_id):
             "datasource_name": datasource.name if datasource else None,
             "table": table, "nodes": nodes, "edges": edges,
             "column_edges": column_edges}
+
+
+def _flatten(value, prefix="", out=None):
+    out = out if out is not None else {}
+    if isinstance(value, dict):
+        for key, item in value.items():
+            _flatten(item, "%s.%s" % (prefix, key) if prefix else key, out)
+    elif isinstance(value, list):
+        out[prefix] = json.dumps(value, sort_keys=True)
+    else:
+        out[prefix] = value
+    return out
+
+
+def metric_diff(session, project_id, metric_id):
+    from odf.models import Asset
+    metric = session.get(Asset, metric_id)
+    if not metric or metric.project_id != project_id \
+            or metric.type != "metric":
+        return None
+    published = (session.get(AssetVersion, metric.published_version_id)
+                 if metric.published_version_id else None)
+    draft = (session.get(AssetVersion, metric.draft_version_id)
+             if metric.draft_version_id else None)
+    published_content = published.content_json if published else {}
+    draft_content = draft.content_json if draft else published_content
+    left = _flatten(published_content or {})
+    right = _flatten(draft_content or {})
+    keys = sorted(set(left) | set(right))
+    changes = [{"key": key, "published": left.get(key),
+                "draft": right.get(key)}
+               for key in keys
+               if json.dumps(left.get(key), sort_keys=True)
+               != json.dumps(right.get(key), sort_keys=True)]
+    return {"published_version": published.version if published else None,
+            "draft_version": draft.version if draft else None,
+            "changes": changes}

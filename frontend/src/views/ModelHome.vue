@@ -81,6 +81,12 @@
           <span class="mono">{{ JSON.stringify(current.format || {}) }}</span>
         </el-descriptions-item>
       </el-descriptions>
+      <div class="metric-actions">
+        <el-button size="small" :disabled="!current.has_draft"
+                   @click="compareVersions">
+          {{ t("model.compare") }}
+        </el-button>
+      </div>
       <h4>{{ t("model.usageTitle") }}</h4>
       <el-table :data="current.usage || []" size="small">
         <el-table-column prop="type" :label="t('model.type')" width="120" />
@@ -115,6 +121,33 @@
       </div>
       <el-empty v-else :description="t('model.noLineage')" :image-size="60" />
     </el-drawer>
+
+    <el-dialog v-model="compareOpen" :title="t('model.compareTitle')"
+               width="640px">
+      <p class="muted">
+        {{ t("model.publishedVersion") }} v{{ compare.published_version || "-" }}
+        → {{ t("model.draftVersion") }} v{{ compare.draft_version || "-" }}
+      </p>
+      <el-table :data="compare.changes" size="small">
+        <el-table-column prop="key" :label="t('model.changedKeys')"
+                         min-width="150" />
+        <el-table-column :label="t('model.publishedVersion')" min-width="160">
+          <template #default="{ row }">
+            <span class="mono">{{ display(row.published) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('model.draftVersion')" min-width="160">
+          <template #default="{ row }">
+            <span class="mono">{{ display(row.draft) }}</span>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="!compare.changes.length"
+                :description="t('model.noChanges')" :image-size="60" />
+      <template #footer>
+        <el-button @click="compareOpen = false">{{ t("model.cancel") }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -135,6 +168,9 @@ const loading = ref(false);
 const usageOpen = ref(false);
 const current = ref({});
 const lineage = ref({ edges: [], column_edges: [] });
+const compareOpen = ref(false);
+const compare = ref({ changes: [], published_version: null,
+                      draft_version: null });
 const filtered = computed(() => rows.value.filter((r) => {
   if (!q.value) return true;
   const text = [r.name, r.key, r.dataset_name,
@@ -149,6 +185,20 @@ function definition(row) {
   const dims = row.dimensions || [];
   const base = `${measure.agg}(${column})`;
   return dims.length ? `${base} by ${dims.join(", ")}` : base;
+}
+
+function display(value) {
+  if (value === undefined || value === null) return "-";
+  return typeof value === "object" ? JSON.stringify(value) : String(value);
+}
+
+async function compareVersions() {
+  try {
+    compare.value = await api.get(`/metrics/${current.value.id}/diff`);
+    compareOpen.value = true;
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
 }
 
 async function openUsage(row) {
@@ -225,4 +275,5 @@ onMounted(load);
 .node-tag.dst { background: #ecfdf5; color: #047857; }
 .muted { color: #64748b; font-size: 12px; }
 .column-lineage { margin-top: 8px; }
+.metric-actions { margin-top: 12px; }
 </style>
