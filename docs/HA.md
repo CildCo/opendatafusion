@@ -48,3 +48,24 @@ ODF_FILE_DIR=/data/odf/files ./scripts/restore.sh /backups/odf-....tar.gz --yes
 
 Stop API/worker/scheduler before restore, then run `alembic upgrade head` and
 restart. Restore overwrites the database and file directory.
+
+## Sign-in recovery
+
+The console refuses to deactivate your own account, change your own role, or
+remove the last active administrator. If nobody can sign in anyway, run these
+commands on the API host with the deployment environment loaded
+(`set -a; . /opt/odf/.env; set +a`):
+
+```bash
+# account disabled
+python -m odf.cli set-user-active --username admin --active true
+
+# forgotten password (complexity rules apply; existing sessions are revoked)
+python -m odf.cli reset-password --username admin --password 'NewPassw0rd!'
+
+# lost authenticator device
+python -m odf.cli reset-totp --username admin
+```
+
+Each command writes an audit entry with actor `cli`; review them with
+`GET /api/v1/audit?actor=cli` or on the audit page.

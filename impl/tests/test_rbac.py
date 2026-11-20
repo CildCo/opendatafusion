@@ -99,3 +99,27 @@ def test_break_glass_can_reenable_an_administrator(s):
     s.commit()
     restored = set_active_by_name(s, "root9", True)
     assert restored.active is True
+
+
+def test_break_glass_resets_password_and_revokes_tokens(s):
+    from odf.services.users import reset_password_by_name
+    user = create_user(s, "resetpw", "OldPassw0rd!", role="admin")
+    before = int(user.token_version or 0)
+    reset_password_by_name(s, "resetpw", "NewPassw0rd!")
+    assert authenticate(s, "resetpw", "NewPassw0rd!").id == user.id
+    assert authenticate(s, "resetpw", "OldPassw0rd!") is None
+    assert int(s.get(type(user), user.id).token_version) == before + 1
+
+
+def test_break_glass_clears_totp(s):
+    from odf.services.users import reset_totp_by_name
+    user = create_user(s, "resettotp", "pw", role="admin")
+    user.totp_secret_encrypted = "secret"
+    user.totp_enabled = True
+    user.totp_last_step = 42
+    s.commit()
+    reset_totp_by_name(s, "resettotp")
+    refreshed = s.get(type(user), user.id)
+    assert refreshed.totp_secret_encrypted is None
+    assert refreshed.totp_enabled is False
+    assert refreshed.totp_last_step is None
