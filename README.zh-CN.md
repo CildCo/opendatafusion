@@ -15,6 +15,10 @@ MCP 使用同一套能力。
 
 ![OpenDataFusion 概览](docs/images/dashboard.png)
 
+*简短演示：概览、数据目录探查、管道 Studio、指标与看板。*
+
+![控制台演示](docs/images/tour.gif)
+
 <details>
 <summary>目录</summary>
 
