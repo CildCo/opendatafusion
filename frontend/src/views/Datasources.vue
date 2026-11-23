@@ -34,6 +34,10 @@
             <el-tag size="small" effect="plain">{{ kindLabel(row.kind) }}</el-tag>
             <el-tag v-if="pipelineOnly(row)" size="small" type="warning"
                     class="cap-tag">{{ t("ds.pipelineOnly") }}</el-tag>
+            <el-tag v-else-if="row.capabilities && !row.capabilities.query"
+                    size="small" type="warning" class="cap-tag">
+              {{ t("ds.noQuery") }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column :label="t('ds.colConnection')" min-width="260">
