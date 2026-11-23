@@ -205,8 +205,8 @@ Every recorded action with actor, action, target, time and details, with paging.
 
 ## 27. Platform administration
 
-Platform administrators open **Administration** from the avatar menu (or
-`#/admin`). It uses its own layout and only platform administrators can enter;
+Platform administrators open **Administration** from the avatar menu or the
+fixed shortcut at the bottom of the sidebar (or `#/admin`). It uses its own layout and only platform administrators can enter;
 project members keep using the workspace.
 
 - **Overview**: users, projects, assets, queue, open alerts and recent
