@@ -17,8 +17,8 @@
         <el-option value="flink" label="Flink" />
       </el-select>
       <div class="spacer" />
-      <el-button type="primary" @click="openSubmit">{{ t("eng.submitJob") }}</el-button>
-      <el-button @click="openSql">{{ t("eng.runSql") }}</el-button>
+      <el-button v-if="canEdit" type="primary" @click="openSubmit">{{ t("eng.submitJob") }}</el-button>
+      <el-button v-if="canEdit" @click="openSql">{{ t("eng.runSql") }}</el-button>
       <el-button @click="showProfile">{{ t("eng.engineConfig") }}</el-button>
       <el-button :loading="loading" @click="load">{{ t("eng.refresh") }}</el-button>
     </div>
@@ -48,10 +48,10 @@
         </el-table-column>
         <el-table-column :label="t('eng.actions')" width="150" fixed="right">
           <template #default="{ row }">
-            <el-button link :disabled="!active(row)" @click.stop="cancel(row)">
+            <el-button v-if="canEdit" link :disabled="!active(row)" @click.stop="cancel(row)">
               {{ t("eng.cancel") }}
             </el-button>
-            <el-button v-if="row.engine === 'flink' && active(row)" link
+            <el-button v-if="canEdit && row.engine === 'flink' && active(row)" link
                        @click.stop="savepoint(row)">{{ t("eng.savepoint") }}</el-button>
             <el-button link @click.stop="showDetail(row)">{{ t("eng.details") }}</el-button>
           </template>
@@ -165,7 +165,7 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { api, errMsg } from "../api";
+import { api, canWrite, errMsg } from "../api";
 import { fmtDate, t } from "../i18n";
 import EmptyState from "../components/EmptyState.vue";
 import EntityIcon from "../components/EntityIcon.vue";
@@ -173,6 +173,7 @@ import PageHeader from "../components/PageHeader.vue";
 import StatusDot from "../components/StatusDot.vue";
 
 const rows = ref([]);
+const canEdit = canWrite();
 const loading = ref(false);
 const status = ref("");
 const engine = ref("");

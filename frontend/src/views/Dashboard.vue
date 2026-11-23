@@ -21,6 +21,23 @@
       </div>
     </section>
 
+    <section class="onboard" :class="{ complete: onboardDone }">
+      <div class="onboard-head">
+        <b>{{ t("onboard.title") }}</b>
+        <span class="onboard-hint">
+          {{ onboardDone ? t("onboard.allDone") : t("onboard.hint") }}
+        </span>
+      </div>
+      <div class="onboard-steps">
+        <button v-for="step in onboardSteps" :key="step.key" type="button"
+                class="onboard-step" :class="{ done: step.done }"
+                @click="$router.push(step.route)">
+          <span class="mark">{{ step.done ? "✓" : "＋" }}</span>
+          <span>{{ step.label }}</span>
+        </button>
+      </div>
+    </section>
+
     <div class="board">
       <section class="panel runs-panel">
         <header class="panel-head">
@@ -146,6 +163,23 @@ const now = ref(new Date());
 const runFilter = ref("all");
 let timer = null;
 
+const onboarding = ref({ sources: 0, catalog: 0, datasets: 0,
+                          interfaces: 0 });
+
+const onboardSteps = computed(() => [
+  { key: "source", done: onboarding.value.sources > 0,
+    label: t("onboard.source"), route: "/datasources" },
+  { key: "catalog", done: onboarding.value.catalog > 0,
+    label: t("onboard.catalog"), route: "/catalog" },
+  { key: "dataset", done: onboarding.value.datasets > 0,
+    label: t("onboard.dataset"), route: "/datasets" },
+  { key: "api", done: onboarding.value.interfaces > 0,
+    label: t("onboard.api"), route: "/interfaces" },
+]);
+
+const onboardDone = computed(() =>
+  onboardSteps.value.every((step) => step.done));
+
 const stats = ref([
   { key: "running_runs", label: "运行中", value: 0, note: "当前作业" },
   { key: "failed_24h", label: "今日失败", value: 0, note: "最近 24 小时" },
@@ -263,6 +297,17 @@ async function load() {
     const portal = await api.get("/portal");
     welcome.value = { title: portal.welcome_title || "",
                       text: portal.welcome_text || "" };
+    const [sources, catalog, datasets, interfaces] = await Promise.allSettled([
+      api.get("/datasources"), api.get("/catalog/datasets"),
+      api.get("/datasets"), api.get("/interfaces"),
+    ]);
+    onboarding.value = {
+      sources: sources.status === "fulfilled" ? sources.value.length : 0,
+      catalog: catalog.status === "fulfilled" ? catalog.value.length : 0,
+      datasets: datasets.status === "fulfilled" ? datasets.value.length : 0,
+      interfaces: interfaces.status === "fulfilled"
+        ? interfaces.value.filter((row) => row.status === 1).length : 0,
+    };
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -278,6 +323,44 @@ onBeforeUnmount(() => clearInterval(timer));
 </script>
 
 <style scoped>
+.onboard {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.onboard.complete { border-color: #bbf7d0; }
+.onboard-head { display: flex; align-items: baseline; gap: 10px; }
+.onboard-head b { font-size: 13px; color: #0f172a; }
+.onboard-hint { font-size: 12px; color: #94a3b8; }
+.onboard-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+.onboard-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px dashed #dbe3ee;
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #475569;
+  cursor: pointer;
+}
+.onboard-step:hover { border-color: #bfd3ff; color: #1d4ed8; }
+.onboard-step.done {
+  border-style: solid;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+.onboard-step .mark { font-weight: 700; }
+
 .dash {
   padding: 22px 26px 34px;
   min-height: 100%;

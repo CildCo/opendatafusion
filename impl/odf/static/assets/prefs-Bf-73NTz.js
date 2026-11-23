@@ -1,0 +1,1 @@
+var e=`odf_pref_`;function t(t,n){try{let r=JSON.parse(localStorage.getItem(e+t)||`null`);return r&&typeof r==`object`?{...n,...r}:n}catch{return n}}function n(t,n){try{localStorage.setItem(e+t,JSON.stringify(n))}catch{}}export{n,t};

@@ -48,11 +48,11 @@
         <el-table-column :label="t('alerts.colActions')" width="180"
                          fixed="right">
           <template #default="{ row }">
-            <el-button link :disabled="row.status !== 'open'"
+            <el-button v-if="canEdit" link :disabled="row.status !== 'open'"
                        @click.stop="ack(row)">
               {{ t("alerts.ack") }}
             </el-button>
-            <el-button link :disabled="row.status === 'closed'"
+            <el-button v-if="canEdit" link :disabled="row.status === 'closed'"
                        @click.stop="close(row)">
               {{ t("alerts.close") }}
             </el-button>
@@ -67,7 +67,8 @@
       <template #header>
         <div class="card-head">
           <b>{{ t("alerts.rules") }}</b>
-          <el-button size="small" type="primary" @click="openRule">
+          <el-button v-if="canEdit" size="small" type="primary"
+                     @click="openRule">
             {{ t("alerts.newRule") }}
           </el-button>
         </div>
@@ -80,14 +81,15 @@
                          width="150" />
         <el-table-column :label="t('alerts.colActions')" width="100">
           <template #default="{ row }">
-            <el-button link type="danger" @click="removeRule(row)">
+            <el-button v-if="canEdit" link type="danger"
+                       @click="removeRule(row)">
               {{ t("alerts.deleteRule") }}
             </el-button>
           </template>
         </el-table-column>
       </el-table>
       <empty-state v-if="!rules.length" :title="t('alerts.noRules')"
-                   :action-text="t('alerts.newRule')" @action="openRule" />
+                   :action-text="canEdit ? t('alerts.newRule') : ''" @action="openRule" />
     </el-card>
 
     <el-drawer v-model="drawer"
@@ -136,13 +138,14 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { api, errMsg } from "../api";
+import { api, canWrite, errMsg } from "../api";
 import { t } from "../i18n";
 import EmptyState from "../components/EmptyState.vue";
 import PageHeader from "../components/PageHeader.vue";
 import StatusDot from "../components/StatusDot.vue";
 
 const rows = ref([]);
+const canEdit = canWrite();
 const rules = ref([]);
 const loading = ref(false);
 const status = ref("");

@@ -20,7 +20,7 @@
       </el-select>
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("ds.refresh") }}</el-button>
-      <el-button type="primary" @click="openCreate">{{ t("ds.new") }}</el-button>
+      <el-button v-if="canEdit" type="primary" @click="openCreate">{{ t("ds.new") }}</el-button>
     </div>
 
     <el-card shadow="never" class="card">
@@ -45,20 +45,21 @@
             <el-button link @click="test(row)">{{ t("ds.test") }}</el-button>
             <el-button link @click="sync(row)">{{ t("ds.sync") }}</el-button>
             <el-button link @click="showTables(row)">{{ t("ds.tablesButton") }}</el-button>
-            <el-button link @click="openEdit(row)">{{ t("ds.edit") }}</el-button>
-            <el-button link type="danger" @click="remove(row)">{{ t("ds.delete") }}</el-button>
-            <el-button v-if="row.kind === 'trino'" link
+            <el-button v-if="canEdit" link @click="openEdit(row)">{{ t("ds.edit") }}</el-button>
+            <el-button v-if="canEdit" link type="danger" @click="remove(row)">{{ t("ds.delete") }}</el-button>
+            <el-button v-if="canEdit && row.kind === 'trino'" link
                        @click="openMaintain(row)">{{ t("ds.maintain") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
       <empty-state v-if="!loading && !filtered.length"
                    :title="t('ds.noDatasources')" :description="t('ds.intro')"
-                   :action-text="t('ds.new')" @action="openCreate" />
+                   :action-text="canEdit ? t('ds.new') : ''" @action="openCreate" />
       <div class="pager">
         <el-pagination v-model:current-page="page" :page-size="pageSize"
-                       :total="filtered.length" layout="total, prev, pager, next"
-                       small />
+                       :page-sizes="[10, 20, 50]"
+                       :total="filtered.length"
+                       layout="total, sizes, prev, pager, next" small />
       </div>
     </el-card>
 
@@ -80,8 +81,9 @@
     </el-dialog>
 
     <el-dialog v-model="dialog" :title="t('ds.new')" width="560px">
-      <el-form label-width="90px">
-        <el-form-item :label="t('ds.name')" required>
+      <el-form ref="createRef" :model="form" :rules="createRules"
+               label-width="90px">
+        <el-form-item :label="t('ds.name')" prop="name">
           <el-input v-model="form.name" :placeholder="t('ds.namePlaceholder')" />
         </el-form-item>
         <el-form-item :label="t('ds.colKind')" required>
@@ -99,7 +101,7 @@
             <el-option value="file" :label="t('ds.fileKind')" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('ds.dsn')" required>
+        <el-form-item :label="t('ds.dsn')" prop="dsn">
           <el-input v-model="form.dsn" type="textarea" :rows="3"
                     :placeholder="dsnPlaceholder" />
         </el-form-item>
@@ -160,7 +162,8 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
-import { api, errMsg } from "../api";
+import { api, canWrite, errMsg } from "../api";
+import { loadPrefs, savePrefs } from "../prefs";
 import { t } from "../i18n";
 import EmptyState from "../components/EmptyState.vue";
 import EntityIcon from "../components/EntityIcon.vue";
@@ -177,11 +180,22 @@ const editRow = ref({});
 const editForm = reactive({ name: "", dsn: "" });
 const tablesDrawer = ref(false);
 const current = ref({});
-const q = ref("");
-const kind = ref("");
+const prefs = loadPrefs("datasources", { q: "", kind: "", pageSize: 10 });
+const q = ref(prefs.q);
+const kind = ref(prefs.kind);
+const canEdit = canWrite();
+const createRef = ref(null);
+const createRules = computed(() => ({
+  name: [{ required: true, message: t("ds.nameRequired"), trigger: "blur" }],
+  dsn: [{ required: true, message: t("ds.nameDsnRequired"),
+          trigger: "blur" }],
+}));
 const page = ref(1);
-const pageSize = 10;
+const pageSize = ref(prefs.pageSize);
 watch([q, kind], () => { page.value = 1; });
+watch([q, kind, pageSize], () => savePrefs("datasources", {
+  q: q.value, kind: kind.value, pageSize: pageSize.value,
+}));
 const form = reactive({ name: "", kind: "postgres", dsn: "" });
 const maintainOpen = ref(false);
 const maintain = reactive({ datasource_id: 0, schema: "", tables: "",
@@ -218,7 +232,8 @@ const filtered = computed(() =>
   })
 );
 const paged = computed(() =>
-  filtered.value.slice((page.value - 1) * pageSize, page.value * pageSize)
+  filtered.value.slice((page.value - 1) * pageSize.value,
+    page.value * pageSize.value)
 );
 
 async function load() {
@@ -333,8 +348,9 @@ async function remove(row) {
 }
 
 async function create() {
-  if (!form.name || !form.dsn) {
-    ElMessage.warning(t("ds.nameDsnRequired"));
+  try {
+    await createRef.value.validate();
+  } catch {
     return;
   }
   saving.value = true;

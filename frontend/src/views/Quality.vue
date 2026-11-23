@@ -7,7 +7,7 @@
                 :prefix-icon="Search" />
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("quality.refresh") }}</el-button>
-      <el-button type="primary" @click="openCreate">{{ t("quality.new") }}</el-button>
+      <el-button v-if="canEdit" type="primary" @click="openCreate">{{ t("quality.new") }}</el-button>
     </div>
 
     <div class="summary-row">
@@ -61,25 +61,26 @@
         </el-table-column>
         <el-table-column :label="t('quality.actions')" width="240" fixed="right">
           <template #default="{ row }">
-            <el-button link @click="run(row)">{{ t("quality.run") }}</el-button>
+            <el-button v-if="canEdit" link @click="run(row)">{{ t("quality.run") }}</el-button>
             <el-button link @click="showResults(row)">{{ t("quality.results") }}</el-button>
-            <el-button link type="danger" @click="removeRule(row)">{{ t("quality.delete") }}</el-button>
+            <el-button v-if="canEdit" link type="danger" @click="removeRule(row)">{{ t("quality.delete") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
       <empty-state v-if="!loading && !filtered.length"
                    :title="t('quality.empty')"
                    :description="t('quality.intro')"
-                   :action-text="t('quality.new')"
+                   :action-text="canEdit ? t('quality.new') : ''"
                    @action="openCreate" />
     </el-card>
 
     <el-dialog v-model="dialog" :title="t('quality.createTitle')" width="560px">
-      <el-form label-width="100px">
-        <el-form-item :label="t('quality.name')" required>
+      <el-form ref="formRef" :model="form" :rules="formRules"
+               label-width="100px">
+        <el-form-item :label="t('quality.name')" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item :label="t('quality.dataset')" required>
+        <el-form-item :label="t('quality.dataset')" prop="dataset_id">
           <el-select v-model="form.dataset_id" style="width: 100%" filterable
                      @change="onDataset">
             <el-option v-for="d in datasets" :key="d.id" :value="d.id"
@@ -182,7 +183,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
-import { api, errMsg, getProject } from "../api";
+import { api, canWrite, errMsg, getProject } from "../api";
 import { fmtDate, t } from "../i18n";
 import EmptyState from "../components/EmptyState.vue";
 import EntityIcon from "../components/EntityIcon.vue";
@@ -193,6 +194,15 @@ import StatTile from "../components/StatTile.vue";
 const router = useRouter();
 
 const rows = ref([]);
+const canEdit = canWrite();
+const formRef = ref(null);
+const formRules = computed(() => ({
+  name: [{ required: true, message: t("quality.nameDatasetRequired"),
+          trigger: "blur" }],
+  dataset_id: [{ required: true,
+                message: t("quality.nameDatasetRequired"),
+                trigger: "change" }],
+}));
 
 const summary = computed(() => {
   const all = rows.value;
@@ -290,8 +300,9 @@ async function onDataset(id) {
 }
 
 async function create() {
-  if (!form.name || !form.dataset_id) {
-    ElMessage.warning(t("quality.nameDatasetRequired"));
+  try {
+    await formRef.value.validate();
+  } catch {
     return;
   }
   saving.value = true;

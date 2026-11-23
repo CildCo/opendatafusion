@@ -10,7 +10,7 @@
                   ? 'model.searchMetrics' : 'model.search')" />
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("model.refresh") }}</el-button>
-      <el-button type="primary" @click="create">
+      <el-button v-if="canEdit" type="primary" @click="create">
         {{ t(tab === "datasets" ? "model.newDataset" : "model.newMetric") }}
       </el-button>
     </div>
@@ -51,7 +51,7 @@
             <el-button link @click="$router.push(`/${tab}/${row.id}`)">
               {{ t("model.edit") }}
             </el-button>
-            <el-button link type="danger" @click="remove(row)">
+            <el-button v-if="canEdit" link type="danger" @click="remove(row)">
               {{ t("model.delete") }}
             </el-button>
           </template>
@@ -154,13 +154,14 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { api, errMsg } from "../api";
+import { api, canWrite, errMsg } from "../api";
 import { t } from "../i18n";
 import GraphCanvas from "../components/GraphCanvas.vue";
 
 const route = useRoute();
 const router = useRouter();
 const tab = ref(route.path.startsWith("/metrics") ? "metrics" : "datasets");
+const canEdit = canWrite();
 const rows = ref([]);
 const q = ref("");
 const loading = ref(false);

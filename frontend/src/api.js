@@ -1,3 +1,6 @@
+import { t } from "./i18n";
+import { localizeError } from "./errors";
+
 const TOKEN_KEY = "odf_token";
 const ROLE_KEY = "odf_role";
 const PROJECT_KEY = "odf_project";
@@ -13,6 +16,10 @@ function acceptLanguage() {
   return lang === "en" ? "en-US,en;q=0.9" : "zh-CN,zh;q=0.9";
 }
 export const getRole = () => localStorage.getItem(ROLE_KEY);
+export const canWrite = () =>
+  ["editor", "approver", "admin"].includes(getRole());
+export const canApprove = () =>
+  ["approver", "admin"].includes(getRole());
 export const getProject = () => Number(localStorage.getItem(PROJECT_KEY) || 0);
 export const setProject = (id) => localStorage.setItem(PROJECT_KEY, String(id));
 export const setToken = (t) => localStorage.setItem(TOKEN_KEY, t);
@@ -32,12 +39,12 @@ async function request(path, opts = {}) {
   try {
     r = await fetch("/api/v1" + path, { ...opts, headers });
   } catch (e) {
-    throw new Error("网络不可达，请检查服务是否在运行");
+    throw new Error(t("err.network"));
   }
   if (r.status === 401) {
     clearSession();
     if (!location.hash.startsWith("#/login")) location.hash = "#/login";
-    throw new Error("未登录或会话已过期");
+    throw new Error(t("err.session"));
   }
   if (!r.ok) {
     let msg = `HTTP ${r.status}`;
@@ -55,7 +62,7 @@ async function request(path, opts = {}) {
     } catch (e) {
       /* keep default */
     }
-    throw new Error(msg);
+    throw new Error(localizeError(msg));
   }
   if (r.status === 204) return null;
   const text = await r.text();
@@ -123,5 +130,6 @@ export const api = {
 };
 
 export function errMsg(e) {
-  return e && e.message ? e.message : String(e);
+  const text = e && e.message ? e.message : String(e);
+  return localizeError(text);
 }

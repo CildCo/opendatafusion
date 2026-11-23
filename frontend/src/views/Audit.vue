@@ -10,31 +10,34 @@
       <el-input v-model="q" :placeholder="t('audit.filterQ')" clearable
                 style="width: 220px" @keyup.enter="load" />
       <div class="spacer" />
+      <el-popover placement="bottom" :width="190" trigger="click">
+        <template #reference>
+          <el-button>{{ t("audit.columns") }}</el-button>
+        </template>
+        <el-checkbox v-for="col in columnOptions" :key="col.key"
+                     :model-value="visible.columns.includes(col.key)"
+                     @change="toggleColumn(col.key)">
+          {{ col.label }}
+        </el-checkbox>
+      </el-popover>
       <el-button @click="load" :loading="loading">{{ t("audit.query") }}</el-button>
       <el-button @click="exportCsv">{{ t("audit.export") }}</el-button>
     </div>
 
     <el-card class="card" shadow="never">
-      <el-table :data="paged" size="small" v-loading="loading"
-                @row-click="showDetail" row-class-name="clickable">
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="actor" :label="t('audit.actor')" width="150" />
-        <el-table-column prop="action" :label="t('audit.action')" width="190" />
-        <el-table-column prop="target" :label="t('audit.target')" width="160" />
-        <el-table-column :label="t('audit.at')" width="200">
-          <template #default="{ row }">{{ fmtDate(row.at) }}</template>
-        </el-table-column>
-        <el-table-column :label="t('audit.detail')">
-          <template #default="{ row }">
-            <span class="mono">{{ JSON.stringify(row.detail) }}</span>
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-empty v-if="!loading && !filtered.length"
-                :description="t('audit.empty')" />
+      <div ref="tableWrap" class="audit-table">
+        <el-skeleton v-if="loading && !rows.length" :rows="6" animated />
+        <el-table-v2 v-else-if="paged.length" :columns="v2Columns"
+                     :data="paged" :width="tableWidth" :height="520"
+                     :row-height="42" :header-height="40" row-key="id" fixed
+                     :row-event-handlers="rowHandlers" />
+        <empty-state v-else :title="t('audit.empty')" />
+      </div>
       <div class="pager">
         <el-pagination v-model:current-page="page" :page-size="pageSize"
-                       :total="filtered.length" layout="total, prev, pager, next" small />
+                       :page-sizes="[20, 50, 100]"
+                       :total="filtered.length"
+                       layout="total, sizes, prev, pager, next" small />
       </div>
     </el-card>
 
@@ -53,20 +56,83 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, h, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { api, errMsg, getToken } from "../api";
 import { fmtDate, t } from "../i18n";
+import { loadPrefs, savePrefs } from "../prefs";
+import EmptyState from "../components/EmptyState.vue";
 import PageHeader from "../components/PageHeader.vue";
 
 const rows = ref([]);
 const loading = ref(false);
-const actor = ref("");
-const action = ref("");
-const q = ref("");
+const prefs = loadPrefs("audit", { actor: "", action: "", q: "",
+                                    pageSize: 20, columns: null });
+const columnOptions = computed(() => [
+  { key: "id", label: "ID" },
+  { key: "actor", label: t("audit.actor") },
+  { key: "action", label: t("audit.action") },
+  { key: "target", label: t("audit.target") },
+  { key: "at", label: t("audit.at") },
+  { key: "detail", label: t("audit.detail") },
+]);
+const visible = ref({
+  columns: Array.isArray(prefs.columns) && prefs.columns.length
+    ? prefs.columns : columnOptions.value.map((col) => col.key),
+});
+const tableWrap = ref(null);
+const tableWidth = ref(1000);
+let observer = null;
+
+const v2Columns = computed(() => {
+  const shown = visible.value.columns;
+  const cols = [];
+  if (shown.includes("id")) {
+    cols.push({ key: "id", dataKey: "id", title: "ID", width: 80 });
+  }
+  if (shown.includes("actor")) {
+    cols.push({ key: "actor", dataKey: "actor", title: t("audit.actor"),
+                width: 150 });
+  }
+  if (shown.includes("action")) {
+    cols.push({ key: "action", dataKey: "action", title: t("audit.action"),
+                width: 190 });
+  }
+  if (shown.includes("target")) {
+    cols.push({ key: "target", dataKey: "target", title: t("audit.target"),
+                width: 160 });
+  }
+  if (shown.includes("at")) {
+    cols.push({ key: "at", dataKey: "at", title: t("audit.at"), width: 200,
+                cellRenderer: ({ cellData }) => h("span", fmtDate(cellData)) });
+  }
+  if (shown.includes("detail")) {
+    cols.push({ key: "detail", dataKey: "detail", title: t("audit.detail"),
+                width: 0, flexGrow: 1,
+                cellRenderer: ({ cellData }) =>
+                  h("span", { class: "mono" }, JSON.stringify(cellData)) });
+  }
+  return cols;
+});
+
+const rowHandlers = { onClick: ({ rowData }) => showDetail(rowData) };
+
+function toggleColumn(key) {
+  const current = visible.value.columns;
+  visible.value.columns = current.includes(key)
+    ? current.filter((item) => item !== key)
+    : [...current, key];
+}
+const actor = ref(prefs.actor);
+const action = ref(prefs.action);
+const q = ref(prefs.q);
 const page = ref(1);
-const pageSize = 20;
+const pageSize = ref(prefs.pageSize);
 watch([q, actor, action], () => { page.value = 1; });
+watch([q, actor, action, pageSize, visible], () => savePrefs("audit", {
+  actor: actor.value, action: action.value, q: q.value,
+  pageSize: pageSize.value, columns: visible.value.columns,
+}), { deep: true });
 const drawer = ref(false);
 const current = ref({});
 
@@ -78,7 +144,8 @@ const filtered = computed(() =>
   })
 );
 const paged = computed(() =>
-  filtered.value.slice((page.value - 1) * pageSize, page.value * pageSize)
+  filtered.value.slice((page.value - 1) * pageSize.value,
+    page.value * pageSize.value)
 );
 
 function params() {
@@ -125,10 +192,28 @@ function showDetail(row) {
   current.value = row;
   drawer.value = true;
 }
-onMounted(load);
+onMounted(() => {
+  load();
+  if (tableWrap.value) {
+    tableWidth.value = tableWrap.value.clientWidth;
+    observer = new ResizeObserver((entries) => {
+      tableWidth.value = Math.max(320,
+        Math.floor(entries[0].contentRect.width));
+    });
+    observer.observe(tableWrap.value);
+  }
+});
+
+onBeforeUnmount(() => observer?.disconnect());
 </script>
 
 <style scoped>
+.audit-table { width: 100%; }
+.audit-table :deep(.el-table-v2__row) { cursor: pointer; }
+.audit-table :deep(.mono) {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+}
 .card {
   border-radius: 0;
   border: 1px solid #e5e7eb;

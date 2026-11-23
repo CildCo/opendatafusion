@@ -37,6 +37,7 @@
     <div class="workspace">
       <header class="topbar">
         <div class="identity">
+          <span v-if="pageGroup" class="crumb-group">{{ pageGroup }} /</span>
           <h1>{{ pageTitle }}</h1>
           <div class="context">
             <span>{{ projectName }}</span>
@@ -46,9 +47,10 @@
         </div>
         <div class="top-actions">
           <button class="search-entry" type="button"
-                  @click="$router.push('/catalog')">
+                  @click="paletteOpen = true">
             <el-icon><Search /></el-icon>
             <span>{{ t("top.search") }}</span>
+            <kbd class="search-kbd">Ctrl K</kbd>
           </button>
           <el-button size="small" text @click="toggleLocale">
             {{ t("top.language") }}
@@ -85,20 +87,24 @@
       </main>
     </div>
   </div>
+  <command-palette v-model="paletteOpen" />
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { Search } from "@element-plus/icons-vue";
-import { MENU_GROUPS } from "../menu";
+import { MENU_GROUPS, MENU_ITEMS } from "../menu";
 import { ElMessage } from "element-plus";
 import { api, clearSession, getProject, getRole, setProject }
   from "../api";
 import { t, toggleLocale } from "../i18n";
+import CommandPalette from "../components/CommandPalette.vue";
+import { pushRecent } from "../recent";
 
 const route = useRoute();
 const router = useRouter();
+const paletteOpen = ref(false);
 const appVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
 const role = getRole() || "viewer";
 const online = ref(true);
@@ -141,6 +147,16 @@ const pageTitle = computed(() => {
   const found = groups.flatMap((g) => g.items).find(
     (m) => route.path === m.path || route.path.startsWith(m.path + "/"));
   return found ? t(found.key) : (route.meta.title || "");
+});
+
+const pageGroup = computed(() => {
+  for (const group of groups) {
+    if (group.items.some((m) => route.path === m.path
+        || route.path.startsWith(m.path + "/"))) {
+      return t(group.key);
+    }
+  }
+  return "";
 });
 
 function luminance(hex) {
@@ -214,7 +230,53 @@ function onUserCommand(command) {
   router.push("/" + command);
 }
 
+watch(() => route.fullPath, (path) => {
+  if (path.startsWith("/login")) return;
+  const item = MENU_ITEMS.find((m) => path === m.path
+    || path.startsWith(m.path + "/"));
+  if (item) pushRecent({ type: "page", route: path, key: item.key });
+}, { immediate: true });
+
+let chord = false;
+let chordTimer = null;
+
+function onKeydown(event) {
+  const target = event.target;
+  const typing = target && (target.tagName === "INPUT"
+    || target.tagName === "TEXTAREA" || target.isContentEditable);
+  if ((event.ctrlKey || event.metaKey)
+      && event.key.toLowerCase() === "k") {
+    event.preventDefault();
+    paletteOpen.value = !paletteOpen.value;
+    return;
+  }
+  if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.key === "/") {
+    event.preventDefault();
+    paletteOpen.value = true;
+    return;
+  }
+  if (event.key === "g") {
+    chord = true;
+    clearTimeout(chordTimer);
+    chordTimer = setTimeout(() => { chord = false; }, 900);
+    return;
+  }
+  if (!chord) return;
+  const routes = {
+    d: "/dashboard", o: "/ops", c: "/catalog", f: "/flows",
+    p: "/pipelines", q: "/quality", a: "/alerts", u: "/users",
+    i: "/interfaces", w: "/workbench",
+  };
+  if (routes[event.key]) {
+    event.preventDefault();
+    router.push(routes[event.key]);
+  }
+  chord = false;
+}
+
 onMounted(async () => {
+  window.addEventListener("keydown", onKeydown);
   await Promise.all([loadProjects(), loadPortal()]);
   try {
     await api.get("/dashboard");
@@ -222,6 +284,11 @@ onMounted(async () => {
   } catch (e) {
     online.value = false;
   }
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", onKeydown);
+  clearTimeout(chordTimer);
 });
 </script>
 
@@ -403,10 +470,18 @@ onMounted(async () => {
   border-bottom: 1px solid var(--odf-rule);
 }
 
+.crumb-group {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
 .identity {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -436,6 +511,15 @@ onMounted(async () => {
   align-items: center;
   gap: 10px;
   min-width: 0;
+}
+
+.search-entry kbd {
+  font-size: 10px;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin-left: 6px;
 }
 
 .search-entry {

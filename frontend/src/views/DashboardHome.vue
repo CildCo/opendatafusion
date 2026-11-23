@@ -5,7 +5,7 @@
                 style="width: 260px" />
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("dash.refresh") }}</el-button>
-      <el-button type="primary" @click="create">{{ t("dash.new") }}</el-button>
+      <el-button v-if="canEdit" type="primary" @click="create">{{ t("dash.new") }}</el-button>
     </div>
     <el-card shadow="never">
       <el-table :data="filtered" size="small" v-loading="loading">
@@ -27,7 +27,7 @@
             <el-button link @click="$router.push(`/dashboards/${row.id}`)">
               {{ t("dash.edit") }}
             </el-button>
-            <el-button link type="danger" @click="remove(row)">
+            <el-button v-if="canEdit" link type="danger" @click="remove(row)">
               {{ t("dash.delete") }}
             </el-button>
             <el-button link :disabled="!row.published"
@@ -46,11 +46,12 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { api, errMsg } from "../api";
+import { api, canWrite, errMsg } from "../api";
 import { t } from "../i18n";
 
 const router = useRouter();
 const rows = ref([]);
+const canEdit = canWrite();
 const q = ref("");
 const loading = ref(false);
 const filtered = computed(() => rows.value.filter(

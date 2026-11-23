@@ -8,7 +8,7 @@
         <el-option value="failed" :label="t('cdc.failed')" />
       </el-select>
       <div class="spacer" />
-      <el-button type="primary" @click="openCreate">{{ t("cdc.newSource") }}</el-button>
+      <el-button v-if="canEdit" type="primary" @click="openCreate">{{ t("cdc.newSource") }}</el-button>
       <el-button :loading="loading" @click="load">{{ t("cdc.refresh") }}</el-button>
     </div>
 
@@ -50,18 +50,18 @@
             <el-button link @click.stop="openDetail(row)">
               {{ t("cdc.viewDetail") }}
             </el-button>
-            <el-button link @click.stop="toggle(row)">
+            <el-button v-if="canEdit" link @click.stop="toggle(row)">
               {{ row.status === "paused" ? t("cdc.resume") : t("cdc.pause") }}
             </el-button>
             <el-button link @click.stop="refreshOne(row)">{{ t("cdc.refreshStatus") }}</el-button>
-            <el-button link type="danger" @click.stop="remove(row)">{{ t("cdc.delete") }}</el-button>
+            <el-button v-if="canEdit" link type="danger" @click.stop="remove(row)">{{ t("cdc.delete") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
       <empty-state v-if="!loading && !filtered.length"
                    :title="t('cdc.empty')"
                    :description="t('cdc.intro')"
-                   :action-text="t('cdc.newSource')"
+                   :action-text="canEdit ? t('cdc.newSource') : ''"
                    @action="openCreate" />
     </el-card>
 
@@ -173,7 +173,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { api, errMsg } from "../api";
+import { api, canWrite, errMsg } from "../api";
 import { fmtDate, t } from "../i18n";
 import EmptyState from "../components/EmptyState.vue";
 import EntityIcon from "../components/EntityIcon.vue";
@@ -181,6 +181,7 @@ import PageHeader from "../components/PageHeader.vue";
 import StatusDot from "../components/StatusDot.vue";
 
 const rows = ref([]);
+const canEdit = canWrite();
 const loading = ref(false);
 const saving = ref(false);
 const dialog = ref(false);

@@ -26,6 +26,7 @@ export const ENTITY_META = {
   workspace: { icon: "Setting", color: "#475569" },
   security: { icon: "Lock", color: "#475569" },
   grant: { icon: "Key", color: "#1d4ed8" },
+  page: { icon: "Document", color: "#475569" },
 };
 
 export function entityMeta(type) {
