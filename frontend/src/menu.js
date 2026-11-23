@@ -1,7 +1,6 @@
 import {
   Bell, CircleCheck, Coin, Collection, Connection, Cpu, DataLine, EditPen,
-  Folder, Grid, Key, Lock, Monitor, Odometer, Promotion, Setting, Share,
-  Switch,
+  Folder, Grid, Key, Monitor, Odometer, Promotion, Share, Switch,
 } from "@element-plus/icons-vue";
 
 export const MENU_GROUPS = [
@@ -34,10 +33,6 @@ export const MENU_GROUPS = [
     { path: "/alerts", key: "menu.alerts", icon: Bell },
     { path: "/changes", key: "menu.changes", icon: Switch },
     { path: "/tools", key: "menu.tools", icon: Connection },
-  ] },
-  { key: "nav.management", items: [
-    { path: "/workspace", key: "menu.workspace", icon: Setting },
-    { path: "/security", key: "menu.security", icon: Lock },
   ] },
 ];
 

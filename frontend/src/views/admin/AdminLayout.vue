@@ -26,6 +26,7 @@
         </div>
         <div class="admin-user">
           <span class="who">{{ username }}</span>
+          <a class="admin-user-link" href="#/security">{{ t("top.security") }}</a>
           <el-button size="small" text @click="toggleLocale">
             {{ t("top.language") }}
           </el-button>
@@ -171,6 +172,12 @@ onMounted(async () => {
 .admin-top h1 { margin: 2px 0 0; font-size: 18px; color: #0f172a; }
 .admin-user { display: flex; align-items: center; gap: 10px; }
 .admin-user .who { font-size: 12px; color: #475569; }
+.admin-user-link {
+  font-size: 12px;
+  color: #475569;
+  text-decoration: none;
+}
+.admin-user-link:hover { color: var(--odf-accent, #1d4ed8); }
 .admin-content { padding: 20px 26px 30px; overflow: auto; }
 @media (max-width: 900px) {
   .admin-shell { grid-template-columns: 64px minmax(0, 1fr); }
