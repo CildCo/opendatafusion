@@ -120,6 +120,11 @@ SPECS = [
      "fields": [field("host"), field("port", default=5432),
                 field("database"), field("username"), field("password"),
                 field("sslmode", options=SSLMODES)]},
+    {"kind": "dm", "label": "达梦 DM", "group": "database",
+     "capabilities": _caps(),
+     "fields": [field("host"), field("port", default=5236),
+                field("username"), field("password"),
+                field("schema", required=False)]},
     {"kind": "mongodb", "label": "MongoDB", "group": "database",
      "capabilities": _caps(query=False, source=False),
      "fields": [field("host"), field("port", default=27017),
@@ -227,6 +232,11 @@ def build_dsn(kind, values):
             _q(values.get("region") or "us-east-1"))
         return "s3://%s/%s?%s" % (_q(values["bucket"]),
                                   _q(values["key"], safe="/"), query)
+    if kind == "dm":
+        return "dm://%s:%s@%s:%s/%s" % (
+            _q(values["username"]), _q(values.get("password", "")),
+            values["host"], values.get("port") or 5236,
+            _q(values.get("schema") or values["username"]))
     if kind == "hive":
         auth = ""
         if values.get("username"):
@@ -315,6 +325,12 @@ def parse_dsn(kind, dsn):
                 "access_key": (query.get("access_key") or [""])[0],
                 "secret_key": (query.get("secret_key") or [""])[0],
                 "region": (query.get("region") or ["us-east-1"])[0]}
+    if kind == "dm":
+        parsed = urlparse(dsn)
+        return {"host": parsed.hostname or "", "port": parsed.port or 5236,
+                "username": unquote(parsed.username or ""),
+                "password": unquote(parsed.password or ""),
+                "schema": unquote((parsed.path or "").lstrip("/"))}
     if kind == "hive":
         parsed = urlparse(dsn)
         query = parse_qs(parsed.query)
@@ -399,4 +415,5 @@ def _default_port(kind):
             "trino": 8080, "tidb": 4000, "doris": 9030,
             "starrocks": 9030, "oceanbase": 2881,
             "opengauss": 5432, "kingbase": 5432,
-            "gaussdb": 5432, "mongodb": 27017, "hive": 10000}.get(kind)
+            "gaussdb": 5432, "mongodb": 27017, "hive": 10000,
+            "dm": 5236}.get(kind)

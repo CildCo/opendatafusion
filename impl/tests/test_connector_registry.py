@@ -12,7 +12,7 @@ def test_catalog_covers_every_console_type():
                      "mssql", "clickhouse", "trino", "file", "http", "es",
                      "duckdb", "tidb", "doris", "starrocks", "oceanbase",
                      "opengauss", "kingbase", "gaussdb", "mongodb",
-                     "kafka", "s3", "hive"}
+                     "kafka", "s3", "hive", "dm"}
     for row in rows["connectors"]:
         assert row["capabilities"]["test"] is True
         assert row["fields"]
@@ -164,3 +164,13 @@ def test_hive_roundtrip_and_capabilities():
     caps = capabilities("hive")
     assert caps["metadata"] and caps["query"]
     assert caps["source"] is False
+
+
+def test_dm_roundtrip_and_capabilities():
+    dsn = build_dsn("dm", {"host": "dm", "port": 5236, "username": "SYSDBA",
+                           "password": "pw", "schema": "APP"})
+    assert dsn.startswith("dm://")
+    back = parse_dsn("dm", dsn)
+    assert back["schema"] == "APP" and back["password"] == "pw"
+    caps = capabilities("dm")
+    assert caps["metadata"] and caps["query"]

@@ -197,6 +197,27 @@ def run_rule(session, rule_id: int, project_id: int | None = None) -> QualityRes
     if not supports(datasource.kind, "query"):
         raise ValueError("%s is a pipeline connector; quality rules are not "
                          "supported" % datasource.kind)
+    if datasource.kind == "dm":
+        from odf.connectors import dm
+
+        class _DmRunner:
+            def __init__(self, dsn):
+                self.dsn = dsn
+
+            def execute(self, _datasource, sql, params, limit):
+                return dm.query(self.dsn, sql, limit)
+
+        ok, detail = _run_simple(
+            session, datasource, ds, rule,
+            runner=_DmRunner(get_dsn(datasource)),
+            schema=dm.options(get_dsn(datasource))["schema"])
+        result = QualityResult(rule_id=rule.id,
+                               status="pass" if ok else "fail",
+                               detail_json=detail)
+        session.add(result)
+        session.commit()
+        session.refresh(result)
+        return result
     if datasource.kind == "hive":
         from odf.connectors import hive
 
