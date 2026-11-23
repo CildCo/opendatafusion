@@ -6,7 +6,7 @@ from odf.assets.service import (create_asset, delete_asset_of, get_asset,
                                 list_assets, list_versions, update_asset,
                                 update_draft)
 from odf.db import get_session
-from odf.models import AssetVersion, Job
+from odf.models import AssetVersion, Job, PipelineNodeRun
 from odf.pipeline.cursors import list_cursors, set_cursor
 from odf.pipeline.preview import preview_pipeline
 from odf.pipeline.runner import PipelineRunError, backfill_content_error
@@ -283,9 +283,23 @@ def jobs(asset_id: int, s: Session = Depends(get_session),
                                 Job.asset_type.in_(
                                     ("pipeline", "pipeline_backfill")))
             .order_by(Job.id.desc()).limit(50).all())
+    nodes = {}
+    if rows:
+        node_rows = (s.query(PipelineNodeRun)
+                     .filter(PipelineNodeRun.job_id.in_([j.id for j in rows]))
+                     .order_by(PipelineNodeRun.id).all())
+        for node in node_rows:
+            nodes.setdefault(node.job_id, []).append({
+                "node_id": node.node_id, "status": node.status,
+                "in_num": node.in_num or 0, "out_num": node.out_num or 0,
+                "ms": node.ms or 0, "error": node.error})
     return [{"id": j.id, "status": j.status, "attempts": j.attempts,
              "asset_type": j.asset_type, "payload": j.payload_json or {},
-             "last_error": j.last_error} for j in rows]
+             "last_error": j.last_error,
+             "created_at": j.created_at.isoformat() if j.created_at else None,
+             "finished_at": (j.finished_at.isoformat()
+                             if j.finished_at else None),
+             "nodes": nodes.get(j.id, [])} for j in rows]
 
 
 @router.post("/pipelines/{asset_id}/preview")

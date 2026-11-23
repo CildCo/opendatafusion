@@ -258,9 +258,12 @@ def oidc_callback(code: str, state: str, request: Request,
 def me(claims: dict = Depends(require_user),
        s: Session = Depends(get_session)):
     u = s.get(User, int(claims["sub"]))
+    from odf.services.auth import effective_role
     return {"id": u.id if u else None,
             "username": u.username if u else None,
-            "role": u.role if u else None,
+            "role": (effective_role(s, u, claims.get("project_id"))
+                     if u else None),
+            "global_role": u.role if u else None,
             "platform_admin": bool(u.platform_admin) if u else False,
             "totp_enabled": bool(u.totp_enabled) if u else False,
             "project_id": claims.get("project_id")}

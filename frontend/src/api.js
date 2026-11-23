@@ -17,6 +17,9 @@ function acceptLanguage() {
   return lang === "en" ? "en-US,en;q=0.9" : "zh-CN,zh;q=0.9";
 }
 export const getRole = () => localStorage.getItem(ROLE_KEY);
+export const setRole = (value) => {
+  if (value) localStorage.setItem(ROLE_KEY, value);
+};
 export const getPlatformAdmin = () =>
   localStorage.getItem(PLATFORM_KEY) === "1";
 export const setPlatformAdmin = (value) =>

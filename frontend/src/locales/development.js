@@ -43,6 +43,15 @@ export default {
     "pipe.deleteConfirm": "删除管道 {name}？版本、运行记录和血缘会一并删除。",
     "pipe.deleteTitle": "删除管道",
     "pipe.deleted": "已删除",
+    "pipe.runs": "运行记录",
+    "pipe.noRuns": "暂无运行记录",
+    "pipe.attempts": "尝试",
+    "pipe.node": "节点",
+    "pipe.inNum": "输入行",
+    "pipe.outNum": "输出行",
+    "pipe.ms": "耗时(ms)",
+    "pipe.error": "错误",
+    "pipe.noNodes": "该作业没有节点明细（预览或历史作业）。",
 
     // Flows
     "flows.searchPlaceholder": "搜索流程名",
@@ -292,6 +301,15 @@ export default {
     "pipe.deleteConfirm": "Delete pipeline {name}? Its versions, runs and lineage will also be removed.",
     "pipe.deleteTitle": "Delete pipeline",
     "pipe.deleted": "Deleted",
+    "pipe.runs": "Runs",
+    "pipe.noRuns": "No runs yet",
+    "pipe.attempts": "Attempts",
+    "pipe.node": "Node",
+    "pipe.inNum": "Rows in",
+    "pipe.outNum": "Rows out",
+    "pipe.ms": "Duration (ms)",
+    "pipe.error": "Error",
+    "pipe.noNodes": "No node detail for this run (preview or older job).",
 
     // Flows
     "flows.searchPlaceholder": "Search flow name",

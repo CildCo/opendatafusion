@@ -33,8 +33,11 @@
                           ? t('pipe.enabled') : t('pipe.disabled')" />
           </template>
         </el-table-column>
-        <el-table-column :label="t('pipe.actions')" width="90" fixed="right">
+        <el-table-column :label="t('pipe.actions')" width="170" fixed="right">
           <template #default="{ row }">
+            <el-button link @click.stop="openRuns(row)">
+              {{ t("pipe.runs") }}
+            </el-button>
             <el-button v-if="canEdit" link type="danger"
                        @click.stop="remove(row)">
               {{ t("pipe.delete") }}
@@ -47,6 +50,39 @@
                    :action-text="canEdit ? t('pipe.newPipeline') : ''"
                    @action="create" />
     </el-card>
+
+    <el-drawer v-model="runsOpen" :title="t('pipe.runs')" size="660px">
+      <p class="runs-sub">{{ currentName }}</p>
+      <empty-state v-if="!runs.length" :title="t('pipe.noRuns')"
+                   :image-size="60" />
+      <div v-for="job in runs" :key="job.id" class="run-block">
+        <div class="run-head">
+          <b>#{{ job.id }}</b>
+          <el-tag size="small" :type="job.status === 'success'
+            ? 'success' : (job.status === 'failed' ? 'danger' : 'info')">
+            {{ job.status }}
+          </el-tag>
+          <span class="muted">{{ t("pipe.attempts") }} {{ job.attempts }}</span>
+          <span v-if="job.created_at" class="muted">
+            {{ fmtDate(job.created_at) }}
+          </span>
+        </div>
+        <div v-if="job.last_error" class="run-error">{{ job.last_error }}</div>
+        <el-table v-if="job.nodes.length" :data="job.nodes" size="small">
+          <el-table-column prop="node_id" :label="t('pipe.node')"
+                           min-width="150" />
+          <el-table-column prop="status" :label="t('pipe.status')"
+                           width="100" />
+          <el-table-column prop="in_num" :label="t('pipe.inNum')" width="90" />
+          <el-table-column prop="out_num" :label="t('pipe.outNum')"
+                           width="90" />
+          <el-table-column prop="ms" :label="t('pipe.ms')" width="90" />
+          <el-table-column prop="error" :label="t('pipe.error')"
+                           min-width="160" />
+        </el-table>
+        <p v-else class="muted">{{ t("pipe.noNodes") }}</p>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -55,7 +91,7 @@ import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, canWrite, errMsg } from "../api";
-import { t } from "../i18n";
+import { fmtDate, t } from "../i18n";
 import EmptyState from "../components/EmptyState.vue";
 import EntityIcon from "../components/EntityIcon.vue";
 import PageHeader from "../components/PageHeader.vue";
@@ -65,6 +101,9 @@ const rows = ref([]);
 const selected = ref([]);
 const canEdit = canWrite();
 const loading = ref(false);
+const runsOpen = ref(false);
+const runs = ref([]);
+const currentName = ref("");
 const router = useRouter();
 const route = useRoute();
 
@@ -133,6 +172,17 @@ async function create() {
   }
 }
 
+async function openRuns(row) {
+  currentName.value = row.name;
+  runs.value = [];
+  runsOpen.value = true;
+  try {
+    runs.value = await api.get(`/pipelines/${row.id}/jobs`);
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
 function open(row) {
   router.push(`/pipelines/${row.id}`);
 }
@@ -149,4 +199,24 @@ onMounted(() => { if (route.query.new && canEdit) create(); });
 }
 .card { border-radius: 12px; border: 1px solid #e5e7eb; }
 :deep(.clickable) { cursor: pointer; }
+.runs-sub { margin: 0 0 12px; color: #64748b; font-size: 12px; }
+.run-block {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.run-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.run-error {
+  color: #b91c1c;
+  font-size: 12px;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+.muted { color: #64748b; font-size: 12px; }
 </style>

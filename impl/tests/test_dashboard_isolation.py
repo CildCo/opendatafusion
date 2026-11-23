@@ -125,3 +125,16 @@ def test_dashboard_recent_runs_include_pipeline_and_stay_scoped():
     assert "中文管道" not in names
     assert "flow_8201" not in names
     assert "flow_8202" in names
+
+
+def test_pipeline_jobs_expose_node_trace():
+    _seed()
+    r = TestClient(app).get("/api/v1/pipelines/8211/jobs",
+                            headers=_h(8201, 8201))
+    assert r.status_code == 200
+    jobs = r.json()
+    assert jobs and jobs[0]["nodes"]
+    nodes = {row["node_id"]: row for row in jobs[0]["nodes"]}
+    assert nodes["src"]["out_num"] == 5
+    assert nodes["sink"]["in_num"] == 5
+    assert nodes["sink"]["status"] == "success"

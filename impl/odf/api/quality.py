@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from odf.db import get_session
+from odf.services.audit import write_audit
 from odf.services.auth import require_editor, require_user
 from odf.services.quality import (create_rule, delete_rule,
                                   list_results, rule_summaries, run_rule)
@@ -36,6 +37,10 @@ def create(body: RuleIn, s: Session = Depends(get_session),
                         body.kind, body.column_name, body.config)
     except ValueError as e:
         raise HTTPException(404, str(e))
+    write_audit(s, claims["sub"], "create_quality_rule", str(r.id),
+                {"name": r.name, "kind": r.kind,
+                 "dataset_id": r.dataset_id,
+                 "column": r.column_name})
     return {"id": r.id}
 
 
@@ -46,6 +51,7 @@ def remove(rule_id: int, s: Session = Depends(get_session),
         delete_rule(s, claims["project_id"], rule_id)
     except ValueError as e:
         raise HTTPException(404, str(e))
+    write_audit(s, claims["sub"], "delete_quality_rule", str(rule_id), {})
     return None
 
 
@@ -56,6 +62,8 @@ def run(rule_id: int, s: Session = Depends(get_session),
         result = run_rule(s, rule_id, claims["project_id"])
     except ValueError as e:
         raise HTTPException(404, str(e))
+    write_audit(s, claims["sub"], "run_quality_rule", str(rule_id),
+                {"result_id": result.id, "status": result.status})
     return {"id": result.id, "status": result.status,
             "detail": result.detail_json}
 
