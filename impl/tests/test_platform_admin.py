@@ -96,6 +96,13 @@ def test_platform_settings_routes_are_platform_admin_only(fixture):
     assert "brand" in public.json()
 
 
+def test_auth_me_reports_the_effective_project_role(fixture):
+    c = TestClient(app)
+    me = c.get("/api/v1/auth/me", headers=headers(PROJECT_ADMIN)).json()
+    assert me["role"] == "admin"
+    assert me["platform_admin"] is False
+
+
 def test_project_admin_scopes_members_to_their_project(fixture):
     c = TestClient(app)
     own = c.get("/api/v1/projects/%d/members" % PROJECT,

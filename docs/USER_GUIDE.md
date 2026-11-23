@@ -76,7 +76,8 @@ Node palette: source, filter, select columns, rename, cast, join, aggregate, uni
 1. Click a node type to add it; click the node to configure the source, table, key, filters and options.
 2. Drag from the source handle to the target handle (or click one handle and then the other) to connect nodes.
 3. Toolbar: Save draft, Validate, Preview the selected node, Run, Backfill, Cursors, Pause/Resume, Publish and Versions (with rollback).
-4. The list page can delete a pipeline together with its versions, runs and lineage.
+4. **Runs** on the list page shows each node of every run with rows in/out, duration and error, so a stalled stage is easy to locate.
+5. The list page can delete a pipeline together with its versions, runs and lineage.
 
 ## 9. Engines
 
@@ -153,7 +154,7 @@ Create a subscription with name, callback URL, events (blank means all) and sign
 
 ## 18. Data quality
 
-Create rules by dataset, kind (not null, unique, range, freshness, schema and more), column and configuration. Run a rule and inspect Results; deleting a rule deletes its results.
+Create rules by dataset, kind (not null, unique, range, freshness, schema and more), column and configuration. Run a rule and inspect Results; deleting a rule deletes its results. Creating, running and deleting a rule is written to the audit log, searchable by `quality_rule`.
 
 The list shows the last result and the pass rate over recent runs. Results summarises that trend and links to the dataset page.
 

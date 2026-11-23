@@ -2,8 +2,8 @@ from fastapi.testclient import TestClient
 
 from odf.db import SessionLocal
 from odf.main import app
-from odf.models import (Column, Dataset, Datasource, Project, ProjectMember,
-                        QualityRule, User)
+from odf.models import (AuditLog, Column, Dataset, Datasource, Project,
+                        ProjectMember, QualityRule, User)
 from odf.services.auth import create_token
 from odf.services.crypto import encrypt_secret
 
@@ -106,3 +106,25 @@ def test_editor_can_create_rule_in_own_project():
     rid = r.json()["id"]
     assert any(x["id"] == rid for x in
                c.get("/api/v1/quality/rules", headers=_h(8103, 8101)).json())
+
+
+def test_quality_rule_changes_are_audited():
+    _seed()
+    c = TestClient(app)
+    r = c.post("/api/v1/quality/rules", headers=_h(8103, 8101),
+               json={"project_id": 8101, "dataset_id": 8101,
+                     "name": "audited rule", "kind": "not_null",
+                     "column_name": "v", "config": {}})
+    assert r.status_code == 200
+    rid = r.json()["id"]
+    assert c.delete("/api/v1/quality/rules/%d" % rid,
+                    headers=_h(8103, 8101)).status_code == 204
+    with SessionLocal() as s:
+        created = (s.query(AuditLog)
+                   .filter_by(actor="8103", action="create_quality_rule",
+                              target=str(rid)).first())
+        removed = (s.query(AuditLog)
+                   .filter_by(actor="8103", action="delete_quality_rule",
+                              target=str(rid)).first())
+        assert created and created.detail_json["name"] == "audited rule"
+        assert removed

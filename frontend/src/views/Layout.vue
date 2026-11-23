@@ -105,7 +105,7 @@ import { Search, Setting } from "@element-plus/icons-vue";
 import { MENU_GROUPS, MENU_ITEMS } from "../menu";
 import { ElMessage } from "element-plus";
 import { api, clearSession, getPlatformAdmin, getProject, getRole,
-         setPlatformAdmin, setProject } from "../api";
+         setPlatformAdmin, setProject, setRole } from "../api";
 import { t, toggleLocale } from "../i18n";
 import CommandPalette from "../components/CommandPalette.vue";
 import { pushRecent } from "../recent";
@@ -114,7 +114,7 @@ const route = useRoute();
 const router = useRouter();
 const paletteOpen = ref(false);
 const appVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
-const role = getRole() || "viewer";
+const role = ref(getRole() || "viewer");
 const platformAdmin = ref(getPlatformAdmin());
 const online = ref(true);
 const projects = ref([]);
@@ -129,7 +129,7 @@ const FEATURE_PATHS = {"/workbench": "workbench", "/cdc": "cdc",
 
 const menuGroups = computed(() => {
   const hidden = portal.value.hidden_menus || [];
-  const allowed = role === "admin" ? null : portal.value.allowed_menus;
+  const allowed = role.value === "admin" ? null : portal.value.allowed_menus;
   const features = portal.value.features || {};
   return groups.map((g) => ({
     ...g,
@@ -154,8 +154,8 @@ const projectName = computed(() => {
 });
 
 const roleLabel = computed(() =>
-  t("role." + (["admin", "editor", "approver", "viewer"].includes(role)
-    ? role : "viewer")));
+  t("role." + (["admin", "editor", "approver", "viewer"].includes(role.value)
+    ? role.value : "viewer")));
 
 const pageTitle = computed(() => {
   const found = groups.flatMap((g) => g.items).find(
@@ -215,6 +215,8 @@ async function loadProjects() {
   try {
     const me = await api.get("/auth/me");
     username.value = me.username || "admin";
+    role.value = me.role || "viewer";
+    setRole(me.role);
     platformAdmin.value = !!me.platform_admin;
     setPlatformAdmin(me.platform_admin);
     if (!getProject() && me.project_id) {
