@@ -66,6 +66,9 @@ def connectors(claims: dict = Depends(require_user)):
 @router.post("/datasources/test")
 def test_body(body: DsTestIn, s: Session = Depends(get_session),
               claims: dict = Depends(require_editor)):
+    if (body.kind or "").lower() == "file":
+        return {"ok": False,
+                "error": "save the datasource first, then test the file"}
     try:
         current = None
         if body.datasource_id is not None:

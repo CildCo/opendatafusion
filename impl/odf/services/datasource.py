@@ -167,17 +167,36 @@ def _check_http(dsn: str, timeout: int, kind: str) -> dict:
 
 
 def _safe_error(error: Exception, dsn: str) -> str:
-    message = str(error) or error.__class__.__name__
-    try:
-        url = make_url(dsn)
-        if url.password:
-            message = message.replace(url.password, "***")
-            message = message.replace(
-                "%s:%s@" % (url.username or "", url.password),
-                "%s:***@" % (url.username or ""))
-    except Exception:
-        pass
-    return message[:300]
+    """Map driver errors to a small set of client-safe reasons.
+
+    Raw driver messages can include connection strings, stack details or
+    server internals, so only a curated label is returned to the console.
+    """
+    text = (str(error) or "").lower()
+    if "outside the configured file roots" in text:
+        return "file path is outside the allowed roots"
+    if "unsupported file type" in text:
+        return "unsupported file type"
+    if "no such file" in text or "not found" in text:
+        return "file not found"
+    if "not allowed" in text:
+        return "address or host is not allowed"
+    if ("resolve" in text or "name or service" in text or
+            "getaddrinfo" in text or "nodename" in text):
+        return "host cannot be resolved"
+    if ("authentication" in text or "password" in text or
+            "access denied" in text or "login failed" in text or
+            "invalid user" in text):
+        return "authentication failed"
+    if "timed out" in text or "timeout" in text:
+        return "connection timed out"
+    if "refused" in text:
+        return "connection refused"
+    if "http 5" in text or "server error" in text:
+        return "endpoint returned a server error"
+    if "http 4" in text or "unauthorized" in text or "forbidden" in text:
+        return "endpoint rejected the request"
+    return "connection failed"
 
 
 def test_connection(dsn: str, timeout: int = 5, kind: str | None = None) -> bool:

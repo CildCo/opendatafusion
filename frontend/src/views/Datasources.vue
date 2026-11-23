@@ -114,7 +114,7 @@
                   type="info">{{ t("ds.cap." + cap) }}</el-tag>
         </div>
 
-        <div class="test-row">
+        <div v-if="form.kind !== 'file'" class="test-row">
           <el-button :loading="testing" @click="testDraft">
             {{ testing ? t("ds.testing") : t("ds.testConnection") }}
           </el-button>
@@ -125,6 +125,7 @@
             {{ testResult.error }}
           </span>
         </div>
+        <p v-else class="hint test-row">{{ t("ds.testAfterSave") }}</p>
       </el-form>
       <template #footer>
         <el-button @click="dialog = false">{{ t("ds.cancel") }}</el-button>
