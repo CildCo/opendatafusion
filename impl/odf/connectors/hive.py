@@ -87,3 +87,55 @@ def tables(dsn):
             cursor.close()
     finally:
         conn.close()
+
+
+class HiveSource:
+    def __init__(self, ds, dag):
+        from odf.services.datasource import get_dsn
+        self.dsn = get_dsn(ds)
+        self.dag = dag
+
+    def read(self, cursor, limit):
+        from odf.apistudio.compiler import quote_ident
+        from odf.connectors.sql import format_cursor, parse_cursor
+        table = (self.dag.get("source_table") or "").strip()
+        if not table:
+            raise ValueError("hive source needs a table")
+        parts = [quote_ident(p) for p in table.split(".") if p]
+        sql = "SELECT * FROM %s" % ".".join(parts)
+        col = self.dag.get("cursor_column")
+        pk = self.dag.get("pk") or "id"
+        binds = []
+        current = parse_cursor(cursor)
+        if col and current:
+            if len(current) > 1 and current[1] is not None:
+                sql += (" WHERE (%s > ? OR (%s = ? AND %s > ?))"
+                        % (quote_ident(col), quote_ident(col),
+                           quote_ident(pk)))
+                binds += [current[0], current[0], current[1]]
+            else:
+                sql += " WHERE %s > ?" % quote_ident(col)
+                binds.append(current[0])
+        if col:
+            sql += " ORDER BY %s, %s" % (quote_ident(col), quote_ident(pk))
+        sql += " LIMIT %d" % max(1, int(limit))
+        # HiveServer2 does not accept bound parameters here.
+        from odf.trino.client import render_params
+        rendered = sql
+        for index, value in enumerate(binds, 1):
+            rendered = rendered.replace("?", _literal(value), 1)
+        result = query(self.dsn, rendered, limit)
+        rows = result["rows"]
+        new_cursor = cursor
+        if col and rows:
+            last = rows[-1]
+            new_cursor = format_cursor(last.get(col), last.get(pk))
+        return rows, new_cursor
+
+
+def _literal(value):
+    if value is None:
+        return "NULL"
+    if isinstance(value, (int, float)):
+        return str(value)
+    return "'" + str(value).replace("'", "''") + "'"

@@ -274,88 +274,88 @@ def run_rule(session, rule_id: int, project_id: int | None = None) -> QualityRes
         session.refresh(result)
         return result
     dsn = get_dsn(datasource)
-    engine = create_engine(dsn, connect_args=connect_args_for(
-        datasource.kind, dsn))
-    schema = None if ds.schema_name in ("main", None) else ds.schema_name
-    t = Table(ds.table_name, MetaData(), schema=schema, autoload_with=engine)
+    from odf.services.connections import engine_for
+    with engine_for(datasource) as engine:
+        schema = None if ds.schema_name in ("main", None) else ds.schema_name
+        t = Table(ds.table_name, MetaData(), schema=schema, autoload_with=engine)
 
-    with engine.connect() as c:
-        if rule.kind == "not_null":
-            bad = c.execute(select(func.count()).select_from(t).where(
-                t.c[rule.column_name].is_(None))).scalar()
-            ok, detail = bad == 0, {"nulls": bad}
-        elif rule.kind == "unique":
-            total = c.execute(select(func.count()).select_from(t)).scalar()
-            distinct = c.execute(select(
-                func.count(t.c[rule.column_name].distinct())).select_from(t)).scalar()
-            bad = total - distinct
-            ok, detail = bad == 0, {"duplicates": bad, "total": total}
-        elif rule.kind == "row_count":
-            n = c.execute(select(func.count()).select_from(t)).scalar()
-            cfg = rule.config_json or {}
-            lo, hi = cfg.get("min"), cfg.get("max")
-            ok = (lo is None or n >= lo) and (hi is None or n <= hi)
-            detail = {"rows": n, "min": lo, "max": hi}
-        elif rule.kind == "freshness":
-            cfg = rule.config_json or {}
-            value = c.execute(select(func.max(t.c[rule.column_name]))).scalar()
-            ok, detail = _freshness(value, cfg.get("max_age_hours", 24))
-        elif rule.kind == "regex":
-            cfg = rule.config_json or {}
-            pattern = cfg.get("pattern")
-            if not isinstance(pattern, str) or not pattern:
-                ok, detail = False, {"error": "pattern is required"}
-            else:
-                compiled = re.compile(pattern)
-                values = c.execute(
-                    select(t.c[rule.column_name])).fetchmany(100000)
-                invalid = checked = 0
-                for (value,) in values:
-                    if value is None:
-                        if not cfg.get("allow_null", True):
+        with engine.connect() as c:
+            if rule.kind == "not_null":
+                bad = c.execute(select(func.count()).select_from(t).where(
+                    t.c[rule.column_name].is_(None))).scalar()
+                ok, detail = bad == 0, {"nulls": bad}
+            elif rule.kind == "unique":
+                total = c.execute(select(func.count()).select_from(t)).scalar()
+                distinct = c.execute(select(
+                    func.count(t.c[rule.column_name].distinct())).select_from(t)).scalar()
+                bad = total - distinct
+                ok, detail = bad == 0, {"duplicates": bad, "total": total}
+            elif rule.kind == "row_count":
+                n = c.execute(select(func.count()).select_from(t)).scalar()
+                cfg = rule.config_json or {}
+                lo, hi = cfg.get("min"), cfg.get("max")
+                ok = (lo is None or n >= lo) and (hi is None or n <= hi)
+                detail = {"rows": n, "min": lo, "max": hi}
+            elif rule.kind == "freshness":
+                cfg = rule.config_json or {}
+                value = c.execute(select(func.max(t.c[rule.column_name]))).scalar()
+                ok, detail = _freshness(value, cfg.get("max_age_hours", 24))
+            elif rule.kind == "regex":
+                cfg = rule.config_json or {}
+                pattern = cfg.get("pattern")
+                if not isinstance(pattern, str) or not pattern:
+                    ok, detail = False, {"error": "pattern is required"}
+                else:
+                    compiled = re.compile(pattern)
+                    values = c.execute(
+                        select(t.c[rule.column_name])).fetchmany(100000)
+                    invalid = checked = 0
+                    for (value,) in values:
+                        if value is None:
+                            if not cfg.get("allow_null", True):
+                                invalid += 1
+                            continue
+                        checked += 1
+                        if not compiled.search(str(value)):
                             invalid += 1
-                        continue
-                    checked += 1
-                    if not compiled.search(str(value)):
-                        invalid += 1
-                ok, detail = invalid == 0, {"invalid": invalid,
-                                            "checked": checked}
-        elif rule.kind == "accepted_values":
-            cfg = rule.config_json or {}
-            accepted = cfg.get("values")
-            if not isinstance(accepted, list) or not accepted:
-                ok, detail = False, {"error": "values are required"}
+                    ok, detail = invalid == 0, {"invalid": invalid,
+                                                "checked": checked}
+            elif rule.kind == "accepted_values":
+                cfg = rule.config_json or {}
+                accepted = cfg.get("values")
+                if not isinstance(accepted, list) or not accepted:
+                    ok, detail = False, {"error": "values are required"}
+                else:
+                    values = c.execute(
+                        select(t.c[rule.column_name])).fetchmany(100000)
+                    bad = 0
+                    for (value,) in values:
+                        if value is None:
+                            bad += 0 if cfg.get("allow_null", True) else 1
+                        elif value not in accepted:
+                            bad += 1
+                    ok, detail = bad == 0, {"invalid": bad,
+                                            "checked": len(values)}
+            elif rule.kind == "schema":
+                cfg = rule.config_json or {}
+                actual_columns = [x["name"] for x in table_column_info(
+                    session, datasource, ds.table_name)]
+                ok, detail = _schema_check(actual_columns,
+                                           cfg.get("expected"),
+                                           cfg.get("allow_extra", False))
+            elif rule.kind == "range":
+                col = t.c[rule.column_name]
+                cfg = rule.config_json or {}
+                conds = []
+                if cfg.get("min") is not None:
+                    conds.append(col < cfg["min"])
+                if cfg.get("max") is not None:
+                    conds.append(col > cfg["max"])
+                where = or_(*conds) if conds else false()
+                bad = c.execute(select(func.count()).select_from(t).where(where)).scalar()
+                ok, detail = bad == 0, {"out_of_range": bad}
             else:
-                values = c.execute(
-                    select(t.c[rule.column_name])).fetchmany(100000)
-                bad = 0
-                for (value,) in values:
-                    if value is None:
-                        bad += 0 if cfg.get("allow_null", True) else 1
-                    elif value not in accepted:
-                        bad += 1
-                ok, detail = bad == 0, {"invalid": bad,
-                                        "checked": len(values)}
-        elif rule.kind == "schema":
-            cfg = rule.config_json or {}
-            actual_columns = [x["name"] for x in table_column_info(
-                session, datasource, ds.table_name)]
-            ok, detail = _schema_check(actual_columns,
-                                       cfg.get("expected"),
-                                       cfg.get("allow_extra", False))
-        elif rule.kind == "range":
-            col = t.c[rule.column_name]
-            cfg = rule.config_json or {}
-            conds = []
-            if cfg.get("min") is not None:
-                conds.append(col < cfg["min"])
-            if cfg.get("max") is not None:
-                conds.append(col > cfg["max"])
-            where = or_(*conds) if conds else false()
-            bad = c.execute(select(func.count()).select_from(t).where(where)).scalar()
-            ok, detail = bad == 0, {"out_of_range": bad}
-        else:
-            ok, detail = False, {"error": "unsupported kind"}
+                ok, detail = False, {"error": "unsupported kind"}
 
     result = QualityResult(rule_id=rule.id,
                            status="pass" if ok else "fail",
@@ -401,6 +401,10 @@ def rule_summaries(session, project_id: int):
             "id": rule.id, "dataset_id": rule.dataset_id, "name": rule.name,
             "kind": rule.kind, "column": rule.column_name,
             "enabled": rule.enabled,
+            "schedule_cron": rule.schedule_cron,
+            "alert_on_fail": bool(rule.alert_on_fail),
+            "last_run_at": (rule.last_run_at.isoformat()
+                            if rule.last_run_at else None),
             "last_status": last.status if last else None,
             "last_at": last.at.isoformat() if last else None,
             "pass_rate": (int(round(passed * 100 / len(results)))

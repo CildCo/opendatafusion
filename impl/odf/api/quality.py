@@ -18,6 +18,14 @@ class RuleIn(BaseModel):
     kind: str
     column_name: str | None = None
     config: dict = {}
+    schedule_cron: str | None = None
+    alert_on_fail: bool = False
+
+
+class RuleUpdateIn(BaseModel):
+    schedule_cron: str | None = None
+    alert_on_fail: bool | None = None
+    enabled: bool | None = None
 
 
 @router.get("/quality/rules")
@@ -35,6 +43,9 @@ def create(body: RuleIn, s: Session = Depends(get_session),
     try:
         r = create_rule(s, claims["project_id"], body.dataset_id, body.name,
                         body.kind, body.column_name, body.config)
+        r.schedule_cron = (body.schedule_cron or None)
+        r.alert_on_fail = bool(body.alert_on_fail)
+        s.commit()
     except ValueError as e:
         raise HTTPException(404, str(e))
     write_audit(s, claims["sub"], "create_quality_rule", str(r.id),
@@ -42,6 +53,26 @@ def create(body: RuleIn, s: Session = Depends(get_session),
                  "dataset_id": r.dataset_id,
                  "column": r.column_name})
     return {"id": r.id}
+
+
+@router.put("/quality/rules/{rule_id}")
+def update(rule_id: int, body: RuleUpdateIn,
+           s: Session = Depends(get_session),
+           claims: dict = Depends(require_editor)):
+    from odf.models import QualityRule
+    rule = s.get(QualityRule, rule_id)
+    if not rule or rule.project_id != claims["project_id"]:
+        raise HTTPException(404, "rule not found")
+    if body.schedule_cron is not None:
+        rule.schedule_cron = body.schedule_cron or None
+    if body.alert_on_fail is not None:
+        rule.alert_on_fail = bool(body.alert_on_fail)
+    if body.enabled is not None:
+        rule.enabled = bool(body.enabled)
+    s.commit()
+    return {"id": rule.id, "schedule_cron": rule.schedule_cron,
+            "alert_on_fail": bool(rule.alert_on_fail),
+            "enabled": bool(rule.enabled)}
 
 
 @router.delete("/quality/rules/{rule_id}", status_code=204)

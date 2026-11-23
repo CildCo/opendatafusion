@@ -13,6 +13,7 @@
       <el-button size="small" :loading="querying" @click="preview">{{ t("med.preview") }}</el-button>
       <el-button size="small" type="primary" @click="publish">{{ t("med.publish") }}</el-button>
       <el-button size="small" @click="versionsOpen = true">{{ t("med.versions") }}</el-button>
+      <el-button size="small" @click="lineageOpen = true">{{ t("lin.button") }}</el-button>
     </div>
 
     <div class="body">
@@ -113,6 +114,7 @@
         </el-table-column>
       </el-table>
     </el-drawer>
+    <lineage-drawer v-model="lineageOpen" :asset-id="id" />
   </div>
 </template>
 
@@ -122,6 +124,7 @@ import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getProject, getRole } from "../api";
 import { t } from "../i18n";
+import LineageDrawer from "../components/LineageDrawer.vue";
 
 const route = useRoute();
 const id = Number(route.params.id);
@@ -136,6 +139,7 @@ const sql = ref("");
 const querying = ref(false);
 const versions = ref([]);
 const versionsOpen = ref(false);
+const lineageOpen = ref(false);
 const aggs = ["sum", "count", "avg", "min", "max"];
 const content = ref({
   dataset_id: null,

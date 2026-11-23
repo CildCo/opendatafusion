@@ -1,3 +1,6 @@
+import time
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -5,6 +8,7 @@ from odf.db import get_session
 from odf.services.audit import write_audit
 from odf.services.auth import require_editor, require_user
 from odf.models import Datasource
+from odf.services.datasource_health import record
 from odf.services.metadata import list_tables, sync_datasource
 
 router = APIRouter()
@@ -27,11 +31,22 @@ def tables(datasource_id: int, s: Session = Depends(get_session),
 @router.post("/datasources/{datasource_id}/sync")
 def sync(datasource_id: int, s: Session = Depends(get_session),
          claims: dict = Depends(require_editor)):
-    _ds(s, datasource_id, claims)
+    ds = _ds(s, datasource_id, claims)
+    started = time.monotonic()
     try:
         tables = sync_datasource(s, datasource_id)
     except ValueError as e:
+        ds.last_sync_at = datetime.now(timezone.utc)
+        ds.last_sync_status = "failed"
+        s.commit()
+        record(s, datasource_id, "sync", False, str(e),
+               (time.monotonic() - started) * 1000)
         raise HTTPException(400, str(e))
+    ds.last_sync_at = datetime.now(timezone.utc)
+    ds.last_sync_status = "ok"
+    s.commit()
+    record(s, datasource_id, "sync", True, "",
+           (time.monotonic() - started) * 1000)
     write_audit(s, claims["sub"], "sync_metadata", str(datasource_id),
                 {"tables": tables})
     return {"tables": tables}

@@ -13,6 +13,7 @@
       <el-button size="small" :loading="loadingData" @click="refresh">{{ t("dedit.refreshData") }}</el-button>
       <el-button size="small" type="primary" @click="publish">{{ t("dedit.publish") }}</el-button>
       <el-button size="small" @click="versionsOpen = true">{{ t("dedit.versions") }}</el-button>
+      <el-button size="small" @click="lineageOpen = true">{{ t("lin.button") }}</el-button>
       <el-button size="small" :disabled="!published"
                  @click="$router.push(`/dashboards/${id}/run`)">
         {{ t("dedit.run") }}
@@ -206,6 +207,7 @@
         </el-table-column>
       </el-table>
     </el-drawer>
+    <lineage-drawer v-model="lineageOpen" :asset-id="id" />
   </div>
 </template>
 
@@ -218,6 +220,7 @@ import { t } from "../i18n";
 import DashboardGrid from "../studio/dashboard/DashboardGrid.vue";
 import DashboardFilters from "../studio/dashboard/DashboardFilters.vue";
 import ShareDialog from "../studio/share/ShareDialog.vue";
+import LineageDrawer from "../components/LineageDrawer.vue";
 
 const route = useRoute();
 const id = Number(route.params.id);
@@ -237,6 +240,7 @@ const metricContent = ref(null);
 const loadingData = ref(false);
 const versions = ref([]);
 const versionsOpen = ref(false);
+const lineageOpen = ref(false);
 const dirty = ref(false);
 const types = computed(() => [
   { type: "card", label: t("dedit.typeCard") },

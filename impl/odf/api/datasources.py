@@ -8,7 +8,8 @@ from odf.connectors.registry import (build_dsn, capabilities, catalog,
                                      require_spec)
 from odf.models import Datasource
 from odf.services.audit import write_audit
-from odf.services.auth import require_editor, require_user
+from odf.services.auth import (require_approver, require_editor,
+                               require_user)
 from odf.services.datasource import (DatasourceInUse, check_connection,
                                      create_datasource, delete_datasource,
                                      get_dsn, mask_dsn, normalize_dsn,
@@ -29,6 +30,7 @@ class DsUpdateIn(BaseModel):
     name: str | None = None
     dsn: str | None = None
     config: dict | None = None
+    auto_sync_minutes: int | None = None
 
 
 class DsTestIn(BaseModel):
@@ -111,7 +113,11 @@ def list_ds(s: Session = Depends(get_session),
             config = {}
         rows.append({"id": d.id, "name": d.name, "kind": d.kind,
                      "dsn": mask_dsn(dsn), "config": config,
-                     "capabilities": capabilities(d.kind)})
+                     "capabilities": capabilities(d.kind),
+                     "auto_sync_minutes": d.auto_sync_minutes or 0,
+                     "last_sync_at": (d.last_sync_at.isoformat()
+                                      if d.last_sync_at else None),
+                     "last_sync_status": d.last_sync_status})
     return rows
 
 
@@ -130,12 +136,40 @@ def update(datasource_id: int, body: DsUpdateIn,
             dsn = _build(ds.kind, body.dsn, None)
         ds = update_datasource(s, claims["project_id"], datasource_id,
                                body.name, dsn)
+        if body.auto_sync_minutes is not None:
+            ds.auto_sync_minutes = max(0, int(body.auto_sync_minutes))
+            s.commit()
+            s.refresh(ds)
     except ValueError as e:
         raise HTTPException(400, str(e))
     write_audit(s, claims["sub"], "update_datasource", str(ds.id),
                 {"name": ds.name, "dsn_changed": bool(body.dsn)})
     return {"id": ds.id, "name": ds.name,
             "dsn": mask_dsn(get_dsn(ds))}
+
+
+@router.post("/datasources/{datasource_id}/accept-schema-drift")
+def accept_schema_drift(datasource_id: int, s: Session = Depends(get_session),
+                        claims: dict = Depends(require_approver)):
+    from datetime import datetime, timezone
+    from odf.models import Alert
+    ds = s.get(Datasource, datasource_id)
+    if not ds or ds.project_id != claims["project_id"]:
+        raise HTTPException(404, "datasource not found")
+    rows = (s.query(Alert).filter(
+        Alert.project_id == claims["project_id"], Alert.status == "open",
+        Alert.title.like("schema drift:%")).all())
+    changed = 0
+    for row in rows:
+        if (row.detail_json or {}).get("datasource_id") != datasource_id:
+            continue
+        row.status = "closed"
+        row.closed_at = datetime.now(timezone.utc)
+        changed += 1
+    s.commit()
+    write_audit(s, claims["sub"], "accept_schema_drift", str(datasource_id),
+                {"alerts": changed})
+    return {"alerts": changed}
 
 
 @router.delete("/datasources/{datasource_id}", status_code=204)
@@ -157,17 +191,34 @@ def remove(datasource_id: int, force: bool = False,
     return None
 
 
+@router.get("/datasources/{datasource_id}/health")
+def health(datasource_id: int, s: Session = Depends(get_session),
+           claims: dict = Depends(require_user)):
+    ds = s.get(Datasource, datasource_id)
+    if not ds or ds.project_id != claims["project_id"]:
+        raise HTTPException(404, "datasource not found")
+    from odf.services.datasource_health import recent
+    return recent(s, datasource_id)
+
+
 @router.post("/datasources/{datasource_id}/test")
 def test(datasource_id: int, s: Session = Depends(get_session),
          claims: dict = Depends(require_user)):
     ds = s.get(Datasource, datasource_id)
     if not ds or ds.project_id != claims["project_id"]:
         raise HTTPException(404, "datasource not found")
+    import time
+    from odf.services.datasource_health import record
+    started = time.monotonic()
     if ds.kind == "file":
         from odf import filesource
         try:
             filesource.describe(filesource.path_for(ds))
-            return {"ok": True, "error": None}
+            result = {"ok": True, "error": None}
         except Exception:
-            return {"ok": False, "error": "file is not readable"}
-    return check_connection(get_dsn(ds), kind=ds.kind)
+            result = {"ok": False, "error": "file is not readable"}
+    else:
+        result = check_connection(get_dsn(ds), kind=ds.kind)
+    record(s, datasource_id, "test", bool(result.get("ok")),
+           result.get("error") or "", (time.monotonic() - started) * 1000)
+    return result

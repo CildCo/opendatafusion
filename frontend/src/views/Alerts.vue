@@ -56,6 +56,11 @@
                        @click.stop="close(row)">
               {{ t("alerts.close") }}
             </el-button>
+            <el-button v-if="canApply && row.status === 'open'
+                             && row.title.startsWith('schema drift:')"
+                       link @click.stop="acceptDrift(row)">
+              {{ t("alerts.acceptDrift") }}
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -131,7 +136,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { api, canWrite, errMsg } from "../api";
+import { api, canApprove, canWrite, errMsg } from "../api";
 import { t } from "../i18n";
 import EmptyState from "../components/EmptyState.vue";
 import PageHeader from "../components/PageHeader.vue";
@@ -141,6 +146,7 @@ import StatusDot from "../components/StatusDot.vue";
 
 const rows = ref([]);
 const canEdit = canWrite();
+const canApply = canApprove();
 const rules = ref([]);
 const loading = ref(false);
 const status = ref("");
@@ -188,6 +194,18 @@ async function ack(row) {
     ElMessage.error(errMsg(e));
   }
 }
+async function acceptDrift(row) {
+  const dsId = (row.detail || {}).datasource_id;
+  if (!dsId) return;
+  try {
+    const out = await api.post(`/datasources/${dsId}/accept-schema-drift`);
+    ElMessage.success(t("alerts.driftAccepted").replace("{n}", out.alerts));
+    await load();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
 async function close(row) {
   try {
     await ElMessageBox.confirm(t("alerts.closeConfirm"),

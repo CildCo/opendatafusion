@@ -15,6 +15,7 @@
       <el-button size="small" @click="openPolicies">{{ t("ded.rowPolicies") }}</el-button>
       <el-button size="small" @click="openColumnPolicies">{{ t("ded.columnMasking") }}</el-button>
       <el-button size="small" @click="versionsOpen = true">{{ t("ded.versions") }}</el-button>
+      <el-button size="small" @click="lineageOpen = true">{{ t("lin.button") }}</el-button>
     </div>
     <div class="body">
       <main class="center">
@@ -152,6 +153,7 @@
         </el-table-column>
       </el-table>
     </el-drawer>
+    <lineage-drawer v-model="lineageOpen" :asset-id="id" />
   </div>
 </template>
 
@@ -162,6 +164,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
 import VisualBuilder from "../studio/api/VisualBuilder.vue";
+import LineageDrawer from "../components/LineageDrawer.vue";
 import { normalizeContent } from "../studio/api/content";
 
 const route = useRoute();
@@ -177,6 +180,7 @@ const sql = ref("");
 const previewing = ref(false);
 const versions = ref([]);
 const versionsOpen = ref(false);
+const lineageOpen = ref(false);
 const policiesOpen = ref(false);
 const policies = ref([]);
 const policyColumns = ref([]);

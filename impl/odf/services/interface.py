@@ -69,14 +69,13 @@ def execute_interface(session, interface_id, params, timeout_s=None,
         runner = filesource if ds.kind == "file" else clickhouse
         result = runner.execute(ds, sql, binds, limit)["rows"]
     else:
-        dsn = get_dsn(ds)
-        engine = create_engine(dsn,
-                               connect_args=connect_args_for(ds.kind, dsn))
+        from odf.services.connections import engine_for
         ms = (timeout_s or s.query_timeout_s) * 1000
-        with engine.connect() as c:
-            prepare_connection(c, engine.dialect.name, ms)
-            rows = c.execute(text(sql), binds).mappings().fetchmany(limit)
-            result = [dict(r) for r in rows]
+        with engine_for(ds) as engine:
+            with engine.connect() as c:
+                prepare_connection(c, engine.dialect.name, ms)
+                rows = c.execute(text(sql), binds).mappings().fetchmany(limit)
+                result = [dict(r) for r in rows]
     session.add(AuditLog(actor="openapi", action="query",
                          target=iface.interface_key,
                          detail_json={"rows": len(result)}))

@@ -136,6 +136,56 @@ def describe(value) -> list[dict]:
             con.close()
 
 
+def connect_paths(paths) -> tuple[duckdb.DuckDBPyConnection, list[str]]:
+    con = duckdb.connect()
+    names = []
+    used = set()
+    for path in paths:
+        path = Path(path)
+        name = table_name_for(path)
+        original = name
+        index = 2
+        while name in used:
+            name = "%s_%d" % (original, index)
+            index += 1
+        used.add(name)
+        _load(con, path, name)
+        names.append(name)
+    return con, names
+
+
+def execute_paths(paths, sql: str, params: dict | None = None,
+                  max_rows: int = 1000) -> dict:
+    if not isinstance(sql, str) or not sql.strip():
+        raise ValueError("sql is required")
+    binds = dict(params or {})
+    values = []
+
+    def repl(match):
+        key = match.group(1)
+        if key not in binds:
+            raise ValueError("missing parameter: %s" % key)
+        values.append(binds[key])
+        return "?"
+
+    con = None
+    try:
+        con, _ = connect_paths(paths)
+        rendered = re.sub(r"(?<!:):([A-Za-z_]\w*)", repl, sql)
+        result = con.execute(rendered, values)
+        columns = [d[0] for d in (result.description or [])]
+        rows = result.fetchmany(max_rows)
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(str(e))
+    finally:
+        if con is not None:
+            con.close()
+    return {"columns": columns,
+            "rows": [dict(zip(columns, row)) for row in rows]}
+
+
 def execute(ds, sql: str, params: dict | None = None,
             max_rows: int = 1000) -> dict:
     if not isinstance(sql, str) or not sql.strip():

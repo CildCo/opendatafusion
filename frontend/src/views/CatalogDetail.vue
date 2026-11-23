@@ -14,6 +14,9 @@
       <el-button v-if="isLakehouse" @click="openProperties">
         {{ t("cat.tableProperties") }}
       </el-button>
+      <el-button v-if="canCreate" @click="scanPii" :loading="pii.loading">
+        {{ t("cat.piiScan") }}
+      </el-button>
       <el-button v-if="canCreate" @click="createInterface">
         {{ t("catd.createInterface") }}
       </el-button>
@@ -269,6 +272,30 @@
       </el-tabs>
     </el-card>
 
+    <el-dialog v-model="pii.open" :title="t('cat.piiTitle')" width="640px">
+      <p class="hint">
+        {{ t("cat.piiIntro").replace("{n}", pii.sampled) }}
+      </p>
+      <el-table :data="pii.rows" size="small">
+        <el-table-column prop="column" :label="t('cat.piiColumn')" />
+        <el-table-column prop="classification" :label="t('cat.piiClass')" width="120" />
+        <el-table-column prop="detected_as" :label="t('cat.piiType')" width="110" />
+        <el-table-column prop="evidence" :label="t('cat.piiEvidence')" width="110" />
+        <el-table-column :label="t('cat.piiMasked')" width="90">
+          <template #default="{ row }">{{ row.masked ? t("cat.yes") : t("cat.no") }}</template>
+        </el-table-column>
+      </el-table>
+      <empty-state v-if="!pii.rows.length" :title="t('cat.piiEmpty')"
+                   :image-size="60" />
+      <template #footer>
+        <el-button @click="pii.open = false">{{ t("cat.cancel") }}</el-button>
+        <el-button type="primary" :disabled="!pii.rows.length"
+                   :loading="pii.applying" @click="applyPii">
+          {{ t("cat.piiApply") }}
+        </el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="tagDialog" :title="t('cat.tag')" width="420px">
       <el-input v-model="newTag" :placeholder="t('cat.newTagPlaceholder')" />
       <template #footer>
@@ -343,6 +370,8 @@ const profile = reactive({ loading: false, error: "", rows: 0, ms: 0,
 const sample = reactive({ loading: false, error: "", rows: [],
                           columns: [], row_count: 0, ms: 0, truncated: false });
 const tagDialog = ref(false);
+const pii = reactive({ open: false, loading: false, applying: false,
+                       rows: [], sampled: 0 });
 const newTag = ref("");
 const allTags = ref([]);
 const propsOpen = ref(false);
@@ -478,6 +507,35 @@ async function loadTags() {
     allTags.value = await api.get("/catalog/tags");
   } catch {
     allTags.value = [];
+  }
+}
+
+async function scanPii() {
+  pii.loading = true;
+  try {
+    const out = await api.post(
+      `/catalog/datasets/${route.params.id}/pii-scan?apply=false`);
+    pii.rows = out.findings || [];
+    pii.sampled = out.sampled_rows || 0;
+    pii.open = true;
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    pii.loading = false;
+  }
+}
+
+async function applyPii() {
+  pii.applying = true;
+  try {
+    await api.post(`/catalog/datasets/${route.params.id}/pii-scan?apply=true`);
+    ElMessage.success(t("cat.piiApplied"));
+    pii.open = false;
+    await load();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    pii.applying = false;
   }
 }
 

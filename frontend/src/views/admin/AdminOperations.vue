@@ -25,6 +25,61 @@ python -m odf.cli rotate-fernet --old-key ... --new-key ...</pre>
         <p class="muted">{{ t("adm.maintenanceHint") }}</p>
       </el-card>
       <el-card shadow="never">
+        <template #header><b>{{ t("adm.runtime") }}</b></template>
+        <el-descriptions :column="1" border size="small">
+          <el-descriptions-item :label="t('adm.version')">
+            {{ runtime.version || "-" }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('adm.license')">
+            {{ runtime.license || "-" }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('adm.database')">
+            {{ runtime.database || "-" }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('adm.scheduler')">
+            {{ runtime.scheduler || "-" }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('adm.workers')">
+            {{ runtime.queue?.workers ?? 0 }}
+          </el-descriptions-item>
+        </el-descriptions>
+      </el-card>
+
+      <el-card shadow="never">
+        <template #header><b>{{ t("adm.backup") }}</b></template>
+        <p class="muted">{{ t("adm.backupIntro") }}</p>
+        <div class="backup-actions">
+          <el-button type="primary" @click="downloadBackup">
+            {{ t("adm.backupExport") }}
+          </el-button>
+          <el-upload :show-file-list="false" :http-request="restoreBackup">
+            <el-button>{{ t("adm.backupRestore") }}</el-button>
+          </el-upload>
+        </div>
+      </el-card>
+
+      <el-card shadow="never">
+        <template #header><b>{{ t("adm.auditDelivery") }}</b></template>
+        <el-form label-width="130px" size="small">
+          <el-form-item :label="t('adm.auditRetention')">
+            <el-input-number v-model="audit.retention_days" :min="0"
+                             :max="3650" controls-position="right" />
+          </el-form-item>
+          <el-form-item :label="t('adm.siemUrl')">
+            <el-input v-model="audit.siem_url"
+                      placeholder="https://siem.example/ingest" />
+          </el-form-item>
+          <el-form-item :label="t('adm.siemToken')">
+            <el-input v-model="audit.siem_token" type="password"
+                      show-password :placeholder="t('ds.keepPassword')" />
+          </el-form-item>
+          <el-button :loading="auditSaving" @click="saveAudit">
+            {{ t("adm.save") }}
+          </el-button>
+        </el-form>
+      </el-card>
+
+      <el-card shadow="never">
         <template #header><b>{{ t("adm.featureState") }}</b></template>
         <div v-for="(enabled, key) in features" :key="key" class="flag-row">
           <span>{{ key }}</span>
@@ -40,21 +95,86 @@ python -m odf.cli rotate-fernet --old-key ... --new-key ...</pre>
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
-import { ElMessage } from "element-plus";
-import { api, errMsg } from "../../api";
+import { onMounted, reactive, ref } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { api, errMsg, getToken } from "../../api";
 import { t } from "../../i18n";
 import StatTile from "../../components/StatTile.vue";
 import StatusDot from "../../components/StatusDot.vue";
 
 const summary = ref({});
 const features = ref({});
+const runtime = ref({});
+const audit = reactive({ retention_days: 0, siem_url: "", siem_token: "" });
+const auditSaving = ref(false);
+
+async function downloadBackup() {
+  try {
+    const response = await fetch("/api/v1/platform/backup/export", {
+      headers: { Authorization: "Bearer " + getToken() },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "odf-backup.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+    ElMessage.success(t("adm.backupDownloaded"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function restoreBackup({ file }) {
+  try {
+    await ElMessageBox.prompt(t("adm.restoreConfirm"), t("adm.backupRestore"),
+      { inputPlaceholder: "RESTORE", type: "warning" });
+  } catch (e) {
+    return;
+  }
+  const form = new FormData();
+  form.append("file", file);
+  form.append("confirm", "RESTORE");
+  try {
+    const response = await fetch("/api/v1/platform/backup/restore", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + getToken() },
+      body: form,
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.detail || `HTTP ${response.status}`);
+    }
+    ElMessage.success(t("adm.restoreDone"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function saveAudit() {
+  auditSaving.value = true;
+  try {
+    await api.put("/platform/settings", {
+      audit: { retention_days: audit.retention_days || 0,
+               siem_url: audit.siem_url || "",
+               siem_token: audit.siem_token || "" },
+    });
+    ElMessage.success(t("adm.saved"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    auditSaving.value = false;
+  }
+}
 
 onMounted(async () => {
   try {
     summary.value = await api.get("/platform/overview");
     const doc = await api.get("/platform/settings");
     features.value = doc.features || {};
+    runtime.value = await api.get("/platform/runtime");
+    Object.assign(audit, doc.audit || {});
   } catch (e) {
     ElMessage.error(errMsg(e));
   }

@@ -9,9 +9,8 @@ from odf.trino.client import (TrinoError, client_for_datasource,
 
 
 def _sql_backend(ds, sql, params, max_rows, read_only, timeout_ms):
-    dsn = get_dsn(ds)
-    engine = create_engine(dsn, connect_args=connect_args_for(ds.kind, dsn))
-    try:
+    from odf.services.connections import engine_for
+    with engine_for(ds) as engine:
         with engine.connect() as conn:
             if read_only and engine.dialect.name == "postgresql":
                 conn.execute(text("set transaction read only"))
@@ -22,8 +21,6 @@ def _sql_backend(ds, sql, params, max_rows, read_only, timeout_ms):
             columns = list(result.keys())
             rows = [dict(row) for row in
                     result.mappings().fetchmany(max_rows)]
-    finally:
-        engine.dispose()
     return {"columns": columns, "rows": rows, "row_count": len(rows),
             "truncated": False}
 

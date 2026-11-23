@@ -215,7 +215,10 @@ def run(asset_id: int, s: Session = Depends(get_session),
     a = _asset(s, asset_id, claims)
     if not a.published_version_id:
         raise HTTPException(400, "pipeline is not published")
-    job = enqueue_asset(s, a.id, "pipeline")
+    try:
+        job = enqueue_asset(s, a.id, "pipeline")
+    except ValueError as error:
+        raise HTTPException(409, str(error))
     write_audit(s, claims["sub"], "run_pipeline", str(a.id),
                 {"job_id": job.id})
     return {"job_id": job.id}

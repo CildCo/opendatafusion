@@ -33,6 +33,7 @@
         </el-table-column>
         <el-table-column :label="t('adm.actions')" width="230" fixed="right">
           <template #default="{ row }">
+            <el-button link @click="openUsage(row)">{{ t("adm.usage") }}</el-button>
             <el-button link @click="openMembers(row)">{{ t("adm.members") }}</el-button>
             <el-button link @click="openQuota(row)">{{ t("adm.quotaEdit") }}</el-button>
             <el-button link @click="openEdit(row)">{{ t("adm.edit") }}</el-button>
@@ -92,6 +93,12 @@
         <el-form-item :label="t('adm.storage')">
           <el-input v-model="quota.storage" placeholder="100Gi" />
         </el-form-item>
+        <el-form-item :label="t('adm.maxJobs')">
+          <el-input v-model="quota.max_jobs" placeholder="20" />
+        </el-form-item>
+        <el-form-item :label="t('adm.maxAssets')">
+          <el-input v-model="quota.max_assets" placeholder="200" />
+        </el-form-item>
         <p class="hint">{{ t("adm.quotaHint") }}</p>
       </el-form>
       <template #footer>
@@ -101,6 +108,22 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <el-drawer v-model="usageOpen" :title="t('adm.usage') + ' · ' + (current?.name || '')" size="520px">
+      <div class="usage-grid">
+        <stat-tile icon="job" :label="t('adm.assetCount')" :value="usage.assets || 0" />
+        <stat-tile icon="job" :label="t('adm.memberCount')" :value="usage.members || 0" />
+        <stat-tile icon="job" :label="t('adm.queued')" :value="usage.jobs?.queued || 0" />
+        <stat-tile icon="job" :label="t('adm.running')" :value="usage.jobs?.running || 0" />
+      </div>
+      <p class="muted">{{ t("adm.usageHint") }}</p>
+      <el-table :data="usageRows" size="small">
+        <el-table-column prop="type" :label="t('adm.assetType')" />
+        <el-table-column prop="count" :label="t('adm.assetCount')" width="100" />
+      </el-table>
+      <h4>{{ t("adm.quota") }}</h4>
+      <json-view :value="usage.quota || {}" />
+    </el-drawer>
 
     <el-drawer v-model="membersOpen" :title="t('adm.membersTitle')"
                size="600px">
@@ -140,13 +163,15 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../../api";
 import { t } from "../../i18n";
 import EmptyState from "../../components/EmptyState.vue";
 import EntityIcon from "../../components/EntityIcon.vue";
 import StatusDot from "../../components/StatusDot.vue";
+import StatTile from "../../components/StatTile.vue";
+import JsonView from "../../components/JsonView.vue";
 
 const projects = ref([]);
 const users = ref([]);
@@ -161,7 +186,12 @@ const current = ref(null);
 const formRef = ref(null);
 const form = reactive({ code: "", name: "" });
 const edit = reactive({ name: "", enabled: true });
-const quota = reactive({ cpu: "", memory: "", pods: "", storage: "" });
+const quota = reactive({ cpu: "", memory: "", pods: "", storage: "",
+                         max_jobs: "", max_assets: "" });
+const usageOpen = ref(false);
+const usage = ref({});
+const usageRows = computed(() => Object.entries(usage.value.assets_by_type || {})
+  .map(([type, count]) => ({ type, count })));
 const memberForm = reactive({ user_id: null, role: "viewer" });
 
 const rules = {
@@ -242,8 +272,8 @@ async function saveEdit() {
 
 function openQuota(row) {
   current.value = row;
-  Object.assign(quota, { cpu: "", memory: "", pods: "", storage: "" },
-                row.quota || {});
+  Object.assign(quota, { cpu: "", memory: "", pods: "", storage: "",
+                         max_jobs: "", max_assets: "" }, row.quota || {});
   quotaOpen.value = true;
 }
 
@@ -260,6 +290,17 @@ async function saveQuota() {
     ElMessage.error(errMsg(e));
   } finally {
     saving.value = false;
+  }
+}
+
+async function openUsage(row) {
+  current.value = row;
+  usageOpen.value = true;
+  usage.value = {};
+  try {
+    usage.value = await api.get(`/projects/${row.id}/usage`);
+  } catch (e) {
+    ElMessage.error(errMsg(e));
   }
 }
 

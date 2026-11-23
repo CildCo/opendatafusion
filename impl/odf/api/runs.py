@@ -16,7 +16,10 @@ def start(flow_id: int, s: Session = Depends(get_session),
     flow = s.get(Flow, flow_id)
     if not flow or flow.status != 1:
         raise HTTPException(400, "flow is disabled")
-    job = enqueue(s, flow_id)
+    try:
+        job = enqueue(s, flow_id)
+    except ValueError as error:
+        raise HTTPException(409, str(error))
     write_audit(s, claims["sub"], "trigger_flow", str(flow_id),
                 {"job_id": job.id})
     return {"job_id": job.id}
