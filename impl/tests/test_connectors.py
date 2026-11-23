@@ -165,3 +165,19 @@ def test_kafka_source_and_sink(monkeypatch):
     assert rows and cursor == '{"0": 7}'
     sink = KafkaSink(ds, {"sink_table": "events"})
     assert sink.write([{"id": 1}, {"id": 2}]) == 2
+
+
+def test_s3_source_delegates_to_the_file_reader(monkeypatch, tmp_path):
+    path = tmp_path / "orders.csv"
+    path.write_text("id,name\n1,a\n2,b\n", encoding="utf-8")
+    calls = []
+    monkeypatch.setattr("odf.connectors.s3.temp_file",
+                        lambda dsn: (calls.append(dsn) or (path, str(tmp_path))))
+    monkeypatch.setattr("odf.filesource._allowed_roots",
+                        lambda: [tmp_path.resolve()])
+    from odf.connectors.s3 import S3Source
+    ds = Datasource(kind="s3", dsn_encrypted=encrypt_secret("s3://b/k"))
+    source = S3Source(ds, {"source_table": "orders", "pk": "id"})
+    rows, _ = source.read(None, 10)
+    assert [row["id"] for row in rows] == [1, 2]
+    assert calls

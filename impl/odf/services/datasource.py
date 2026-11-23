@@ -13,7 +13,9 @@ def mask_dsn(dsn: str) -> str:
     # Greedy up to the last '@' so passwords containing '@' are fully hidden.
     masked = re.sub(r"(://[^:/@]+:)(.*)(@[^@/]+(?::\d+)?(?:/|$))",
                     r"\1***\3", dsn)
-    return re.sub(r"(?i)(password|passwd)=([^&]+)", r"\1=***", masked)
+    return re.sub(
+        r"(?i)(password|passwd|secret_key|secret_access_key)=([^&]+)",
+        r"\1=***", masked)
 
 
 def normalize_dsn(kind: str, dsn: str) -> str:
@@ -151,6 +153,10 @@ def check_connection(dsn: str, timeout: int = 5,
         if kind == "kafka":
             from odf.connectors import kafka
             kafka.ping(dsn, timeout)
+            return {"ok": True, "error": None}
+        if kind == "s3":
+            from odf.connectors import s3
+            s3.ping(dsn)
             return {"ok": True, "error": None}
         args = connect_args_for(kind, dsn, timeout)
         e = create_engine(dsn, connect_args=args)

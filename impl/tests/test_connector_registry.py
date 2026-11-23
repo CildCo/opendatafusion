@@ -12,7 +12,7 @@ def test_catalog_covers_every_console_type():
                      "mssql", "clickhouse", "trino", "file", "http", "es",
                      "duckdb", "tidb", "doris", "starrocks", "oceanbase",
                      "opengauss", "kingbase", "gaussdb", "mongodb",
-                     "kafka"}
+                     "kafka", "s3"}
     for row in rows["connectors"]:
         assert row["capabilities"]["test"] is True
         assert row["fields"]
@@ -136,3 +136,18 @@ def test_kafka_roundtrip_and_capabilities():
     caps = capabilities("kafka")
     assert caps["source"] and caps["sink"]
     assert caps["metadata"] is False and caps["query"] is False
+
+
+def test_s3_roundtrip_and_capabilities():
+    dsn = build_dsn("s3", {"endpoint": "http://minio:9000", "bucket": "lake",
+                           "key": "folder/orders.parquet",
+                           "access_key": "ak", "secret_key": "sk",
+                           "region": "us-east-1"})
+    back = parse_dsn("s3", dsn)
+    assert back["bucket"] == "lake"
+    assert back["key"] == "folder/orders.parquet"
+    assert back["secret_key"] == "sk"
+    masked = masked_config("s3", dsn)
+    assert masked["secret_key"] == "" and masked["has_secret_key"] is True
+    caps = capabilities("s3")
+    assert caps["metadata"] and caps["query"] and caps["source"]
