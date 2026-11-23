@@ -87,6 +87,10 @@ def test_platform_settings_routes_are_platform_admin_only(fixture):
                  headers=headers(PLATFORM)).status_code == 200
     assert c.get("/api/v1/platform/overview",
                  headers=headers(PLATFORM)).status_code == 200
+    blocked = c.post("/api/v1/platform/identity/test-oidc",
+                     json={"issuer": "http://127.0.0.1:1"},
+                     headers=headers(PLATFORM))
+    assert blocked.status_code == 400
     public = c.get("/api/v1/platform/public")
     assert public.status_code == 200
     assert "brand" in public.json()

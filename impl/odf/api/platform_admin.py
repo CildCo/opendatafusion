@@ -42,15 +42,15 @@ class TestOidcIn(BaseModel):
 @router.post("/platform/identity/test-oidc")
 def test_oidc(body: TestOidcIn,
               claims: dict = Depends(require_platform_admin)):
-    import httpx
+    import json
+    from odf.services.net import request as outbound
     issuer = (body.issuer or "").rstrip("/")
     if not issuer:
         raise HTTPException(400, "issuer is required")
     try:
-        response = httpx.get(issuer + "/.well-known/openid-configuration",
-                             timeout=8)
-        response.raise_for_status()
-        data = response.json()
+        _, _, payload = outbound(
+            issuer + "/.well-known/openid-configuration", timeout=8)
+        data = json.loads(payload.decode("utf-8", "replace"))
     except Exception as error:
         raise HTTPException(400, "discovery failed: %s" % error)
     return {"ok": True,
