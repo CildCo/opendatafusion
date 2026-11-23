@@ -45,7 +45,7 @@ files-s3 = ["boto3>=1.43.115"]
 metrics = ["prometheus-client>=0.26.0"]
 otel = ["opentelemetry-sdk>=1.45.1", "opentelemetry-exporter-otlp>=1.45.1",
   "opentelemetry-instrumentation-fastapi>=0.45b0",
-  "opentelemetry-instrumentation-httpx>=0.45b0"]
+  "opentelemetry-instrumentation-httpx>=0.66b2"]
 
 [project.scripts]
 odf = "odf.cli:main"
