@@ -9,7 +9,7 @@
         <el-form-item :label="t('nconf.datasource')">
           <el-select v-model="cfg.datasource_id" style="width: 100%"
                      @change="loadTables(true)">
-            <el-option v-for="d in datasources" :key="d.id" :value="d.id"
+            <el-option v-for="d in availableSources" :key="d.id" :value="d.id"
                        :label="d.name" />
           </el-select>
         </el-form-item>
@@ -246,7 +246,7 @@
         <el-form-item :label="t('nconf.datasource')">
           <el-select v-model="cfg.datasource_id" style="width: 100%"
                      @change="loadTables(true)">
-            <el-option v-for="d in datasources" :key="d.id" :value="d.id"
+            <el-option v-for="d in availableSinks" :key="d.id" :value="d.id"
                        :label="d.name" />
           </el-select>
         </el-form-item>
@@ -288,7 +288,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { api } from "../../api";
 import { t } from "../../i18n";
 
@@ -297,6 +297,10 @@ const props = defineProps({
   datasources: { type: Array, default: () => [] },
 });
 const emit = defineEmits(["update"]);
+const availableSources = computed(() =>
+  props.datasources.filter((d) => !d.capabilities || d.capabilities.source));
+const availableSinks = computed(() =>
+  props.datasources.filter((d) => !d.capabilities || d.capabilities.sink));
 const tables = ref([]);
 const columns = ref([]);
 const cfg = ref({});

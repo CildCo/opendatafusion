@@ -187,6 +187,10 @@ def run_rule(session, rule_id: int, project_id: int | None = None) -> QualityRes
     datasource = session.get(Datasource, ds.datasource_id)
     if not datasource:
         raise ValueError("rule not found")
+    from odf.connectors.registry import supports
+    if not supports(datasource.kind, "query"):
+        raise ValueError("%s is a pipeline connector; quality rules are not "
+                         "supported" % datasource.kind)
     if datasource.kind in ("file", "clickhouse", "trino"):
         ok, detail = _run_simple(session, datasource, ds, rule)
         result = QualityResult(rule_id=rule.id,

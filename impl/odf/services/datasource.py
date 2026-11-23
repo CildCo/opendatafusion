@@ -117,32 +117,86 @@ def create_datasource(session, project_id: int, name: str, dsn: str,
     return ds
 
 
-def test_connection(dsn: str, timeout: int = 5, kind: str | None = None) -> bool:
-    if (kind or "").lower() == "trino":
-        try:
+def check_connection(dsn: str, timeout: int = 5,
+                     kind: str | None = None) -> dict:
+    kind = (kind or "").lower()
+    try:
+        if kind == "trino":
             from odf.trino.client import TrinoClient
-            return TrinoClient.from_dsn(dsn, timeout=timeout).ping()
-        except Exception:
-            return False
-    if (kind or "").lower() == "clickhouse":
-        try:
+            ok = TrinoClient.from_dsn(dsn, timeout=timeout).ping()
+            if not ok:
+                return {"ok": False, "error": "trino did not answer"}
+            return {"ok": True, "error": None}
+        if kind == "clickhouse":
             from odf import clickhouse
             client = clickhouse.client_from_dsn(dsn)
             try:
                 client.command("SELECT 1")
             finally:
                 client.close()
-            return True
-        except Exception:
-            return False
-    args = connect_args_for(kind or "", dsn, timeout)
-    try:
+            return {"ok": True, "error": None}
+        if kind in ("http", "es"):
+            return _check_http(dsn, timeout, kind)
+        args = connect_args_for(kind, dsn, timeout)
         e = create_engine(dsn, connect_args=args)
         with e.connect() as c:
             c.execute(text("select 1"))
-        return True
-    except Exception:
-        return False
+        return {"ok": True, "error": None}
+    except Exception as error:
+        return {"ok": False, "error": _safe_error(error, dsn)}
+
+
+def _check_http(dsn: str, timeout: int, kind: str) -> dict:
+    from odf.services.net import request as outbound
+    settings = get_settings()
+    allowed = tuple(item.strip() for item in
+                    (settings.http_allowed_hosts or "").split(",")
+                    if item.strip())
+    path = "/_cluster/health" if kind == "es" else ""
+    code, _, payload = outbound(
+        dsn.rstrip("/") + path, timeout=timeout,
+        allow_private=settings.http_allow_private, allowed_hosts=allowed,
+        max_bytes=1024 * 1024)
+    if code >= 500:
+        return {"ok": False, "error": "endpoint answered HTTP %d" % code}
+    return {"ok": True, "error": None}
+
+
+def _safe_error(error: Exception, dsn: str) -> str:
+    """Map driver errors to a small set of client-safe reasons.
+
+    Raw driver messages can include connection strings, stack details or
+    server internals, so only a curated label is returned to the console.
+    """
+    text = (str(error) or "").lower()
+    if "outside the configured file roots" in text:
+        return "file path is outside the allowed roots"
+    if "unsupported file type" in text:
+        return "unsupported file type"
+    if "no such file" in text or "not found" in text:
+        return "file not found"
+    if "not allowed" in text:
+        return "address or host is not allowed"
+    if ("resolve" in text or "name or service" in text or
+            "getaddrinfo" in text or "nodename" in text):
+        return "host cannot be resolved"
+    if ("authentication" in text or "password" in text or
+            "access denied" in text or "login failed" in text or
+            "invalid user" in text):
+        return "authentication failed"
+    if "timed out" in text or "timeout" in text:
+        return "connection timed out"
+    if "refused" in text:
+        return "connection refused"
+    if "http 5" in text or "server error" in text:
+        return "endpoint returned a server error"
+    if "http 4" in text or "unauthorized" in text or "forbidden" in text:
+        return "endpoint rejected the request"
+    return "connection failed"
+
+
+def test_connection(dsn: str, timeout: int = 5, kind: str | None = None) -> bool:
+    return bool(check_connection(dsn, timeout, kind).get("ok"))
 
 
 class DatasourceInUse(ValueError):

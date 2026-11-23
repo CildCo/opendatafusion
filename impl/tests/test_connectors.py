@@ -15,12 +15,14 @@ from odf.services.crypto import encrypt_secret
 
 @pytest.fixture(autouse=True)
 def _http_settings(monkeypatch):
-    monkeypatch.setattr(
-        "odf.connectors.http.get_settings",
-        lambda: SimpleNamespace(http_allow_private=True,
-                                http_allowed_hosts="",
-                                http_timeout_s=5,
-                                http_max_response_mb=5))
+    settings = SimpleNamespace(http_allow_private=True,
+                               http_allowed_hosts="",
+                               http_timeout_s=5,
+                               http_max_response_mb=5)
+    monkeypatch.setattr("odf.connectors.http.get_settings",
+                        lambda: settings)
+    monkeypatch.setattr("odf.connectors.es.get_settings",
+                        lambda: settings)
 
 
 def test_coerce_cursor_types():

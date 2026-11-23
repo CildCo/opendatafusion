@@ -45,6 +45,10 @@ def execute_interface(session, interface_id, params, timeout_s=None,
     if iface.status != 1:
         raise PermissionError("interface not published")
     ds = session.get(Datasource, iface.datasource_id)
+    from odf.connectors.registry import supports
+    if not supports(ds.kind, "query"):
+        raise ValueError("%s is a pipeline connector; interfaces are not "
+                         "supported" % ds.kind)
     from odf.services.masking import datasource_has_policies
     if datasource_has_policies(session, ds.id):
         raise PermissionError(
