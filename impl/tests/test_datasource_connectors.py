@@ -265,3 +265,26 @@ def test_hive_probe_and_metadata(seeded, monkeypatch):
                    headers=headers()).json()
     assert tables[0]["schema"] == "default"
     assert {x["name"] for x in tables[0]["columns"]} == {"id", "name"}
+
+
+def test_dm_probe_and_metadata(seeded, monkeypatch):
+    monkeypatch.setattr("odf.connectors.dm.ping", lambda dsn: True)
+    monkeypatch.setattr("odf.connectors.dm.tables", lambda dsn: [
+        {"schema": "APP", "table": "ORDERS", "columns": [
+            {"name": "ID", "type": "BIGINT"},
+            {"name": "TOTAL", "type": "DECIMAL"}]}])
+    c = TestClient(app)
+    created = c.post("/api/v1/datasources", headers=headers(), json={
+        "name": "dm", "kind": "dm",
+        "config": {"host": "dm", "port": 5236, "username": "SYSDBA",
+                   "password": "pw", "schema": "APP"}})
+    assert created.status_code == 200, created.text
+    ds_id = created.json()["id"]
+    assert c.post("/api/v1/datasources/%d/test" % ds_id,
+                  headers=headers()).json()["ok"] is True
+    sync = c.post("/api/v1/datasources/%d/sync" % ds_id, headers=headers())
+    assert sync.status_code == 200, sync.text
+    tables = c.get("/api/v1/datasources/%d/tables" % ds_id,
+                   headers=headers()).json()
+    assert tables[0]["schema"] == "APP"
+    assert {x["name"] for x in tables[0]["columns"]} == {"ID", "TOTAL"}

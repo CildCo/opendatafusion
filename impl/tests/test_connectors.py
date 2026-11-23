@@ -231,3 +231,52 @@ def test_hive_query_and_tables(monkeypatch):
     tables = hive.tables(dsn)
     assert tables[0]["table"] == "events"
     assert [c["name"] for c in tables[0]["columns"]] == ["id", "name"]
+
+
+def test_dm_query_and_tables(monkeypatch):
+    import dmPython
+
+    class Cursor:
+        def __init__(self):
+            self.rows = []
+
+        def execute(self, sql):
+            self.sql = sql
+            if "ALL_TABLES" in sql:
+                self.rows = [("APP", "ORDERS")]
+                self.description = [("OWNER",), ("TABLE_NAME",)]
+            elif "ALL_TAB_COLUMNS" in sql:
+                self.rows = [("ID", "BIGINT"), ("TOTAL", "DECIMAL")]
+                self.description = [("COLUMN_NAME",), ("DATA_TYPE",)]
+            else:
+                self.rows = [(1, 2.5)]
+                self.description = [("ID",), ("TOTAL",)]
+
+        def fetchall(self):
+            return self.rows
+
+        def fetchmany(self, n):
+            return self.rows[:n]
+
+        def close(self):
+            pass
+
+    class Conn:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def cursor(self):
+            return Cursor()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(dmPython, "connect", lambda **kwargs: Conn(**kwargs))
+    from odf.connectors import dm
+    dsn = "dm://SYSDBA:pw@dm:5236/APP"
+    assert dm.ping(dsn) is True
+    result = dm.query(dsn, "select id, total from orders", 10)
+    assert result["rows"] == [{"ID": 1, "TOTAL": 2.5}]
+    tables = dm.tables(dsn)
+    assert tables[0]["table"] == "ORDERS"
+    assert [c["name"] for c in tables[0]["columns"]] == ["ID", "TOTAL"]
