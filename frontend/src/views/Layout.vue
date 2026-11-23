@@ -22,6 +22,11 @@
       </nav>
 
       <div class="rail-foot">
+        <router-link v-if="platformAdmin" to="/admin/overview"
+                     class="rail-admin">
+          <el-icon><Setting /></el-icon>
+          <span>{{ t("admin.console") }}</span>
+        </router-link>
         <div class="service-state">
           <span class="dot" :class="{ on: online }"></span>
           {{ online ? t("top.serviceOnline") : t("top.serviceOffline") }}
@@ -96,7 +101,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { Search } from "@element-plus/icons-vue";
+import { Search, Setting } from "@element-plus/icons-vue";
 import { MENU_GROUPS, MENU_ITEMS } from "../menu";
 import { ElMessage } from "element-plus";
 import { api, clearSession, getPlatformAdmin, getProject, getRole,
@@ -435,6 +440,25 @@ onBeforeUnmount(() => {
 .rail-foot {
   border-top: 1px solid var(--odf-rule);
   padding: 12px 18px 14px;
+}
+
+.rail-admin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 7px 9px;
+  border: 1px solid var(--odf-rule);
+  border-radius: 6px;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.rail-admin:hover {
+  border-color: var(--odf-primary);
+  color: var(--odf-primary);
 }
 
 .service-state {
