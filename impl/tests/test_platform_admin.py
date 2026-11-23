@@ -103,6 +103,37 @@ def test_auth_me_reports_the_effective_project_role(fixture):
     assert me["platform_admin"] is False
 
 
+def test_project_admin_member_directory_is_scoped(fixture):
+    from odf.models import ProjectMember
+    with SessionLocal() as s:
+        if not s.get(User, 9304):
+            s.add(User(id=9304, username="padmin_new", password_hash="x",
+                       role="viewer", active=True))
+            s.commit()
+    c = TestClient(app)
+    members = c.get("/api/v1/projects/%d/members" % PROJECT,
+                    headers=headers(PROJECT_ADMIN)).json()
+    assert members and members[0]["username"]
+    found = c.get("/api/v1/projects/%d/users/lookup?username=padmin_new"
+                  % PROJECT, headers=headers(PROJECT_ADMIN))
+    assert found.status_code == 200
+    assert found.json()["member"] is False
+    other = c.get("/api/v1/projects/%d/users/lookup?username=padmin_new"
+                  % OTHER, headers=headers(PROJECT_ADMIN))
+    assert other.status_code == 404
+    added = c.post("/api/v1/projects/%d/members" % PROJECT,
+                   json={"user_id": 9304, "role": "viewer"},
+                   headers=headers(PROJECT_ADMIN))
+    assert added.status_code == 200
+    again = c.get("/api/v1/projects/%d/users/lookup?username=padmin_new"
+                  % PROJECT, headers=headers(PROJECT_ADMIN))
+    assert again.json()["member"] is True
+    with SessionLocal() as s:
+        s.query(ProjectMember).filter_by(project_id=PROJECT,
+                                         user_id=9304).delete()
+        s.commit()
+
+
 def test_project_admin_scopes_members_to_their_project(fixture):
     c = TestClient(app)
     own = c.get("/api/v1/projects/%d/members" % PROJECT,

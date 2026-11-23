@@ -22,6 +22,11 @@
       </nav>
 
       <div class="rail-foot">
+        <router-link v-if="role === 'admin' && !platformAdmin" to="/members"
+                     class="rail-admin">
+          <el-icon><User /></el-icon>
+          <span>{{ t("members.title") }}</span>
+        </router-link>
         <router-link v-if="platformAdmin" to="/admin/overview"
                      class="rail-admin">
           <el-icon><Setting /></el-icon>
@@ -101,7 +106,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { Search, Setting } from "@element-plus/icons-vue";
+import { Search, Setting, User } from "@element-plus/icons-vue";
 import { MENU_GROUPS, MENU_ITEMS } from "../menu";
 import { ElMessage } from "element-plus";
 import { api, clearSession, getPlatformAdmin, getProject, getRole,

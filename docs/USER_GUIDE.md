@@ -181,7 +181,7 @@ Lists the tools exposed by the MCP server with type (read-only or change), descr
 - If a workspace is locked out anyway, run
   `python -m odf.cli set-user-active --username <name> --active true` on the
   server to restore an account.
-- **Project members**: choose a project, add a user with a project role, or remove a member. Users must belong to a project before they can sign in.
+- **Project members**: platform administrators manage every project under Administration → Projects; a project administrator (project role `admin`) manages their own project from **Project members** at the bottom of the sidebar — look up a username, add it with a project role, or remove a member. Users must belong to a project before they can sign in.
 
 ## 23. Workspace settings
 

@@ -1,5 +1,5 @@
 import { createRouter, createWebHashHistory } from "vue-router";
-import { getPlatformAdmin, getToken } from "./api";
+import { getPlatformAdmin, getRole, getToken } from "./api";
 import Layout from "./views/Layout.vue";
 
 const AdminLayout = () => import("./views/admin/AdminLayout.vue");
@@ -47,6 +47,7 @@ const Quality = () => import("./views/Quality.vue");
 const Alerts = () => import("./views/Alerts.vue");
 const Changes = () => import("./views/Changes.vue");
 const Users = () => import("./views/Users.vue");
+const Members = () => import("./views/Members.vue");
 const Audit = () => import("./views/Audit.vue");
 
 const routes = [
@@ -90,6 +91,7 @@ const routes = [
       { path: "files", component: Files, meta: { title: "文件" } },
       { path: "workspace", component: Workspace, meta: { title: "工作区设置" } },
       { path: "security", component: Security, meta: { title: "账号安全" } },
+      { path: "members", component: Members, meta: { title: "项目成员" } },
       { path: "quality", component: Quality, meta: { title: "数据质量" } },
       { path: "alerts", component: Alerts, meta: { title: "告警" } },
       { path: "changes", component: Changes, meta: { title: "变更" } },
@@ -124,6 +126,7 @@ router.beforeEach((to) => {
   if (to.path !== "/login" && !getToken()) return "/login";
   if (to.path === "/login" && getToken()) return "/dashboard";
   if (to.path.startsWith("/admin") && !getPlatformAdmin()) return "/dashboard";
+  if (to.path === "/members" && getRole() !== "admin") return "/dashboard";
   return true;
 });
 

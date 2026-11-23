@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from odf.db import get_session
 from odf.services.aksk_admin import issue_aksk, list_aksk, revoke_aksk
-from odf.models import User
+from odf.models import ProjectMember, User
 from odf.services.audit import write_audit
 from odf.services.auth import (require_admin, require_approver,
                                require_platform_admin, require_project_admin,
@@ -99,8 +99,27 @@ def _scope(s, claims, project_id):
 def members(project_id: int, s: Session = Depends(get_session),
             claims: dict = Depends(require_project_admin)):
     _scope(s, claims, project_id)
-    return [{"id": m.id, "user_id": m.user_id, "role": m.role}
-            for m in list_members(s, project_id)]
+    rows = list_members(s, project_id)
+    users = {u.id: u for u in s.query(User).filter(
+        User.id.in_([m.user_id for m in rows])).all()} if rows else {}
+    return [{"id": m.id, "user_id": m.user_id,
+             "username": (users.get(m.user_id).username
+                          if users.get(m.user_id) else None),
+             "role": m.role} for m in rows]
+
+
+@router.get("/projects/{project_id}/users/lookup")
+def lookup_user(project_id: int, username: str,
+                s: Session = Depends(get_session),
+                claims: dict = Depends(require_project_admin)):
+    _scope(s, claims, project_id)
+    u = s.query(User).filter_by(username=username).first()
+    if not u:
+        raise HTTPException(404, "user not found")
+    member = (s.query(ProjectMember)
+              .filter_by(project_id=project_id, user_id=u.id).first())
+    return {"id": u.id, "username": u.username, "active": bool(u.active),
+            "member": member is not None}
 
 
 @router.post("/projects/{project_id}/members")
