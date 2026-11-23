@@ -79,7 +79,7 @@
           {{ (current.dimensions || []).join(", ") || "-" }}
         </el-descriptions-item>
         <el-descriptions-item :label="t('model.format')">
-          <span class="mono">{{ JSON.stringify(current.format || {}) }}</span>
+          <span>{{ formatLabel(current.format) }}</span>
         </el-descriptions-item>
       </el-descriptions>
       <div class="metric-actions">
@@ -127,22 +127,8 @@
         {{ t("model.publishedVersion") }} v{{ compare.published_version || "-" }}
         → {{ t("model.draftVersion") }} v{{ compare.draft_version || "-" }}
       </p>
-      <el-table :data="compare.changes" size="small">
-        <el-table-column prop="key" :label="t('model.changedKeys')"
-                         min-width="150" />
-        <el-table-column :label="t('model.publishedVersion')" min-width="160">
-          <template #default="{ row }">
-            <span class="mono">{{ display(row.published) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('model.draftVersion')" min-width="160">
-          <template #default="{ row }">
-            <span class="mono">{{ display(row.draft) }}</span>
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-empty v-if="!compare.changes.length"
-                :description="t('model.noChanges')" :image-size="60" />
+      <diff-view :changes="compare.changes"
+                 :empty-text="t('model.noChanges')" />
       <template #footer>
         <el-button @click="compareOpen = false">{{ t("model.cancel") }}</el-button>
       </template>
@@ -156,6 +142,7 @@ import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, canWrite, errMsg } from "../api";
 import { t } from "../i18n";
+import DiffView from "../components/DiffView.vue";
 import GraphCanvas from "../components/GraphCanvas.vue";
 
 const route = useRoute();

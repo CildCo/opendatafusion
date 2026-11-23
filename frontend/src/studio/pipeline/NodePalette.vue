@@ -1,6 +1,7 @@
 <template>
   <div class="palette">
     <el-button v-for="(d, k) in defs" :key="k" size="small"
+               draggable="true" @dragstart="start(k, $event)"
                @click="$emit('add', k)">{{ labelOf(k, d) }}</el-button>
   </div>
 </template>
@@ -18,6 +19,11 @@ const LABEL_KEYS = {
   quality: "npal.quality", spark: "npal.spark", flink_sql: "npal.flinkSql",
   sink: "npal.sink",
 };
+
+function start(kind, event) {
+  event.dataTransfer.setData("application/x-odf-node", kind);
+  event.dataTransfer.effectAllowed = "copy";
+}
 
 function labelOf(kind, def) {
   const key = LABEL_KEYS[kind];

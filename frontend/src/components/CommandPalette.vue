@@ -72,6 +72,15 @@ const TYPE_LABEL = {
 const ORDER = ["table", "dataset", "metric", "pipeline", "flow", "interface",
                "api", "dashboard", "app", "job"];
 
+const ACTIONS = [
+  { type: "source", key: "action.newSource", path: "/datasources" },
+  { type: "pipeline", key: "action.newPipeline", path: "/pipelines" },
+  { type: "flow", key: "action.newFlow", path: "/flows" },
+  { type: "interface", key: "action.newInterface", path: "/interfaces" },
+  { type: "dashboard", key: "action.newDashboard", path: "/dashboards" },
+  { type: "app", key: "action.newApp", path: "/apps" },
+];
+
 function close() {
   emit("update:modelValue", false);
 }
@@ -167,6 +176,12 @@ const groups = computed(() => {
     const items = recent.value.slice(0, 8);
     return items.length ? [{ label: t("search.recent"), items }] : [];
   }
+  const actions = ACTIONS
+    .map((action) => ({
+      type: action.type, label: t(action.key), sub: "",
+      to: { path: action.path, query: { new: "1" } }, action: true,
+    }))
+    .filter((item) => matches(item, text));
   const grouped = new Map();
   for (const item of source) {
     if (!matches(item, text)) continue;
@@ -174,6 +189,9 @@ const groups = computed(() => {
     if (grouped.get(item.type).length < 6) grouped.get(item.type).push(item);
   }
   const out = [];
+  if (actions.length) {
+    out.push({ label: t("search.group.action"), items: actions });
+  }
   for (const type of ORDER) {
     if (!grouped.has(type)) continue;
     out.push({ label: t(TYPE_LABEL[type]), items: grouped.get(type) });
@@ -236,10 +254,12 @@ async function choose() {
 }
 
 function open(item) {
-  pushRecent({ type: item.type, label: item.label, sub: item.sub,
-               route: item.route });
+  if (!item.action) {
+    pushRecent({ type: item.type, label: item.label, sub: item.sub,
+                 route: item.route });
+  }
   close();
-  router.push(item.route);
+  router.push(item.to || item.route);
 }
 
 onMounted(() => {

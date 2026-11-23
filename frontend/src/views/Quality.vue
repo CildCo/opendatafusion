@@ -169,7 +169,14 @@
         </el-table-column>
         <el-table-column :label="t('quality.detail')">
           <template #default="{ row }">
-            <span class="mono">{{ JSON.stringify(row.detail) }}</span>
+            <el-popover v-if="row.detail && Object.keys(row.detail).length"
+                        placement="left" :width="380" trigger="click">
+              <template #reference>
+                <el-button link>{{ t("quality.detail") }}</el-button>
+              </template>
+              <json-view :value="row.detail" />
+            </el-popover>
+            <span v-else>-</span>
           </template>
         </el-table-column>
       </el-table>
@@ -189,6 +196,7 @@ import EmptyState from "../components/EmptyState.vue";
 import EntityIcon from "../components/EntityIcon.vue";
 import PageHeader from "../components/PageHeader.vue";
 import StatusDot from "../components/StatusDot.vue";
+import JsonView from "../components/JsonView.vue";
 import StatTile from "../components/StatTile.vue";
 
 const router = useRouter();

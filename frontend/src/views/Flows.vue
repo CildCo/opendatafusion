@@ -660,6 +660,7 @@ onMounted(async () => {
   await load();
   const id = Number(route.params.id);
   if (id) openDetail({ id });
+  if (route.query.new && canEdit) openCreate();
 });
 onBeforeUnmount(() => timer && clearInterval(timer));
 </script>

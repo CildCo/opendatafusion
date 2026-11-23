@@ -109,9 +109,12 @@
     </el-dialog>
 
     <el-dialog v-model="sqlOpen" title="Flink SQL" width="680px">
-      <el-input v-model="sql.statement" type="textarea" :rows="10"
-                :placeholder="t('eng.sqlPlaceholder')" />
-      <pre v-if="sql.result" class="detail">{{ JSON.stringify(sql.result, null, 2) }}</pre>
+      <sql-editor v-model="sql.statement" class="sql-block" />
+      <div v-if="sql.result" class="sql-result">
+        <result-table v-if="sqlRows" :rows="sqlRows" :height="240"
+                      :empty-text="t('eng.result')" />
+        <json-view :value="sql.result" style="margin-top: 8px" />
+      </div>
       <template #footer>
         <el-button @click="sqlOpen = false">{{ t("eng.close") }}</el-button>
         <el-button type="primary" :loading="sql.running" @click="runSql">
@@ -136,28 +139,40 @@
         </el-descriptions-item>
       </el-descriptions>
       <h4>{{ t("eng.defaultSparkConf") }}</h4>
-      <pre class="detail">{{ JSON.stringify(profile.spark && profile.spark.spark_conf, null, 2) }}</pre>
+      <json-view :value="(profile.spark && profile.spark.spark_conf) || {}" />
     </el-drawer>
 
-    <el-drawer v-model="drawer" :title="current.name || t('eng.jobDetail')" size="560px">
-      <el-descriptions :column="1" border>
-        <el-descriptions-item label="ID">{{ current.id }}</el-descriptions-item>
-        <el-descriptions-item :label="t('eng.engine')">{{ current.engine }}</el-descriptions-item>
-        <el-descriptions-item :label="t('eng.status')">{{ statusLabel(current.status) }}</el-descriptions-item>
-        <el-descriptions-item :label="t('eng.externalId')">{{ current.external_id || "-" }}</el-descriptions-item>
-        <el-descriptions-item :label="t('eng.started')">{{ current.started_at || "-" }}</el-descriptions-item>
-        <el-descriptions-item :label="t('eng.finished')">{{ current.finished_at ? fmtDate(current.finished_at) : "-" }}</el-descriptions-item>
-      </el-descriptions>
-      <h4>{{ t("eng.spec") }}</h4>
-      <pre class="detail">{{ JSON.stringify(current.spec, null, 2) }}</pre>
-      <template v-if="current.error">
-        <h4>{{ t("eng.error") }}</h4>
-        <pre class="detail">{{ current.error }}</pre>
-      </template>
-      <template v-if="hasResult">
-        <h4>{{ t("eng.result") }}</h4>
-        <pre class="detail">{{ JSON.stringify(current.result, null, 2) }}</pre>
-      </template>
+    <el-drawer v-model="drawer" :title="current.name || t('eng.jobDetail')"
+               size="640px">
+      <el-tabs v-model="detailTab">
+        <el-tab-pane :label="t('eng.overview')" name="overview">
+          <el-descriptions :column="1" border>
+            <el-descriptions-item label="ID">{{ current.id }}</el-descriptions-item>
+            <el-descriptions-item :label="t('eng.engine')">{{ current.engine }}</el-descriptions-item>
+            <el-descriptions-item :label="t('eng.status')">
+              <status-dot :status="current.status"
+                          :label="statusLabel(current.status)" />
+            </el-descriptions-item>
+            <el-descriptions-item :label="t('eng.externalId')">{{ current.external_id || "-" }}</el-descriptions-item>
+            <el-descriptions-item :label="t('eng.started')">{{ current.started_at || "-" }}</el-descriptions-item>
+            <el-descriptions-item :label="t('eng.finished')">{{ current.finished_at ? fmtDate(current.finished_at) : "-" }}</el-descriptions-item>
+          </el-descriptions>
+          <el-alert v-if="current.error" :title="t('eng.error')"
+                    :description="current.error" type="error"
+                    :closable="false" style="margin-top: 12px" />
+        </el-tab-pane>
+        <el-tab-pane :label="t('eng.spec')" name="spec">
+          <json-view :value="current.spec || {}" />
+        </el-tab-pane>
+        <el-tab-pane v-if="hasResult" :label="t('eng.result')" name="result">
+          <result-table v-if="resultRows" :rows="resultRows" :height="300"
+                        :empty-text="t('eng.result')" />
+          <json-view :value="current.result" style="margin-top: 8px" />
+        </el-tab-pane>
+        <el-tab-pane v-if="logsText" :label="t('eng.logs')" name="logs">
+          <log-viewer :text="logsText" />
+        </el-tab-pane>
+      </el-tabs>
     </el-drawer>
   </div>
 </template>
@@ -170,7 +185,11 @@ import { fmtDate, t } from "../i18n";
 import EmptyState from "../components/EmptyState.vue";
 import EntityIcon from "../components/EntityIcon.vue";
 import PageHeader from "../components/PageHeader.vue";
+import JsonView from "../components/JsonView.vue";
+import LogViewer from "../components/LogViewer.vue";
+import ResultTable from "../components/ResultTable.vue";
 import StatusDot from "../components/StatusDot.vue";
+import SqlEditor from "../studio/api/SqlEditor.vue";
 
 const rows = ref([]);
 const canEdit = canWrite();
@@ -198,6 +217,24 @@ const blankForm = () => ({
 });
 const form = ref(blankForm());
 const sql = ref({ statement: "", result: null, running: false });
+
+const detailTab = ref("overview");
+
+function rowsOf(value) {
+  if (Array.isArray(value)) return value;
+  if (value && Array.isArray(value.rows)) return value.rows;
+  if (value && Array.isArray(value.results)) return value.results;
+  return null;
+}
+
+const resultRows = computed(() => rowsOf(current.value.result));
+const sqlRows = computed(() => rowsOf(sql.result));
+const logsText = computed(() => {
+  const result = current.value.result || {};
+  const text = result.logs || result.output || result.log || "";
+  if (typeof text === "string" && text.trim()) return text;
+  return current.value.error || "";
+});
 
 const hasResult = computed(() => {
   const r = current.value.result;
@@ -344,6 +381,8 @@ onMounted(load);
 </script>
 
 <style scoped>
+.sql-block { display: block; border: 1px solid #e2e8f0; min-height: 200px; }
+.sql-result { margin-top: 12px; }
 .entity-cell {
   display: inline-flex;
   align-items: center;

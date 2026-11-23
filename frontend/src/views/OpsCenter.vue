@@ -250,7 +250,14 @@
             <el-table-column prop="detail" :label="t('ops.detail')" min-width="260"
                              show-overflow-tooltip>
               <template #default="{ row }">
-                {{ JSON.stringify(row.detail) }}
+                <el-popover v-if="row.detail && Object.keys(row.detail).length"
+                            placement="left" :width="360" trigger="click">
+                  <template #reference>
+                    <el-button link>{{ t("ops.view") }}</el-button>
+                  </template>
+                  <json-view :value="row.detail" />
+                </el-popover>
+                <span v-else class="muted">-</span>
               </template>
             </el-table-column>
             <el-table-column prop="at" :label="t('ops.time')" width="180">
@@ -269,6 +276,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { useRouter } from "vue-router";
 import { api, errMsg, getRole } from "../api";
 import { fmtDate, t } from "../i18n";
+import JsonView from "../components/JsonView.vue";
 import Sparkline from "../components/Sparkline.vue";
 
 const router = useRouter();

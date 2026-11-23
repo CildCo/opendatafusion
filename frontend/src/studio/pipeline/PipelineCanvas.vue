@@ -1,5 +1,5 @@
 <template>
-  <div class="canvas-wrap">
+  <div class="canvas-wrap" @dragover.prevent @drop.prevent="onDrop">
     <NodePalette @add="add" />
     <VueFlow v-model:nodes="nodes" v-model:edges="edges"
              :default-viewport="{ zoom: 0.9 }" fit-view-on-init
@@ -15,7 +15,7 @@
 
 <script setup>
 import { ref, watch } from "vue";
-import { VueFlow } from "@vue-flow/core";
+import { useVueFlow, VueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import { MiniMap } from "@vue-flow/minimap";
@@ -34,9 +34,22 @@ watch(() => props.content, (c) => {
   edges.value = toFlowEdges(c.edges);
 }, { deep: true });
 
-function add(type) {
-  nodes.value = [...nodes.value, newNode(type, nodes.value.length)];
+function add(type, position) {
+  const node = newNode(type, nodes.value.length);
+  if (position) node.position = position;
+  nodes.value = [...nodes.value, node];
   emit("change");
+}
+
+const { screenToFlowCoordinate } = useVueFlow();
+
+function onDrop(event) {
+  const kind = event.dataTransfer.getData("application/x-odf-node");
+  if (!kind) return;
+  const position = screenToFlowCoordinate({
+    x: event.clientX, y: event.clientY,
+  });
+  add(kind, position);
 }
 
 function onConnect(params) {

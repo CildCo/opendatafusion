@@ -45,12 +45,13 @@
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, canWrite, errMsg } from "../api";
 import { t } from "../i18n";
 
 const router = useRouter();
+const route = useRoute();
 const rows = ref([]);
 const canEdit = canWrite();
 const q = ref("");
@@ -100,6 +101,7 @@ async function create() {
 }
 
 onMounted(load);
+onMounted(() => { if (route.query.new && canEdit) create(); });
 </script>
 
 <style scoped>
