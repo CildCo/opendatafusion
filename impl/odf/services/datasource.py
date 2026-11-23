@@ -117,32 +117,71 @@ def create_datasource(session, project_id: int, name: str, dsn: str,
     return ds
 
 
-def test_connection(dsn: str, timeout: int = 5, kind: str | None = None) -> bool:
-    if (kind or "").lower() == "trino":
-        try:
+def check_connection(dsn: str, timeout: int = 5,
+                     kind: str | None = None) -> dict:
+    kind = (kind or "").lower()
+    try:
+        if kind == "trino":
             from odf.trino.client import TrinoClient
-            return TrinoClient.from_dsn(dsn, timeout=timeout).ping()
-        except Exception:
-            return False
-    if (kind or "").lower() == "clickhouse":
-        try:
+            ok = TrinoClient.from_dsn(dsn, timeout=timeout).ping()
+            if not ok:
+                return {"ok": False, "error": "trino did not answer"}
+            return {"ok": True, "error": None}
+        if kind == "clickhouse":
             from odf import clickhouse
             client = clickhouse.client_from_dsn(dsn)
             try:
                 client.command("SELECT 1")
             finally:
                 client.close()
-            return True
-        except Exception:
-            return False
-    args = connect_args_for(kind or "", dsn, timeout)
-    try:
+            return {"ok": True, "error": None}
+        if kind in ("http", "es"):
+            return _check_http(dsn, timeout, kind)
+        if kind == "file":
+            from odf import filesource
+            filesource.describe(filesource.resolve_path(dsn))
+            return {"ok": True, "error": None}
+        args = connect_args_for(kind, dsn, timeout)
         e = create_engine(dsn, connect_args=args)
         with e.connect() as c:
             c.execute(text("select 1"))
-        return True
+        return {"ok": True, "error": None}
+    except Exception as error:
+        return {"ok": False, "error": _safe_error(error, dsn)}
+
+
+def _check_http(dsn: str, timeout: int, kind: str) -> dict:
+    from odf.services.net import request as outbound
+    settings = get_settings()
+    allowed = tuple(item.strip() for item in
+                    (settings.http_allowed_hosts or "").split(",")
+                    if item.strip())
+    path = "/_cluster/health" if kind == "es" else ""
+    code, _, payload = outbound(
+        dsn.rstrip("/") + path, timeout=timeout,
+        allow_private=settings.http_allow_private, allowed_hosts=allowed,
+        max_bytes=1024 * 1024)
+    if code >= 500:
+        return {"ok": False, "error": "endpoint answered HTTP %d" % code}
+    return {"ok": True, "error": None}
+
+
+def _safe_error(error: Exception, dsn: str) -> str:
+    message = str(error) or error.__class__.__name__
+    try:
+        url = make_url(dsn)
+        if url.password:
+            message = message.replace(url.password, "***")
+            message = message.replace(
+                "%s:%s@" % (url.username or "", url.password),
+                "%s:***@" % (url.username or ""))
     except Exception:
-        return False
+        pass
+    return message[:300]
+
+
+def test_connection(dsn: str, timeout: int = 5, kind: str | None = None) -> bool:
+    return bool(check_connection(dsn, timeout, kind).get("ok"))
 
 
 class DatasourceInUse(ValueError):

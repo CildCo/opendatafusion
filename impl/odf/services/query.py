@@ -30,6 +30,10 @@ def _sql_backend(ds, sql, params, max_rows, read_only, timeout_ms):
 
 def execute_query(session, ds, sql, params=None, max_rows=1000,
                   read_only=False, timeout_ms=None):
+    from odf.connectors.registry import supports
+    if not supports(ds.kind, "query"):
+        raise ValueError("%s is a pipeline connector; SQL queries are not "
+                         "supported" % ds.kind)
     settings = get_settings()
     if timeout_ms is None:
         timeout_ms = settings.query_timeout_s * 1000

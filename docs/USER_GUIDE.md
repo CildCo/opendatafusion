@@ -31,15 +31,9 @@ Tabs: overview, tasks, alerts, health, API calls, timeline and audit.
 
 ## 4. Data sources
 
-- **New data source**: name, type and connection string. Examples:
-  - PostgreSQL: `postgresql+psycopg://user:pass@host:5432/db`
-  - MySQL/MariaDB: `mysql://user:pass@host:3306/db`
-  - SQLite: `sqlite:////absolute/path`
-  - Oracle: `oracle://user:pass@host:1521/service`
-  - SQL Server: `mssql://user:pass@host:1433/db`
-  - ClickHouse: `clickhouse://user:pass@host:8123/db`
-  - Trino: `trino://user@host:8080/catalog/schema`
-  - Files: `/data/odf/files/sales.csv`
+- **New data source**: types are grouped into databases, analytics engines, files and APIs/search. Choosing a type renders its fields (host, port, database, account and so on); connection strings are no longer typed by hand. Passwords are stored without being shown, and leaving the field blank on edit keeps the stored value. The type cannot change after creation.
+- **Capabilities**: databases and analytics engines can be tested, synchronised, queried and used as pipeline sources; PostgreSQL, MySQL/MariaDB and SQLite can also be pipeline sinks. Files cover CSV/TSV/Parquet/JSON/Excel. HTTP API is a pipeline source/sink only. Elasticsearch works as a pipeline source/sink and synchronises index metadata, but does not support SQL queries or SQL interfaces.
+- **Test connection** is available while creating or editing, and the list action reports a concrete failure reason such as an unreachable host or a blocked address.
 - **Test** checks connectivity.
 - **Sync metadata** reads the schema into the catalog. Existing datasets are updated in place; tags and quality rules survive.
 - **Tables** lists synced schemas, tables and column counts.

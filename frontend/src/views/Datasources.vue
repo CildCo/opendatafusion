@@ -5,18 +5,13 @@
     <div class="toolbar">
       <el-input v-model="q" :placeholder="t('ds.searchPlaceholder')" clearable
                 style="width: 240px" :prefix-icon="Search" />
-      <el-select v-model="kind" clearable :placeholder="t('ds.allKinds')" style="width: 150px">
-        <el-option value="postgres" label="PostgreSQL" />
-        <el-option value="mysql" label="MySQL" />
-        <el-option value="mariadb" label="MariaDB" />
-        <el-option value="sqlite" label="SQLite" />
-        <el-option value="http" label="HTTP API" />
-        <el-option value="es" label="Elasticsearch" />
-        <el-option value="oracle" label="Oracle" />
-        <el-option value="mssql" label="SQL Server" />
-        <el-option value="clickhouse" label="ClickHouse" />
-        <el-option value="trino" label="Trino / Iceberg" />
-        <el-option value="file" :label="t('ds.fileKind')" />
+      <el-select v-model="kind" clearable :placeholder="t('ds.allKinds')"
+                 style="width: 180px">
+        <el-option-group v-for="group in connectorGroups"
+                         :key="group.key" :label="t('ds.group.' + group.key)">
+          <el-option v-for="item in group.items" :key="item.kind"
+                     :value="item.kind" :label="item.label" />
+        </el-option-group>
       </el-select>
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("ds.refresh") }}</el-button>
@@ -34,17 +29,25 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="kind" :label="t('ds.colKind')" width="120">
+        <el-table-column :label="t('ds.colKind')" width="170">
           <template #default="{ row }">
-            <el-tag size="small" effect="plain">{{ row.kind }}</el-tag>
+            <el-tag size="small" effect="plain">{{ kindLabel(row.kind) }}</el-tag>
+            <el-tag v-if="pipelineOnly(row)" size="small" type="warning"
+                    class="cap-tag">{{ t("ds.pipelineOnly") }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="dsn" :label="t('ds.colDsn')" min-width="320" />
-        <el-table-column :label="t('ds.colActions')" width="320" fixed="right">
+        <el-table-column :label="t('ds.colConnection')" min-width="260">
+          <template #default="{ row }">
+            <span class="mono">{{ connSummary(row) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('ds.colActions')" width="330" fixed="right">
           <template #default="{ row }">
             <el-button link @click="test(row)">{{ t("ds.test") }}</el-button>
-            <el-button link @click="sync(row)">{{ t("ds.sync") }}</el-button>
-            <el-button link @click="showTables(row)">{{ t("ds.tablesButton") }}</el-button>
+            <el-button v-if="capability(row, 'metadata')" link
+                       @click="sync(row)">{{ t("ds.sync") }}</el-button>
+            <el-button v-if="capability(row, 'metadata')" link
+                       @click="showTables(row)">{{ t("ds.tablesButton") }}</el-button>
             <el-button v-if="canEdit" link @click="openEdit(row)">{{ t("ds.edit") }}</el-button>
             <el-button v-if="canEdit" link type="danger" @click="remove(row)">{{ t("ds.delete") }}</el-button>
             <el-button v-if="canEdit && row.kind === 'trino'" link
@@ -63,52 +66,67 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="editOpen" :title="t('ds.editTitle')" width="560px">
-      <el-form label-width="90px">
+    <el-dialog v-model="dialog" :title="dialogTitle" width="600px">
+      <el-form label-width="100px">
         <el-form-item :label="t('ds.name')" required>
-          <el-input v-model="editForm.name" />
-        </el-form-item>
-        <el-form-item :label="t('ds.dsn')">
-          <el-input v-model="editForm.dsn" type="textarea" :rows="3"
-                    :placeholder="editPlaceholder" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="editOpen = false">{{ t("ds.cancel") }}</el-button>
-        <el-button type="primary" :loading="savingEdit"
-                   @click="saveEdit">{{ t("ds.save") }}</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="dialog" :title="t('ds.new')" width="560px">
-      <el-form ref="createRef" :model="form" :rules="createRules"
-               label-width="90px">
-        <el-form-item :label="t('ds.name')" prop="name">
           <el-input v-model="form.name" :placeholder="t('ds.namePlaceholder')" />
         </el-form-item>
         <el-form-item :label="t('ds.colKind')" required>
-          <el-select v-model="form.kind" style="width: 100%">
-            <el-option value="postgres" label="PostgreSQL" />
-            <el-option value="mysql" label="MySQL" />
-            <el-option value="mariadb" label="MariaDB" />
-            <el-option value="sqlite" label="SQLite" />
-            <el-option value="http" label="HTTP API" />
-            <el-option value="es" label="Elasticsearch" />
-            <el-option value="oracle" label="Oracle" />
-            <el-option value="mssql" label="SQL Server" />
-            <el-option value="clickhouse" label="ClickHouse" />
-        <el-option value="trino" label="Trino / Iceberg" />
-            <el-option value="file" :label="t('ds.fileKind')" />
+          <el-select v-model="form.kind" style="width: 100%"
+                     :disabled="!!editId" @change="onKindChange">
+            <el-option-group v-for="group in connectorGroups"
+                             :key="group.key"
+                             :label="t('ds.group.' + group.key)">
+              <el-option v-for="item in group.items" :key="item.kind"
+                         :value="item.kind" :label="item.label" />
+            </el-option-group>
           </el-select>
+          <div v-if="editId" class="hint">{{ t("ds.kindLocked") }}</div>
         </el-form-item>
-        <el-form-item :label="t('ds.dsn')" prop="dsn">
-          <el-input v-model="form.dsn" type="textarea" :rows="3"
-                    :placeholder="dsnPlaceholder" />
+
+        <el-form-item v-for="field in currentFields" :key="field.key"
+                      :label="fieldLabel(field)"
+                      :required="field.required">
+          <el-select v-if="field.type === 'select'"
+                     v-model="form.values[field.key]" style="width: 100%">
+            <el-option v-for="option in field.options || []"
+                       :key="option" :value="option" :label="option" />
+          </el-select>
+          <el-input-number v-else-if="field.type === 'number'"
+                           v-model="form.values[field.key]" :min="1"
+                           :max="65535" controls-position="right"
+                           style="width: 100%" />
+          <el-input v-else v-model="form.values[field.key]"
+                    :type="field.type === 'password' ? 'password' : 'text'"
+                    :show-password="field.type === 'password'"
+                    :placeholder="placeholderFor(field)" />
+          <div v-if="field.secret && form.values['has_' + field.key]"
+               class="hint">{{ t("ds.keepPassword") }}</div>
         </el-form-item>
+
+        <div class="cap-row">
+          <span class="cap-label">{{ t("ds.capabilities") }}</span>
+          <el-tag v-for="cap in currentCapabilities" :key="cap" size="small"
+                  type="info">{{ t("ds.cap." + cap) }}</el-tag>
+        </div>
+
+        <div class="test-row">
+          <el-button :loading="testing" @click="testDraft">
+            {{ testing ? t("ds.testing") : t("ds.testConnection") }}
+          </el-button>
+          <el-tag v-if="testResult" :type="testResult.ok ? 'success' : 'danger'">
+            {{ testResult.ok ? t("ds.connOk") : t("ds.testFailed") }}
+          </el-tag>
+          <span v-if="testResult && testResult.error" class="test-error">
+            {{ testResult.error }}
+          </span>
+        </div>
       </el-form>
       <template #footer>
         <el-button @click="dialog = false">{{ t("ds.cancel") }}</el-button>
-        <el-button type="primary" :loading="saving" @click="create">{{ t("ds.save") }}</el-button>
+        <el-button type="primary" :loading="saving" @click="save">
+          {{ t("ds.save") }}
+        </el-button>
       </template>
     </el-dialog>
 
@@ -175,68 +193,118 @@ const tables = ref([]);
 const loading = ref(false);
 const saving = ref(false);
 const dialog = ref(false);
-const editOpen = ref(false);
-const savingEdit = ref(false);
-const editRow = ref({});
-const editForm = reactive({ name: "", dsn: "" });
+const editId = ref(null);
 const tablesDrawer = ref(false);
 const current = ref({});
+const catalog = ref({ groups: [], connectors: [] });
 const prefs = loadPrefs("datasources", { q: "", kind: "", pageSize: 10 });
 const q = ref(prefs.q);
 const kind = ref(prefs.kind);
 const canEdit = canWrite();
 const route = useRoute();
-const createRef = ref(null);
-const createRules = computed(() => ({
-  name: [{ required: true, message: t("ds.nameRequired"), trigger: "blur" }],
-  dsn: [{ required: true, message: t("ds.nameDsnRequired"),
-          trigger: "blur" }],
-}));
 const page = ref(1);
 const pageSize = ref(prefs.pageSize);
-watch([q, kind], () => { page.value = 1; });
-watch([q, kind, pageSize], () => savePrefs("datasources", {
-  q: q.value, kind: kind.value, pageSize: pageSize.value,
-}));
-const form = reactive({ name: "", kind: "postgres", dsn: "" });
+const form = reactive({ name: "", kind: "postgres", values: {} });
+const testing = ref(false);
+const testResult = ref(null);
 const maintainOpen = ref(false);
 const maintain = reactive({ datasource_id: 0, schema: "", tables: "",
                             optimize: true, expire: true, retention: "7d",
                             running: false, results: [] });
-const placeholders = {
-  postgres: "postgresql+psycopg://user:pass@host:5432/db",
-  mysql: "mysql://user:pass@host:3306/db",
-  mariadb: "mariadb://user:pass@host:3306/db",
-  sqlite: "sqlite:////data/odf/app.db",
-  oracle: "oracle://user:pass@host:1521/service",
-  mssql: "mssql://user:pass@host:1433/db",
-  clickhouse: "clickhouse://user:pass@host:8123/db",
-  trino: "trino://user@host:8080/iceberg/schema",
-  file: "",
-};
-const localizedPlaceholders = {
-  clickhouse: "ds.phClickhouse",
-  trino: "ds.phTrino",
-  file: "ds.phFile",
-};
-const dsnPlaceholder = computed(() => {
-  const key = localizedPlaceholders[form.kind];
-  return key ? t(key) : (placeholders[form.kind] || t("ds.dsn"));
+
+watch([q, kind], () => { page.value = 1; });
+watch([q, kind, pageSize], () => savePrefs("datasources", {
+  q: q.value, kind: kind.value, pageSize: pageSize.value,
+}));
+
+const connectorGroups = computed(() => {
+  const items = catalog.value.connectors || [];
+  return (catalog.value.groups || []).map((group) => ({
+    key: group.key,
+    items: items.filter((item) => item.group === group.key),
+  })).filter((group) => group.items.length);
 });
-const editPlaceholder = computed(() =>
-  t("ds.editPlaceholderPrefix") + (editRow.value.dsn || ""));
+const specs = computed(() => Object.fromEntries(
+  (catalog.value.connectors || []).map((item) => [item.kind, item])));
+const currentSpec = computed(() => specs.value[form.kind]);
+const currentFields = computed(() => currentSpec.value?.fields || []);
+const currentCapabilities = computed(() => {
+  const caps = currentSpec.value?.capabilities || {};
+  return ["test", "metadata", "query", "source", "sink"]
+    .filter((key) => caps[key]);
+});
+const dialogTitle = computed(() =>
+  editId.value ? t("ds.editTitle") : t("ds.new"));
 
 const filtered = computed(() =>
   rows.value.filter((r) => {
-    const hitQ = !q.value || (r.name + r.kind).toLowerCase().includes(q.value.toLowerCase());
+    const hitQ = !q.value ||
+      (r.name + r.kind).toLowerCase().includes(q.value.toLowerCase());
     const hitK = !kind.value || r.kind === kind.value;
     return hitQ && hitK;
-  })
-);
+  }));
 const paged = computed(() =>
   filtered.value.slice((page.value - 1) * pageSize.value,
-    page.value * pageSize.value)
-);
+    page.value * pageSize.value));
+
+function kindLabel(value) {
+  return specs.value[value]?.label || value;
+}
+
+function capability(row, key) {
+  return !!(row.capabilities && row.capabilities[key]);
+}
+
+function pipelineOnly(row) {
+  return row.capabilities && !row.capabilities.metadata &&
+    !row.capabilities.query;
+}
+
+function connSummary(row) {
+  const c = row.config || {};
+  if (c.url) return c.url;
+  if (c.path) return c.path;
+  const host = c.host ? `${c.host}:${c.port || ""}` : "";
+  return `${host}${c.database ? "/" + c.database : ""}`;
+}
+
+function fieldLabel(field) {
+  const key = "dsf." + field.key;
+  const text = t(key);
+  return text === key ? field.label : text;
+}
+
+function placeholderFor(field) {
+  if (field.type === "password") {
+    return form.values["has_" + field.key] ? t("ds.keepPassword") : "";
+  }
+  if (field.key === "port") return "";
+  return field.placeholder || "";
+}
+
+function resetValues(spec, values = {}) {
+  form.values = {};
+  for (const field of spec?.fields || []) {
+    form.values[field.key] = values[field.key] ??
+      (field.default !== undefined ? field.default : "");
+  }
+  for (const [key, value] of Object.entries(values || {})) {
+    if (key.startsWith("has_")) form.values[key] = value;
+  }
+}
+
+function onKindChange() {
+  resetValues(currentSpec.value);
+  testResult.value = null;
+}
+
+async function loadCatalog() {
+  try {
+    catalog.value = await api.get("/datasources/connectors");
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
 
 async function load() {
   loading.value = true;
@@ -248,12 +316,92 @@ async function load() {
     loading.value = false;
   }
 }
+
 function openCreate() {
+  editId.value = null;
   form.name = "";
   form.kind = "postgres";
-  form.dsn = "";
+  resetValues(currentSpec.value);
+  testResult.value = null;
   dialog.value = true;
 }
+
+function openEdit(row) {
+  editId.value = row.id;
+  form.name = row.name;
+  form.kind = row.kind;
+  resetValues(currentSpec.value, row.config || {});
+  testResult.value = null;
+  dialog.value = true;
+}
+
+function validateDraft() {
+  if (!form.name.trim()) return t("ds.nameRequired");
+  for (const field of currentFields.value) {
+    if (!field.required) continue;
+    const value = form.values[field.key];
+    if (value === null || value === undefined || value === "") {
+      return t("ds.requiredField").replace("{field}", fieldLabel(field));
+    }
+  }
+  return "";
+}
+
+function draftConfig() {
+  const config = {};
+  for (const field of currentFields.value) {
+    config[field.key] = form.values[field.key];
+  }
+  const has = form.values.has_password;
+  if (has) config.has_password = true;
+  return config;
+}
+
+async function testDraft() {
+  const problem = validateDraft();
+  if (problem) {
+    ElMessage.warning(problem);
+    return;
+  }
+  testing.value = true;
+  testResult.value = null;
+  try {
+    testResult.value = await api.post("/datasources/test", {
+      kind: form.kind, config: draftConfig(),
+      datasource_id: editId.value || undefined,
+    });
+  } catch (e) {
+    testResult.value = { ok: false, error: errMsg(e) };
+  } finally {
+    testing.value = false;
+  }
+}
+
+async function save() {
+  const problem = validateDraft();
+  if (problem) {
+    ElMessage.warning(problem);
+    return;
+  }
+  saving.value = true;
+  try {
+    const body = { name: form.name.trim(), kind: form.kind,
+                   config: draftConfig() };
+    if (editId.value) {
+      await api.put(`/datasources/${editId.value}`, body);
+    } else {
+      await api.post("/datasources", body);
+    }
+    dialog.value = false;
+    await load();
+    ElMessage.success(editId.value ? t("ds.saved") : t("ds.created"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    saving.value = false;
+  }
+}
+
 function openMaintain(row) {
   maintain.datasource_id = row.id;
   maintain.schema = "";
@@ -284,33 +432,6 @@ async function runMaintain() {
     ElMessage.error(errMsg(e));
   } finally {
     maintain.running = false;
-  }
-}
-
-function openEdit(row) {
-  editRow.value = row;
-  editForm.name = row.name;
-  editForm.dsn = "";
-  editOpen.value = true;
-}
-
-async function saveEdit() {
-  if (!editForm.name) {
-    ElMessage.warning(t("ds.nameRequired"));
-    return;
-  }
-  savingEdit.value = true;
-  try {
-    const body = { name: editForm.name };
-    if (editForm.dsn.trim()) body.dsn = editForm.dsn.trim();
-    await api.put(`/datasources/${editRow.value.id}`, body);
-    editOpen.value = false;
-    await load();
-    ElMessage.success(t("ds.saved"));
-  } catch (e) {
-    ElMessage.error(errMsg(e));
-  } finally {
-    savingEdit.value = false;
   }
 }
 
@@ -349,32 +470,19 @@ async function remove(row) {
   }
 }
 
-async function create() {
-  try {
-    await createRef.value.validate();
-  } catch {
-    return;
-  }
-  saving.value = true;
-  try {
-    await api.post("/datasources", form);
-    dialog.value = false;
-    await load();
-    ElMessage.success(t("ds.created"));
-  } catch (e) {
-    ElMessage.error(errMsg(e));
-  } finally {
-    saving.value = false;
-  }
-}
 async function test(row) {
   try {
     const r = await api.post(`/datasources/${row.id}/test`);
-    ElMessage[r.ok ? "success" : "error"](r.ok ? t("ds.connOk") : t("ds.connFailed"));
+    if (r.ok) {
+      ElMessage.success(t("ds.connOk"));
+    } else {
+      ElMessage.error(`${t("ds.testFailed")}: ${r.error || ""}`);
+    }
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
 }
+
 async function sync(row) {
   try {
     const r = await api.post(`/datasources/${row.id}/sync`);
@@ -383,6 +491,7 @@ async function sync(row) {
     ElMessage.error(errMsg(e));
   }
 }
+
 async function showTables(row) {
   current.value = row;
   tablesDrawer.value = true;
@@ -393,6 +502,8 @@ async function showTables(row) {
     ElMessage.error(errMsg(e));
   }
 }
+
+onMounted(loadCatalog);
 onMounted(load);
 onMounted(() => { if (route.query.new && canEdit) openCreate(); });
 </script>
@@ -411,5 +522,29 @@ onMounted(() => { if (route.query.new && canEdit) openCreate(); });
   display: flex;
   justify-content: flex-end;
   margin-top: 10px;
+}
+.mono { font-family: var(--odf-mono); font-size: 12px; color: #475569; }
+.cap-tag { margin-left: 6px; }
+.hint { color: #64748b; font-size: 12px; margin-top: 4px; }
+.cap-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 4px 0 14px 100px;
+}
+.cap-label { color: #64748b; font-size: 12px; margin-right: 4px; }
+.test-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 100px;
+  flex-wrap: wrap;
+}
+.test-error {
+  color: #b91c1c;
+  font-size: 12px;
+  max-width: 360px;
+  word-break: break-all;
 }
 </style>

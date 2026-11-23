@@ -266,7 +266,11 @@ async function load() {
   loading.value = true;
   try {
     rows.value = await api.get("/interfaces");
-    if (!datasources.value.length) datasources.value = await api.get("/datasources");
+    if (!datasources.value.length) {
+      const list = await api.get("/datasources");
+      datasources.value = list.filter(
+        (d) => !d.capabilities || d.capabilities.query);
+    }
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {

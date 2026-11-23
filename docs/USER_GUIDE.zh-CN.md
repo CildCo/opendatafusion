@@ -31,15 +31,9 @@
 
 ## 4. 数据源
 
-- **新建数据源**：填写名称、类型、连接串。支持的连接串格式：
-  - PostgreSQL：`postgresql+psycopg://user:pass@host:5432/db`
-  - MySQL/MariaDB：`mysql://user:pass@host:3306/db`
-  - SQLite：`sqlite:////绝对路径`
-  - Oracle：`oracle://user:pass@host:1521/service`
-  - SQL Server：`mssql://user:pass@host:1433/db`
-  - ClickHouse：`clickhouse://user:pass@host:8123/db`
-  - Trino：`trino://user@host:8080/catalog/schema`
-  - 文件：`/data/odf/files/sales.csv`
+- **新建数据源**：类型按「数据库 / 分析引擎 / 文件 / API 与搜索」分组。选择类型后按字段填写主机、端口、库名、账号等，不再手写连接串；密码只保存不显示，编辑时留空表示保持不变。类型创建后不可修改。
+- **支持范围**：数据库与分析引擎可测试、同步元数据、查询、作为管道源；PostgreSQL、MySQL/MariaDB、SQLite 还可作为管道目标。文件类型支持 CSV/TSV/Parquet/JSON/Excel。HTTP API 仅作为管道源/目标；Elasticsearch 可作为管道源/目标并同步索引元数据，但不支持 SQL 查询和 SQL 接口。
+- **测试连接**：新建或编辑时可直接「测试连接」；列表中的「测试」也会显示具体失败原因，例如主机不可达或地址不允许。
 - **测试**：验证连通性，成功提示「连接正常」。
 - **同步元数据**：读取表结构并写入数据目录；已有数据集会原地更新，标签、质量规则不会丢失。
 - **表**：查看已同步的 schema、表与字段数。

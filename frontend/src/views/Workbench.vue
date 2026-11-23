@@ -107,7 +107,9 @@ const error = ref("");
 
 async function loadDatasources() {
   try {
-    datasources.value = await api.get("/datasources");
+    const list = await api.get("/datasources");
+    datasources.value = list.filter(
+      (d) => !d.capabilities || d.capabilities.query);
     if (!datasourceId.value && datasources.value.length) {
       datasourceId.value = datasources.value[0].id;
     }

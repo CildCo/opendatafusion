@@ -1,8 +1,11 @@
+import json
 import re
+from urllib.parse import quote
 
 from sqlalchemy import create_engine, inspect
 
 from odf.models import Column, Dataset, Datasource
+from odf.connectors.registry import supports
 from odf.services.datasource import connect_args_for, get_dsn
 from odf.trino.client import client_for_datasource
 
@@ -153,6 +156,44 @@ def _sync_sql(session, ds) -> int:
     return len(tables)
 
 
+def _sync_es(session, ds) -> int:
+    from odf.services.net import request as outbound
+    from odf.settings import get_settings
+    settings = get_settings()
+    allowed = tuple(item.strip() for item in
+                    (settings.http_allowed_hosts or "").split(",")
+                    if item.strip())
+    base = get_dsn(ds).rstrip("/")
+
+    def call(path):
+        code, _, payload = outbound(
+            base + path, timeout=10,
+            allow_private=settings.http_allow_private,
+            allowed_hosts=allowed, max_bytes=5 * 1024 * 1024)
+        if code >= 400:
+            raise ValueError("elasticsearch answered HTTP %d" % code)
+        return json.loads(payload.decode("utf-8", "replace"))
+
+    indices = [row.get("index") for row in call(
+        "/_cat/indices?format=json&h=index") if row.get("index")]
+    tables = {}
+    for index in indices:
+        if index.startswith("."):
+            continue
+        mapping = call("/%s/_mapping" % quote(index, safe=""))
+        body = next(iter(mapping.values()), {})
+        props = (body.get("mappings") or {}).get("properties") or {}
+        tables[("es", index)] = [
+            {"name": name, "type": (spec or {}).get("type", "object")}
+            for name, spec in props.items()]
+    before = _existing_columns(session, ds.id)
+    _upsert(session, ds, tables)
+    _detect_drift(session, ds, before,
+                  {k: {c["name"]: c["type"] for c in v}
+                   for k, v in tables.items()})
+    return len(tables)
+
+
 def _sync_trino(session, ds) -> int:
     client = client_for_datasource(ds)
     catalog = getattr(client, "catalog", "") or ""
@@ -181,6 +222,12 @@ def sync_datasource(session, datasource_id: int) -> int:
     ds = session.get(Datasource, datasource_id)
     if not ds:
         raise ValueError("datasource not found")
+    if not supports(ds.kind, "metadata"):
+        raise ValueError(
+            "%s is a pipeline connector; its schema cannot be synchronised"
+            % ds.kind)
+    if ds.kind == "es":
+        return _sync_es(session, ds)
     if ds.kind == "file":
         return _sync_file(session, ds)
     if ds.kind == "clickhouse":
