@@ -61,7 +61,7 @@
           <el-option value="approver" label="approver" />
           <el-option value="admin" label="admin" />
         </el-select>
-        <el-button type="primary" :disabled="!found || found.member"
+        <el-button type="primary" :disabled="!found || found.member || !found.active"
                    :loading="adding" @click="add">
           {{ t("users.add") }}
         </el-button>
