@@ -62,7 +62,8 @@ def tables(dsn):
         try:
             cursor.execute(
                 "SELECT OWNER, TABLE_NAME FROM ALL_TABLES "
-                "WHERE OWNER = '%s' ORDER BY TABLE_NAME" % owner)
+                "WHERE OWNER = '%s' AND TABLE_NAME NOT LIKE '##%%' "
+                "ORDER BY TABLE_NAME" % owner)
             names = [(row[0], row[1]) for row in cursor.fetchall()]
             out = []
             for schema, table in names:
