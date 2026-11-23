@@ -150,7 +150,7 @@ async function load() {
     ]);
     rows.value = deps;
     flows.value = flowRows;
-    pipelines.value = pipeRows;
+    pipelines.value = pipeRows.items || [];
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {

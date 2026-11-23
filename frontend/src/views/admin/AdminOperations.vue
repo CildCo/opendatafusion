@@ -73,6 +73,10 @@ python -m odf.cli rotate-fernet --old-key ... --new-key ...</pre>
             <el-input v-model="audit.siem_token" type="password"
                       show-password :placeholder="t('ds.keepPassword')" />
           </el-form-item>
+          <el-form-item :label="t('adm.alertWebhook')">
+            <el-input v-model="alerts.webhook_url"
+                      placeholder="https://hooks.slack.com/services/..." />
+          </el-form-item>
           <el-button :loading="auditSaving" @click="saveAudit">
             {{ t("adm.save") }}
           </el-button>
@@ -106,6 +110,7 @@ const summary = ref({});
 const features = ref({});
 const runtime = ref({});
 const audit = reactive({ retention_days: 0, siem_url: "", siem_token: "" });
+const alerts = reactive({ webhook_url: "" });
 const auditSaving = ref(false);
 
 async function downloadBackup() {
@@ -159,6 +164,7 @@ async function saveAudit() {
       audit: { retention_days: audit.retention_days || 0,
                siem_url: audit.siem_url || "",
                siem_token: audit.siem_token || "" },
+      alerts: { webhook_url: alerts.webhook_url || "" },
     });
     ElMessage.success(t("adm.saved"));
   } catch (e) {
@@ -175,6 +181,7 @@ onMounted(async () => {
     features.value = doc.features || {};
     runtime.value = await api.get("/platform/runtime");
     Object.assign(audit, doc.audit || {});
+    Object.assign(alerts, doc.alerts || {});
   } catch (e) {
     ElMessage.error(errMsg(e));
   }

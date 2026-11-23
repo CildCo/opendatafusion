@@ -6,6 +6,7 @@
     </el-tabs>
     <div class="toolbar">
       <el-input v-model="q" clearable style="width: 280px"
+                @keyup.enter="search" @clear="search"
                 :placeholder="t(tab === 'metrics'
                   ? 'model.searchMetrics' : 'model.search')" />
       <div class="spacer" />
@@ -15,7 +16,7 @@
       </el-button>
     </div>
     <el-card shadow="never">
-      <el-table :data="filtered" size="small" v-loading="loading">
+      <el-table :data="rows" size="small" v-loading="loading">
         <el-table-column prop="name" :label="t('model.name')" min-width="160" />
         <el-table-column prop="key" :label="t('model.key')" min-width="240">
           <template #default="{ row }">
@@ -57,7 +58,11 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" :description="t('model.empty')" />
+      <el-pagination v-if="total > pageSize" class="pager"
+                     layout="total, prev, pager, next"
+                     :total="total" :page-size="pageSize"
+                     :current-page="page" @current-change="changePage" />
+      <el-empty v-if="!loading && !rows.length" :description="t('model.empty')" />
     </el-card>
 
     <el-drawer v-model="usageOpen" :title="t('model.metricDetail')"
@@ -137,7 +142,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, canWrite, errMsg } from "../api";
@@ -150,6 +155,9 @@ const router = useRouter();
 const tab = ref(route.path.startsWith("/metrics") ? "metrics" : "datasets");
 const canEdit = canWrite();
 const rows = ref([]);
+const total = ref(0);
+const page = ref(1);
+const pageSize = ref(50);
 const q = ref("");
 const loading = ref(false);
 const usageOpen = ref(false);
@@ -158,17 +166,6 @@ const lineage = ref({ edges: [], column_edges: [] });
 const compareOpen = ref(false);
 const compare = ref({ changes: [], published_version: null,
                       draft_version: null });
-const filtered = computed(() => rows.value.filter((r) => {
-  if (!q.value) return true;
-  const measure = r.measure || {};
-  const text = [
-    r.name, r.key, r.dataset_name, r.owner, r.description,
-    measure.agg, measure.column, measure.as,
-    (r.dimensions || []).join(" "),
-    ...(r.usage || []).map((u) => u.name),
-  ].join(" ").toLowerCase();
-  return text.includes(q.value.toLowerCase());
-}));
 
 function definition(row) {
   const measure = row.measure || {};
@@ -177,6 +174,16 @@ function definition(row) {
   const dims = row.dimensions || [];
   const base = `${measure.agg}(${column})`;
   return dims.length ? `${base} by ${dims.join(", ")}` : base;
+}
+
+function formatLabel(format) {
+  if (!format || !format.type) return "-";
+  const parts = [format.type];
+  if (format.unit) parts.push(format.unit);
+  if (format.decimals !== undefined && format.decimals !== null) {
+    parts.push(`${format.decimals} 位小数`);
+  }
+  return parts.join(" · ");
 }
 
 function display(value) {
@@ -224,8 +231,16 @@ async function remove(row) {
 async function load() {
   loading.value = true;
   try {
-    rows.value = await api.get(
-      tab.value === "metrics" ? "/metrics/catalog" : "/datasets");
+    const params = new URLSearchParams({
+      page: String(page.value), page_size: String(pageSize.value),
+    });
+    if (q.value.trim()) params.set("q", q.value.trim());
+    const path = tab.value === "metrics"
+      ? `/metrics/catalog?${params.toString()}`
+      : `/datasets?${params.toString()}`;
+    const result = await api.get(path);
+    rows.value = result.items || [];
+    total.value = result.total || 0;
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -233,7 +248,19 @@ async function load() {
   }
 }
 
+function search() {
+  page.value = 1;
+  load();
+}
+
+function changePage(next) {
+  page.value = next;
+  load();
+}
+
 function go() {
+  page.value = 1;
+  q.value = "";
   router.push(`/${tab.value}`);
 }
 
@@ -251,6 +278,7 @@ async function create() {
 
 watch(() => route.path, () => {
   tab.value = route.path.startsWith("/metrics") ? "metrics" : "datasets";
+  page.value = 1;
   load();
 });
 onMounted(load);
@@ -259,6 +287,7 @@ onMounted(load);
 <style scoped>
 .toolbar { display: flex; gap: 10px; margin: 12px 0; align-items: center; }
 .spacer { flex: 1; }
+.pager { margin-top: 12px; justify-content: flex-end; }
 .mono { font-family: ui-monospace, monospace; font-size: 11px; }
 .lineage { display: flex; flex-direction: column; gap: 8px; }
 .edge { display: flex; align-items: center; gap: 8px; font-size: 13px; }

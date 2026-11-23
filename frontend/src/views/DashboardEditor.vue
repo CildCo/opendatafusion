@@ -221,6 +221,7 @@ import DashboardGrid from "../studio/dashboard/DashboardGrid.vue";
 import DashboardFilters from "../studio/dashboard/DashboardFilters.vue";
 import ShareDialog from "../studio/share/ShareDialog.vue";
 import LineageDrawer from "../components/LineageDrawer.vue";
+import { useDraftSafety } from "../draftSafety";
 
 const route = useRoute();
 const id = Number(route.params.id);
@@ -241,6 +242,7 @@ const loadingData = ref(false);
 const versions = ref([]);
 const versionsOpen = ref(false);
 const lineageOpen = ref(false);
+const draftVersion = ref(null);
 const dirty = ref(false);
 const types = computed(() => [
   { type: "card", label: t("dedit.typeCard") },
@@ -269,6 +271,7 @@ const valueOptions = computed(() => {
 async function load() {
   const a = await api.get(`/dashboards/${id}`);
   name.value = a.name;
+  draftVersion.value = a.draft_version;
   published.value = Boolean(a.published);
   const selId = selected.value?.id;
   const draft = a.draft || {};
@@ -282,10 +285,13 @@ async function load() {
   selected.value = selId
     ? content.value.widgets.find((w) => w.id === selId) || null
     : null;
-  metrics.value = (await api.get("/metrics")).filter((m) => m.published);
-  datasets.value = (await api.get("/datasets")).filter((d) => d.published);
+  metrics.value = ((await api.get("/metrics?page_size=200")).items || [])
+    .filter((m) => m.published);
+  datasets.value = ((await api.get("/datasets?page_size=200")).items || [])
+    .filter((d) => d.published);
   if (selected.value) await loadMetric();
   if (content.value.widgets.length) await refresh();
+  draftGuard.reset();
 }
 
 function add(ty) {
@@ -437,17 +443,28 @@ function syncEmit() {
   }
 }
 
-async function save() {
+async function save(silent = false) {
   try {
-    await api.put(`/dashboards/${id}/draft`, { content: content.value });
+    const body = { content: content.value };
+    if (draftVersion.value !== null) body.base_version = draftVersion.value;
+    const result = await api.put(`/dashboards/${id}/draft`, body);
+    draftVersion.value = result.version;
     dirty.value = false;
-    ElMessage.success(t("dedit.savedDraft"));
+    if (!silent) ElMessage.success(t("dedit.savedDraft"));
     return true;
   } catch (e) {
-    ElMessage.error(errMsg(e));
+    if (/draft changed/i.test(e.message || "")) {
+      ElMessageBox.confirm(t("draft.conflict"), t("draft.conflictTitle"),
+        { type: "warning" })
+        .then(() => load()).catch(() => {});
+    } else if (!silent) {
+      ElMessage.error(errMsg(e));
+    }
     return false;
   }
 }
+
+const draftGuard = useDraftSafety({ content, save });
 
 async function rename() {
   try {

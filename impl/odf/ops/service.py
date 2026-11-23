@@ -48,6 +48,7 @@ def _job_dict(session, job):
             "max_attempts": job.max_attempts, "run_at": _iso(job.run_at),
             "finished_at": _iso(job.finished_at),
             "last_error": job.last_error, "locked_by": job.locked_by,
+            "cancel_requested": bool(job.cancel_requested),
             **_target(session, job)}
 
 
@@ -85,6 +86,14 @@ def retry_job(session, project_id, job_id, actor):
     session.commit()
     write_audit(session, actor, "retry_job", str(job.id),
                 {"previous_error": (old_error or "")[:300]})
+    session.refresh(job)
+    return _job_dict(session, job)
+
+
+def cancel_job(session, project_id, job_id, actor):
+    from odf.services.jobs import cancel_job as cancel
+    job = cancel(session, project_id, job_id)
+    write_audit(session, actor, "cancel_job", str(job.id), {})
     session.refresh(job)
     return _job_dict(session, job)
 

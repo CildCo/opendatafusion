@@ -4,6 +4,28 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] - 2026-11-23
+
+### Added
+
+- Server-side pagination and name search for pipelines, datasets, metrics,
+  APIs, dashboards, apps, alerts and quality rules.
+- A notification centre in the console header, with unread counts and
+  read-all, fed by publishing, job failures, alerts and approval requests.
+- Draft autosave, navigation guards and optimistic draft-version checks in
+  every studio editor, with a conflict prompt instead of silent overwrites.
+- A one-click sample delivery path (datasource, pipeline, dataset, metric,
+  dashboard and API) from the getting-started checklist.
+- Migration actions that turn a legacy flow into a pipeline and a legacy SQL
+  interface into an API Studio asset, then disable the old object.
+- Job cancellation for queued and running jobs, and a page-level error
+  boundary for the console.
+- Saved workbench queries and dashboard widget export as CSV.
+- Custom-SQL quality rules and row-count anomaly rules with a historical
+  baseline, plus an optional alert webhook for external routing.
+- A single vocabulary across the console: catalog tables are “数据表”,
+  model assets are “逻辑数据集”, and legacy flows/interfaces are marked.
+
 ## [1.5.0] - 2026-11-23
 
 ### Added

@@ -90,12 +90,12 @@ async function loadLists() {
   const names = ["datasets", "metrics", "interfaces", "flows", "pipelines",
                  "dashboards", "apps", "apis"];
   const results = await Promise.allSettled(
-    names.map((name) => api.get(`/${name}`)));
+    names.map((name) => api.get(`/${name}?page_size=200`)));
   const data = {};
   names.forEach((name, index) => {
     const result = results[index];
-    data[name] = result.status === "fulfilled" && Array.isArray(result.value)
-      ? result.value : [];
+    const value = result.status === "fulfilled" ? result.value : null;
+    data[name] = Array.isArray(value) ? value : (value?.items || []);
   });
   try {
     data.jobs = await api.get("/ops/jobs?limit=100");

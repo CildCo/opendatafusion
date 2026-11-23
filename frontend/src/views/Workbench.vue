@@ -3,6 +3,8 @@
     <div class="head">
       <el-tag size="small" type="info">{{ t("wb.readonly") }}</el-tag>
       <div class="spacer" />
+      <el-button size="small" @click="saveQuery">{{ t("wb.saveQuery") }}</el-button>
+      <el-button size="small" @click="openSaved">{{ t("wb.savedQueries") }}</el-button>
       <el-button size="small" @click="loadDatasources">{{ t("wb.refreshSources") }}</el-button>
     </div>
 
@@ -83,12 +85,26 @@
       </el-table>
     </div>
     <el-empty v-else :description="t('wb.empty')" />
+    <el-drawer v-model="savedOpen" :title="t('wb.savedQueries')" size="420px"
+               @open="loadSaved">
+      <el-empty v-if="!saved.length" :description="t('wb.noSaved')"
+                :image-size="60" />
+      <div v-for="row in saved" :key="row.id" class="saved-row">
+        <button type="button" class="saved-main" @click="applySaved(row)">
+          <b>{{ row.name }}</b>
+          <small>{{ row.tab }} · {{ row.created_at }}</small>
+        </button>
+        <el-button link type="danger" @click="removeSaved(row)">
+          {{ t("common.remove") }}
+        </el-button>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
 <script setup>
 import { onMounted, ref } from "vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
 import SqlEditor from "../studio/api/SqlEditor.vue";
@@ -104,6 +120,8 @@ const limit = ref(1000);
 const loading = ref(false);
 const result = ref(null);
 const error = ref("");
+const savedOpen = ref(false);
+const saved = ref([]);
 
 async function loadDatasources() {
   try {
@@ -199,6 +217,66 @@ function exportCsv() {
   URL.revokeObjectURL(a.href);
 }
 
+async function loadSaved() {
+  try {
+    saved.value = (await api.get("/saved-queries")).items || [];
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+function openSaved() {
+  savedOpen.value = true;
+  loadSaved();
+}
+
+async function saveQuery() {
+  try {
+    const { value } = await ElMessageBox.prompt(
+      t("wb.saveQueryPrompt"), t("wb.saveQuery"),
+      { inputPattern: /\S+/, inputErrorMessage: t("wb.saveQueryName") });
+    await api.post("/saved-queries", {
+      name: value.trim(), tab: tab.value,
+      datasource_id: tab.value === "single" ? datasourceId.value : null,
+      sql: tab.value === "single" ? singleSql.value : fedSql.value,
+      sources: tab.value === "federated" ? sources.value : [],
+      limit: limit.value,
+    });
+    ElMessage.success(t("wb.saved"));
+    await loadSaved();
+  } catch (e) {
+    if (e !== "cancel") ElMessage.error(errMsg(e));
+  }
+}
+
+function applySaved(row) {
+  tab.value = row.tab;
+  limit.value = row.limit || 1000;
+  if (row.tab === "single") {
+    datasourceId.value = row.datasource_id;
+    singleSql.value = row.sql || "";
+  } else {
+    sources.value = row.sources?.length
+      ? row.sources : [{ alias: "t1", datasource_id: null, table: "" }];
+    fedSql.value = row.sql || "";
+    for (const s of sources.value) {
+      if (s.datasource_id) loadTables(s.datasource_id);
+    }
+  }
+  savedOpen.value = false;
+}
+
+async function removeSaved(row) {
+  try {
+    await ElMessageBox.confirm(t("wb.deleteSavedConfirm"),
+                               t("wb.savedQueries"));
+    await api.del(`/saved-queries/${row.id}`);
+    await loadSaved();
+  } catch (e) {
+    if (e !== "cancel") ElMessage.error(errMsg(e));
+  }
+}
+
 onMounted(async () => {
   await loadDatasources();
   for (const s of sources.value) {
@@ -215,6 +293,17 @@ onMounted(async () => {
 .panel :deep(.el-tabs__header) { margin-bottom: 10px; }
 .toolbar { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
 .hint { font-size: 12px; color: #6b7280; }
+.saved-row {
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid #eef2f7; padding: 8px 0;
+}
+.saved-main {
+  flex: 1; display: flex; flex-direction: column; align-items: flex-start;
+  gap: 2px; background: none; border: 0; cursor: pointer;
+  text-align: left; padding: 0;
+}
+.saved-main b { font-size: 13px; }
+.saved-main small { color: #64748b; font-size: 11px; }
 .federation { display: flex; flex-direction: column; gap: 6px; }
 .source-row { display: flex; align-items: center; gap: 6px; }
 .result { margin-top: 14px; background: #fff; border: 1px solid #e5e7eb;

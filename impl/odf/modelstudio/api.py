@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from odf.assets.service import (create_asset, delete_asset_of,
-                                get_asset, list_assets, list_versions,
-                                update_asset, update_draft)
+from odf.assets.service import (DraftConflict, create_asset,
+                                delete_asset_of, get_asset, list_assets,
+                                list_versions, page_assets, update_asset,
+                                update_draft)
 from odf.db import get_session
 from odf.modelstudio.content import (empty_dataset, empty_metric,
                                      validate_dataset, validate_metric)
@@ -38,6 +39,7 @@ class UpdateIn(BaseModel):
 
 class ContentIn(BaseModel):
     content: dict
+    base_version: int | None = None
 
 
 class PreviewIn(BaseModel):
@@ -70,10 +72,13 @@ def _asset(s, asset_id, claims, type_):
     return a
 
 
-def _list(s, claims, type_):
-    return [{"id": a.id, "key": a.key, "name": a.name,
-             "published": a.published_version_id is not None}
-            for a in list_assets(s, claims["project_id"], type_)]
+def _list(s, claims, type_, page=1, page_size=50, q=None):
+    from odf.services.pagination import envelope
+    rows, total, page, page_size = page_assets(
+        s, claims["project_id"], type_, page, page_size, q)
+    return envelope([{"id": a.id, "key": a.key, "name": a.name,
+                      "published": a.published_version_id is not None}
+                     for a in rows], total, page, page_size)
 
 
 def _create(s, claims, type_, body, empty):
@@ -104,7 +109,11 @@ def _update(s, claims, a, body, type_):
 
 
 def _draft(s, claims, a, body, type_):
-    v = update_draft(s, a.id, body.content, claims["sub"])
+    try:
+        v = update_draft(s, a.id, body.content, claims["sub"],
+                         base_version=body.base_version)
+    except DraftConflict as error:
+        raise HTTPException(409, str(error))
     write_audit(s, claims["sub"], "update_%s_draft" % type_, str(a.id),
                 {"version": v.version})
     return {"version": v.version}
@@ -150,9 +159,10 @@ def _rollback(s, a, body, claims, token, type_):
 
 
 @router.get("/datasets")
-def datasets(s: Session = Depends(get_session),
+def datasets(page: int = 1, page_size: int = 50, q: str | None = None,
+             s: Session = Depends(get_session),
              claims: dict = Depends(require_user)):
-    return _list(s, claims, "dataset")
+    return _list(s, claims, "dataset", page, page_size, q)
 
 
 @router.post("/datasets")
@@ -314,17 +324,24 @@ def rollback_dataset(asset_id: int, body: RollbackIn, approval_token: str,
 
 
 @router.get("/metrics")
-def metrics(s: Session = Depends(get_session),
+def metrics(page: int = 1, page_size: int = 50, q: str | None = None,
+            s: Session = Depends(get_session),
             claims: dict = Depends(require_user)):
-    return _list(s, claims, "metric")
+    return _list(s, claims, "metric", page, page_size, q)
 
 
 @router.get("/metrics/catalog")
-def metric_catalog_route(q: str | None = None,
+def metric_catalog_route(q: str | None = None, page: int = 1,
+                         page_size: int = 50,
                          s: Session = Depends(get_session),
                          claims: dict = Depends(require_user)):
+    from odf.services.pagination import envelope, limits
     from odf.modelstudio.service import metric_catalog
-    return metric_catalog(s, claims["project_id"], q)
+    page, page_size = limits(page, page_size)
+    rows = metric_catalog(s, claims["project_id"], q)
+    total = len(rows)
+    start = (page - 1) * page_size
+    return envelope(rows[start:start + page_size], total, page, page_size)
 
 
 @router.get("/metrics/{asset_id}/lineage")

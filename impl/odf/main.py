@@ -10,10 +10,10 @@ from fastapi.staticfiles import StaticFiles
 
 from odf.api import (alerts, approvals, audit, auth, catalog, changes,
                      dashboard, datasources, dependencies, flows, health,
-                     interfaces, mcp, platform_admin,
+                     interfaces, mcp, notifications, platform_admin,
                      probe,
                      metadata, openapi_gateway, projects, quality, runs,
-                     standards, users)
+                     saved_queries, standards, users)
 from odf.api.metrics import EXCLUDED, record, router as metrics_router
 import odf.apistudio.api as api_studio
 import odf.appstudio.api as app_api
@@ -45,7 +45,7 @@ for r in (datasources.router, metadata.router, flows.router, runs.router,
           interfaces.router, health.router, mcp.router, users.router,
           projects.router, catalog.router, quality.router,
           standards.router, alerts.router, changes.router, audit.router,
-          dashboard.router):
+          notifications.router, saved_queries.router, dashboard.router):
     app.include_router(r, prefix="/api/v1",
                        dependencies=[Depends(require_user)])
 app.include_router(approvals.router, prefix="/api/v1",

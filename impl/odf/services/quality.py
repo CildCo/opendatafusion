@@ -2,7 +2,7 @@ import re
 from datetime import date, datetime, timezone
 
 from sqlalchemy import (MetaData, Table, create_engine, false, func, or_,
-                        select)
+                        select, text)
 
 from odf.apistudio.catalog import table_column_info
 from odf.models import Dataset, Datasource, QualityResult, QualityRule
@@ -89,6 +89,44 @@ def _schema_check(actual, expected, allow_extra=False):
     ok = not missing and (allow_extra or not extra)
     return ok, {"missing": missing, "extra": extra,
                 "expected": expected}
+
+
+def _custom_sql_result(n, cfg):
+    expect = cfg.get("expect") or "zero"
+    value = cfg.get("value")
+    if expect == "nonzero":
+        ok = n > 0
+    elif expect == "max_rows":
+        ok = value is not None and n <= int(value)
+    elif expect == "min_rows":
+        ok = value is not None and n >= int(value)
+    else:
+        ok = n == 0
+    return ok, {"rows": n, "expect": expect, "value": value}
+
+
+def _anomaly_result(session, rule, n, cfg):
+    try:
+        window = max(3, min(int(cfg.get("window") or 10), 100))
+        threshold = max(1.0, min(float(cfg.get("deviation_pct") or 30), 500))
+    except (TypeError, ValueError):
+        window, threshold = 10, 30.0
+    rows = (session.query(QualityResult)
+            .filter_by(rule_id=rule.id)
+            .order_by(QualityResult.id.desc()).limit(window).all())
+    history = [r.detail_json.get("rows") for r in rows
+               if isinstance(r.detail_json, dict)
+               and isinstance(r.detail_json.get("rows"), (int, float))]
+    if len(history) < 3:
+        return True, {"rows": n, "baseline": "building",
+                      "samples": len(history), "threshold_pct": threshold}
+    mean = sum(history) / len(history)
+    deviation = abs(n - mean) / mean * 100 if mean else (
+        0 if n == 0 else 100)
+    ok = deviation <= threshold
+    return ok, {"rows": n, "mean": round(mean, 2),
+                "deviation_pct": round(deviation, 2),
+                "threshold_pct": threshold, "samples": len(history)}
 
 
 def _run_simple(session, datasource, ds, rule, runner=None, schema=None):
@@ -178,6 +216,23 @@ def _run_simple(session, datasource, ds, rule, runner=None, schema=None):
             % (table, where), params, 1)["rows"]
         bad = rows[0]["n"]
         ok, detail = bad == 0, {"out_of_range": bad}
+    elif rule.kind == "custom_sql":
+        from odf.apistudio.sqlguard import ensure_read_only
+        sql = (cfg.get("sql") or "").strip().rstrip(";")
+        if not sql:
+            return False, {"error": "sql is required"}
+        try:
+            ensure_read_only(sql)
+        except Exception as exc:
+            return False, {"error": str(exc)}
+        rows = runner.execute(
+            datasource, "SELECT count(*) AS n FROM (%s) AS odf_q" % sql,
+            {}, 1)["rows"]
+        ok, detail = _custom_sql_result(rows[0]["n"], cfg)
+    elif rule.kind == "row_count_anomaly":
+        rows = runner.execute(
+            datasource, "SELECT count(*) AS n FROM %s" % table, {}, 1)["rows"]
+        ok, detail = _anomaly_result(session, rule, rows[0]["n"], cfg)
     else:
         ok, detail = False, {"error": "unsupported kind"}
     return ok, detail
@@ -354,6 +409,25 @@ def run_rule(session, rule_id: int, project_id: int | None = None) -> QualityRes
                 where = or_(*conds) if conds else false()
                 bad = c.execute(select(func.count()).select_from(t).where(where)).scalar()
                 ok, detail = bad == 0, {"out_of_range": bad}
+            elif rule.kind == "custom_sql":
+                from odf.apistudio.sqlguard import ensure_read_only
+                cfg = rule.config_json or {}
+                sql = (cfg.get("sql") or "").strip().rstrip(";")
+                if not sql:
+                    ok, detail = False, {"error": "sql is required"}
+                else:
+                    try:
+                        ensure_read_only(sql)
+                        n = c.execute(text(
+                            "SELECT count(*) FROM (%s) AS odf_q"
+                            % sql)).scalar()
+                        ok, detail = _custom_sql_result(n, cfg)
+                    except Exception as exc:
+                        ok, detail = False, {"error": str(exc)[:300]}
+            elif rule.kind == "row_count_anomaly":
+                n = c.execute(select(func.count()).select_from(t)).scalar()
+                ok, detail = _anomaly_result(
+                    session, rule, n, rule.config_json or {})
             else:
                 ok, detail = False, {"error": "unsupported kind"}
 

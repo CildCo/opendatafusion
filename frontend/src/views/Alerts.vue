@@ -5,7 +5,7 @@
     <div class="toolbar">
       <el-select v-model="status" clearable
                  :placeholder="t('alerts.allStatus')" style="width: 140px"
-                 @change="load">
+                 @change="search">
         <el-option value="open" :label="t('alerts.statusOpen')" />
         <el-option value="acked" :label="t('alerts.statusAcked')" />
         <el-option value="closed" :label="t('alerts.statusClosed')" />
@@ -64,6 +64,10 @@
           </template>
         </el-table-column>
       </el-table>
+      <el-pagination v-if="total > pageSize" class="pager"
+                     layout="total, prev, pager, next"
+                     :total="total" :page-size="pageSize"
+                     :current-page="page" @current-change="changePage" />
       <empty-state v-if="!loading && !filtered.length"
                    :title="t('alerts.empty')" />
     </el-card>
@@ -145,6 +149,9 @@ import RuleBuilder from "../components/RuleBuilder.vue";
 import StatusDot from "../components/StatusDot.vue";
 
 const rows = ref([]);
+const total = ref(0);
+const page = ref(1);
+const pageSize = ref(50);
 const canEdit = canWrite();
 const canApply = canApprove();
 const rules = ref([]);
@@ -172,14 +179,29 @@ function statusLabel(s) {
 async function load() {
   loading.value = true;
   try {
-    const q = status.value ? `?status=${status.value}` : "";
-    rows.value = await api.get("/alerts" + q);
+    const params = new URLSearchParams({
+      page: String(page.value), page_size: String(pageSize.value),
+    });
+    if (status.value) params.set("status", status.value);
+    const result = await api.get(`/alerts?${params.toString()}`);
+    rows.value = result.items || [];
+    total.value = result.total || 0;
     rules.value = await api.get("/alerts/rules");
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
     loading.value = false;
   }
+}
+
+function changePage(next) {
+  page.value = next;
+  load();
+}
+
+function search() {
+  page.value = 1;
+  load();
 }
 function showDetail(row) {
   current.value = row;
@@ -285,4 +307,5 @@ async function removeRule(row) {
   align-items: center;
 }
 .rule-hint { color: #64748b; font-size: 12px; line-height: 1.5; }
+.pager { margin-top: 12px; justify-content: flex-end; }
 </style>

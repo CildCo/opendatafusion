@@ -46,12 +46,17 @@ def remove_rule(rule_id: int, s: Session = Depends(get_session),
 
 
 @router.get("/alerts")
-def alerts(status: str | None = None, s: Session = Depends(get_session),
+def alerts(status: str | None = None, page: int = 1, page_size: int = 50,
+           s: Session = Depends(get_session),
            claims: dict = Depends(require_user)):
-    return [{"id": a.id, "severity": a.severity, "title": a.title,
+    from odf.services.pagination import envelope, limits
+    page, page_size = limits(page, page_size)
+    rows = [{"id": a.id, "severity": a.severity, "title": a.title,
              "status": a.status, "detail": a.detail_json,
              "created_at": a.created_at.isoformat()}
             for a in list_alerts(s, claims["project_id"], status)]
+    start = (page - 1) * page_size
+    return envelope(rows[start:start + page_size], len(rows), page, page_size)
 
 
 @router.post("/alerts/{alert_id}/ack")

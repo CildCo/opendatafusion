@@ -109,9 +109,13 @@
             <el-option value="regex" :label="t('quality.kindRegex')" />
             <el-option value="accepted_values" :label="t('quality.kindAcceptedValues')" />
             <el-option value="schema" :label="t('quality.kindSchema')" />
+            <el-option value="custom_sql" :label="t('quality.kindCustomSql')" />
+            <el-option value="row_count_anomaly"
+                       :label="t('quality.kindAnomaly')" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="form.kind !== 'row_count' && form.kind !== 'schema'"
+        <el-form-item v-if="!['row_count', 'schema', 'custom_sql',
+                             'row_count_anomaly'].includes(form.kind)"
                       :label="t('quality.column')">
           <el-select v-model="form.column_name" style="width: 100%" filterable>
             <el-option v-for="c in columns" :key="c.name" :value="c.name"
@@ -139,6 +143,32 @@
         <el-form-item v-if="form.kind === 'schema'" :label="t('quality.allowExtra')">
           <el-switch v-model="form.allow_extra" />
         </el-form-item>
+        <template v-if="form.kind === 'custom_sql'">
+          <el-form-item :label="t('quality.sql')">
+            <el-input v-model="form.custom_sql" type="textarea" :rows="5"
+                      placeholder="select * from table where ..." />
+          </el-form-item>
+          <el-form-item :label="t('quality.expect')">
+            <el-select v-model="form.expect" style="width: 100%">
+              <el-option value="zero" :label="t('quality.expectZero')" />
+              <el-option value="nonzero" :label="t('quality.expectNonzero')" />
+              <el-option value="max_rows" :label="t('quality.expectMax')" />
+              <el-option value="min_rows" :label="t('quality.expectMin')" />
+            </el-select>
+          </el-form-item>
+          <el-form-item v-if="['max_rows', 'min_rows'].includes(form.expect)"
+                        :label="t('quality.value')">
+            <el-input-number v-model="form.expect_value" :min="0" />
+          </el-form-item>
+        </template>
+        <template v-if="form.kind === 'row_count_anomaly'">
+          <el-form-item :label="t('quality.deviation')">
+            <el-input-number v-model="form.deviation_pct" :min="1" :max="500" />
+          </el-form-item>
+          <el-form-item :label="t('quality.window')">
+            <el-input-number v-model="form.window" :min="3" :max="100" />
+          </el-form-item>
+        </template>
         <el-form-item :label="t('quality.schedule')">
           <el-input v-model="form.schedule_cron"
                     :placeholder="t('quality.schedulePlaceholder')" />
@@ -281,6 +311,8 @@ const form = reactive({
   name: "", dataset_id: null, kind: "not_null", column_name: "",
   min: null, max: null, max_age_hours: 24, pattern: "", values_text: "",
   expected_text: "", allow_null: true, allow_extra: false,
+  custom_sql: "", expect: "zero", expect_value: null,
+  deviation_pct: 30, window: 10,
 });
 
 const filtered = computed(() =>
@@ -293,6 +325,8 @@ function kindLabel(k) {
     row_count: t("quality.tagRowCount"), range: t("quality.tagRange"),
     freshness: t("quality.tagFreshness"), regex: t("quality.tagRegex"),
     accepted_values: t("quality.tagAcceptedValues"), schema: t("quality.tagSchema"),
+    custom_sql: t("quality.tagCustomSql"),
+    row_count_anomaly: t("quality.tagAnomaly"),
   }[k] || k;
 }
 function datasetName(id) {
@@ -303,7 +337,7 @@ function datasetName(id) {
 async function load() {
   loading.value = true;
   try {
-    rows.value = await api.get("/quality/rules");
+    rows.value = (await api.get("/quality/rules?page_size=200")).items || [];
     datasets.value = await api.get("/catalog/datasets");
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -335,6 +369,8 @@ function openCreate() {
     column_name: "", min: null, max: null, max_age_hours: 24,
     pattern: "", values_text: "", expected_text: "", allow_null: true,
     allow_extra: false, schedule_cron: "", alert_on_fail: false,
+    custom_sql: "", expect: "zero", expect_value: null,
+    deviation_pct: 30, window: 10,
   });
   columns.value = [];
   dialog.value = true;
@@ -381,12 +417,22 @@ async function create() {
         .map((x) => x.trim()).filter(Boolean);
       config.allow_extra = form.allow_extra;
     }
+    if (form.kind === "custom_sql") {
+      config.sql = form.custom_sql;
+      config.expect = form.expect;
+      if (form.expect_value !== null) config.value = form.expect_value;
+    }
+    if (form.kind === "row_count_anomaly") {
+      config.deviation_pct = form.deviation_pct;
+      config.window = form.window;
+    }
     await api.post("/quality/rules", {
       project_id: getProject() || 1,
       dataset_id: form.dataset_id,
       name: form.name,
       kind: form.kind,
-      column_name: ["row_count", "schema"].includes(form.kind)
+      column_name: ["row_count", "schema", "custom_sql",
+                    "row_count_anomaly"].includes(form.kind)
         ? null : form.column_name,
       schedule_cron: form.schedule_cron || null,
       alert_on_fail: form.alert_on_fail,

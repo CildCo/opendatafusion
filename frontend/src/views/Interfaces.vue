@@ -38,8 +38,14 @@
                           ? t('iface.published') : t('iface.draft')" />
           </template>
         </el-table-column>
-        <el-table-column :label="t('iface.actions')" width="330" fixed="right">
+        <el-table-column :label="t('iface.actions')" width="430" fixed="right">
           <template #default="{ row }">
+            <el-button v-if="canEdit && !row.migrated_asset_id" link
+                       @click="migrate(row)">{{ t("iface.migrate") }}</el-button>
+            <el-button v-if="row.migrated_asset_id" link
+                       @click="$router.push(`/apis/${row.migrated_asset_id}`)">
+              {{ t("iface.openApi") }}
+            </el-button>
             <el-button link @click="openDetail(row)">{{ t("iface.detail") }}</el-button>
             <el-button v-if="canEdit && row.status !== 1" link @click="publish(row)">{{ t("iface.publish") }}</el-button>
             <el-button v-else-if="canEdit" link @click="revoke(row)">{{ t("iface.revoke") }}</el-button>
@@ -194,7 +200,7 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { api, canWrite, errMsg, getProject } from "../api";
 import { loadPrefs, savePrefs } from "../prefs";
 import { fmtDate, t } from "../i18n";
@@ -228,6 +234,7 @@ const q = ref(prefs.q);
 const statusFilter = ref(prefs.status);
 const canEdit = canWrite();
 const route = useRoute();
+const router = useRouter();
 const formRef = ref(null);
 const formRules = computed(() => ({
   name: [{ required: true, message: t("iface.requiredFields"),
@@ -310,6 +317,23 @@ async function create() {
     ElMessage.error(errMsg(e));
   } finally {
     saving.value = false;
+  }
+}
+
+async function migrate(row) {
+  try {
+    await ElMessageBox.confirm(
+      t("iface.migrateConfirm").replace("{name}", row.name),
+      t("iface.migrateTitle"), { type: "warning" });
+  } catch (e) {
+    return;
+  }
+  try {
+    const result = await api.post(`/interfaces/${row.id}/migrate`, {});
+    ElMessage.success(t("iface.migrated"));
+    router.push(result.link);
+  } catch (e) {
+    ElMessage.error(errMsg(e));
   }
 }
 

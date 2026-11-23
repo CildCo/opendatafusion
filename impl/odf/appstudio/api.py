@@ -5,9 +5,10 @@ from sqlalchemy.orm import Session
 from odf.appstudio.content import empty_app, validate_app
 from odf.appstudio.forms import form_schema, submit_form
 from odf.appstudio.service import app_data
-from odf.assets.service import (create_asset, delete_asset_of,
-                                get_asset, list_assets, list_versions,
-                                update_asset, update_draft)
+from odf.assets.service import (DraftConflict, create_asset,
+                                delete_asset_of, get_asset, list_assets,
+                                list_versions, page_assets, update_asset,
+                                update_draft)
 from odf.db import get_session
 from odf.models import AssetVersion, User
 from odf.services.approval import verify_token
@@ -32,6 +33,7 @@ class UpdateIn(BaseModel):
 
 class ContentIn(BaseModel):
     content: dict
+    base_version: int | None = None
 
 
 class DataIn(BaseModel):
@@ -71,11 +73,15 @@ def _get(s, a):
 
 
 @router.get("/apps")
-def list_(s: Session = Depends(get_session),
+def list_(page: int = 1, page_size: int = 50, q: str | None = None,
+          s: Session = Depends(get_session),
           claims: dict = Depends(require_user)):
-    return [{"id": a.id, "key": a.key, "name": a.name,
-             "published": a.published_version_id is not None}
-            for a in list_assets(s, claims["project_id"], "app")]
+    from odf.services.pagination import envelope
+    rows, total, page, page_size = page_assets(
+        s, claims["project_id"], "app", page, page_size, q)
+    return envelope([{"id": a.id, "key": a.key, "name": a.name,
+                      "published": a.published_version_id is not None}
+                     for a in rows], total, page, page_size)
 
 
 @router.post("/apps")
@@ -123,7 +129,11 @@ def draft(asset_id: int, body: ContentIn,
           s: Session = Depends(get_session),
           claims: dict = Depends(require_editor)):
     a = _asset(s, asset_id, claims)
-    v = update_draft(s, a.id, body.content, claims["sub"])
+    try:
+        v = update_draft(s, a.id, body.content, claims["sub"],
+                         base_version=body.base_version)
+    except DraftConflict as error:
+        raise HTTPException(409, str(error))
     write_audit(s, claims["sub"], "update_app_draft", str(a.id),
                 {"version": v.version})
     return {"version": v.version}

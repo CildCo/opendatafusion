@@ -99,6 +99,27 @@ export const api = {
   put: (p, b) => request(p, { method: "PUT", body: JSON.stringify(b ?? {}) }),
   del: (p) => request(p, { method: "DELETE" }),
   applyChange,
+  download: async (p, filename = "download") => {
+    const headers = { "Accept-Language": acceptLanguage() };
+    const token = getToken();
+    if (token) headers.Authorization = "Bearer " + token;
+    const r = await fetch("/api/v1" + p, { headers });
+    if (!r.ok) {
+      let msg = `HTTP ${r.status}`;
+      try {
+        const body = await r.json();
+        if (body.detail) msg = body.detail;
+      } catch (e) { /* keep default */ }
+      throw new Error(localizeError(msg));
+    }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
   tablesOf: (dsId) => request(`/datasources/${dsId}/tables`),
   datasetDetail: (id) => request(`/catalog/datasets/${id}`),
   flowRuns: (id) => request(`/flows/${id}/runs`),

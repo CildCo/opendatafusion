@@ -122,12 +122,14 @@ import ParamsPanel from "../studio/api/ParamsPanel.vue";
 import ApiPreview from "../studio/api/ApiPreview.vue";
 import ApiDocs from "../studio/api/ApiDocs.vue";
 import LineageDrawer from "../components/LineageDrawer.vue";
+import { useDraftSafety } from "../draftSafety";
 import { normalizeContent } from "../studio/api/content";
 
 const route = useRoute();
 const router = useRouter();
 const id = Number(route.params.id);
 const name = ref("");
+const draftVersion = ref(null);
 const key = ref("");
 const enabled = ref(false);
 const content = ref(normalizeContent(null));
@@ -145,27 +147,40 @@ const preview = ref(null);
 async function load() {
   const a = await api.get(`/apis/${id}`);
   name.value = a.name;
+  draftVersion.value = a.draft_version;
   key.value = a.key;
   enabled.value = a.enabled;
   content.value = normalizeContent(a.draft);
-  items.value = await api.get("/apis");
+  items.value = (await api.get("/apis?page_size=200")).items || [];
   datasources.value = await api.get("/datasources");
+  draftGuard.reset();
 }
 
 function openOther(p) {
   if (p.id !== id) router.push(`/apis/${p.id}`);
 }
 
-async function save() {
+async function save(silent = false) {
   try {
-    await api.put(`/apis/${id}/draft`, { content: content.value });
-    ElMessage.success(t("aed.draftSaved"));
+    const body = { content: content.value };
+    if (draftVersion.value !== null) body.base_version = draftVersion.value;
+    const result = await api.put(`/apis/${id}/draft`, body);
+    draftVersion.value = result.version;
+    if (!silent) ElMessage.success(t("aed.draftSaved"));
     return true;
   } catch (e) {
-    ElMessage.error(errMsg(e));
+    if (/draft changed/i.test(e.message || "")) {
+      ElMessageBox.confirm(t("draft.conflict"), t("draft.conflictTitle"),
+        { type: "warning" })
+        .then(() => load()).catch(() => {});
+    } else if (!silent) {
+      ElMessage.error(errMsg(e));
+    }
     return false;
   }
 }
+
+const draftGuard = useDraftSafety({ content, save });
 
 async function rename() {
   try {

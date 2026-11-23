@@ -94,11 +94,16 @@
             <el-table-column prop="run_at" :label="t('ops.scheduledAt')" width="180">
               <template #default="{ row }">{{ fmt(row.run_at) }}</template>
             </el-table-column>
-            <el-table-column :label="t('ops.actions')" width="130">
+            <el-table-column :label="t('ops.actions')" width="190">
               <template #default="{ row }">
                 <el-button v-if="canOperate && row.status === 'failed'"
                            link type="primary" @click="retry(row)">
                   {{ t("ops.retry") }}
+                </el-button>
+                <el-button v-if="canOperate
+                               && ['queued', 'running'].includes(row.status)"
+                           link type="warning" @click="cancel(row)">
+                  {{ t("ops.cancel") }}
                 </el-button>
                 <el-button v-if="targetPath(row)" link @click="openTarget(row)">
                   {{ t("ops.view") }}
@@ -442,6 +447,21 @@ async function retry(row) {
       t("ops.retryTitle"));
     await api.post(`/ops/jobs/${row.id}/retry`);
     ElMessage.success(t("ops.requeued"));
+    await load();
+  } catch (e) {
+    if (e !== "cancel") ElMessage.error(errMsg(e));
+  }
+}
+
+async function cancel(row) {
+  try {
+    await ElMessageBox.confirm(
+      t("ops.cancelConfirm")
+        .replace("{id}", row.id)
+        .replace("{name}", row.target_name || "-"),
+      t("ops.cancelTitle"));
+    await api.post(`/ops/jobs/${row.id}/cancel`);
+    ElMessage.success(t("ops.cancelled"));
     await load();
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));

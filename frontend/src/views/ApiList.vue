@@ -3,13 +3,14 @@
     <page-header icon="api" :title="t('menu.apis')" :intro="t('api.intro')" />
     <div class="toolbar">
       <el-input v-model="q" :placeholder="t('api.search')" clearable
-                style="width: 260px" />
+                style="width: 260px" @keyup.enter="search"
+                @clear="search" />
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("api.refresh") }}</el-button>
       <el-button v-if="canEdit" type="primary" @click="create">{{ t("api.new") }}</el-button>
     </div>
     <el-card shadow="never">
-      <el-table :data="filtered" size="small" v-loading="loading">
+      <el-table :data="rows" size="small" v-loading="loading">
         <el-table-column :label="t('api.name')" min-width="210">
           <template #default="{ row }">
             <span class="entity-cell">
@@ -42,7 +43,11 @@
           </template>
         </el-table-column>
       </el-table>
-      <empty-state v-if="!loading && !filtered.length"
+      <el-pagination v-if="total > pageSize" class="pager"
+                     layout="total, prev, pager, next"
+                     :total="total" :page-size="pageSize"
+                     :current-page="page" @current-change="changePage" />
+      <empty-state v-if="!loading && !rows.length"
                    :title="t('api.empty')" :description="t('api.intro')"
                    :action-text="canEdit ? t('api.new') : ''" @action="create" />
     </el-card>
@@ -50,7 +55,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, canWrite, errMsg } from "../api";
@@ -62,12 +67,12 @@ import StatusDot from "../components/StatusDot.vue";
 
 const router = useRouter();
 const rows = ref([]);
+const total = ref(0);
+const page = ref(1);
+const pageSize = ref(50);
 const canEdit = canWrite();
 const q = ref("");
 const loading = ref(false);
-const filtered = computed(() => rows.value.filter(
-  (r) => !q.value || (r.name + r.key).toLowerCase()
-    .includes(q.value.toLowerCase())));
 
 async function remove(row) {
   try {
@@ -89,12 +94,28 @@ async function remove(row) {
 async function load() {
   loading.value = true;
   try {
-    rows.value = await api.get("/apis");
+    const params = new URLSearchParams({
+      page: String(page.value), page_size: String(pageSize.value),
+    });
+    if (q.value.trim()) params.set("q", q.value.trim());
+    const result = await api.get(`/apis?${params.toString()}`);
+    rows.value = result.items || [];
+    total.value = result.total || 0;
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
     loading.value = false;
   }
+}
+
+function search() {
+  page.value = 1;
+  load();
+}
+
+function changePage(next) {
+  page.value = next;
+  load();
 }
 
 async function create() {
@@ -130,4 +151,5 @@ onMounted(load);
 .toolbar { display: flex; gap: 10px; margin-bottom: 12px; align-items: center; }
 .spacer { flex: 1; }
 .mono { font-family: ui-monospace, monospace; font-size: 12px; }
+.pager { margin-top: 12px; justify-content: flex-end; }
 </style>

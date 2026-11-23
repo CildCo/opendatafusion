@@ -25,10 +25,25 @@ def _iface(session, interface_id: int, claims: dict) -> Interface:
 def list_(s: Session = Depends(get_session),
           claims: dict = Depends(require_user)):
     return [{"id": i.id, "key": i.interface_key, "name": i.name,
-             "status": i.status, "datasource_id": i.datasource_id}
+             "status": i.status, "datasource_id": i.datasource_id,
+             "migrated_asset_id": i.migrated_asset_id}
             for i in (s.query(Interface)
                       .filter_by(project_id=claims["project_id"])
                       .order_by(Interface.id).all())]
+
+
+@router.post("/interfaces/{interface_id}/migrate")
+def migrate(interface_id: int, s: Session = Depends(get_session),
+            claims: dict = Depends(require_editor)):
+    from odf.services.legacy import migrate_interface
+    try:
+        asset = migrate_interface(s, claims["project_id"], interface_id,
+                                  claims["sub"])
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    write_audit(s, claims["sub"], "migrate_interface", str(interface_id),
+                {"asset_id": asset.id})
+    return {"asset_id": asset.id, "link": "/apis/%d" % asset.id}
 
 
 @router.get("/interfaces/{interface_id}")

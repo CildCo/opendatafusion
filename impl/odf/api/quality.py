@@ -29,9 +29,14 @@ class RuleUpdateIn(BaseModel):
 
 
 @router.get("/quality/rules")
-def rules(s: Session = Depends(get_session),
+def rules(page: int = 1, page_size: int = 50,
+          s: Session = Depends(get_session),
           claims: dict = Depends(require_user)):
-    return rule_summaries(s, claims["project_id"])
+    from odf.services.pagination import envelope, limits
+    page, page_size = limits(page, page_size)
+    rows = rule_summaries(s, claims["project_id"])
+    start = (page - 1) * page_size
+    return envelope(rows[start:start + page_size], len(rows), page, page_size)
 
 
 @router.post("/quality/rules")

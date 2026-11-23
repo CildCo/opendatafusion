@@ -124,16 +124,16 @@ async function create() {
     const content = {
       nodes: [
         { id: "source_1", type: "source", position: { x: 80, y: 120 },
-          data: { kind: "source", name: t("quick.source"),
-                  config: { datasource_id: sourceId.value,
-                            table: sourceTable.value, pk: pk.value } } },
+          name: t("quick.source"),
+          config: { datasource_id: sourceId.value,
+                    table: sourceTable.value, pk: pk.value } },
         { id: "sink_1", type: "sink", position: { x: 420, y: 120 },
-          data: { kind: "sink", name: t("quick.target"),
-                  config: { datasource_id: targetId.value,
-                            table: targetTable.value, mode: mode.value,
-                            pk: [pk.value] } } },
+          name: t("quick.target"),
+          config: { datasource_id: targetId.value,
+                    table: targetTable.value, mode: mode.value,
+                    pk: [pk.value] } },
       ],
-      edges: [{ id: "e1", source: "source_1", target: "sink_1" }],
+      edges: [{ id: "e1", from: "source_1", to: "sink_1" }],
       settings: { batch: 1000 },
     };
     const asset = await api.post("/pipelines", {

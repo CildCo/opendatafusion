@@ -36,6 +36,16 @@ def retry(job_id: int, s: Session = Depends(get_session),
         _value_error(e)
 
 
+@router.post("/ops/jobs/{job_id}/cancel")
+def cancel(job_id: int, s: Session = Depends(get_session),
+           claims: dict = Depends(require_editor)):
+    try:
+        return service.cancel_job(s, claims["project_id"], job_id,
+                                  claims["sub"])
+    except ValueError as e:
+        _value_error(e)
+
+
 @router.get("/ops/alerts")
 def alerts(status: str | None = None, severity: str | None = None,
            s: Session = Depends(get_session),

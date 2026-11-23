@@ -13,6 +13,9 @@ def propose(session, project_id: int, actor: str, action: str, target: int,
     session.add(c)
     session.commit()
     session.refresh(c)
+    from odf.services.notifications import notify
+    notify(session, project_id, "approval", "新的变更申请：%s" % action,
+           "申请人：%s" % actor, "/changes")
     return c
 
 
