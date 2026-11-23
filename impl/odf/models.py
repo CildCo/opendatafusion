@@ -87,6 +87,8 @@ class Dataset(Base):
     datasource_id: Mapped[int] = mapped_column(ForeignKey("datasource.id"), index=True)
     schema_name: Mapped[str] = mapped_column(String(128))
     table_name: Mapped[str] = mapped_column(String(128))
+    domain_id: Mapped[int | None] = mapped_column(Integer, nullable=True,
+                                                 index=True)
 
 
 class Column(Base):
@@ -286,6 +288,32 @@ class NotificationRead(Base):
         ForeignKey("notification.id"), index=True)
     read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                               default=now)
+
+
+class Domain(Base):
+    __tablename__ = "domain"
+    __table_args__ = (UniqueConstraint("project_id", "name"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    description: Mapped[str] = mapped_column(Text, default="")
+    owner: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now)
+
+
+class GlossaryTerm(Base):
+    __tablename__ = "glossary_term"
+    __table_args__ = (UniqueConstraint("project_id", "term"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"), index=True)
+    domain_id: Mapped[int | None] = mapped_column(Integer, nullable=True,
+                                                 index=True)
+    term: Mapped[str] = mapped_column(String(128))
+    definition: Mapped[str] = mapped_column(Text, default="")
+    owner: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now)
 
 
 class SavedQuery(Base):
@@ -546,6 +574,9 @@ class Asset(Base):
     name: Mapped[str] = mapped_column(String(128))
     description: Mapped[str] = mapped_column(Text, default="")
     owner: Mapped[str] = mapped_column(String(64))
+    domain_id: Mapped[int | None] = mapped_column(Integer, nullable=True,
+                                                 index=True)
+    contract_json: Mapped[dict] = mapped_column(JSON, default=dict)
     cron: Mapped[str | None] = mapped_column(String(64), nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     draft_version_id: Mapped[int | None] = mapped_column(Integer, nullable=True)

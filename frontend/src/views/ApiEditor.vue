@@ -9,13 +9,14 @@
       </el-tag>
       <span class="key mono">{{ key }}</span>
       <div class="spacer" />
-      <el-button size="small" @click="save">{{ t("aed.save") }}</el-button>
+      <el-button size="small" @click="save()">{{ t("aed.save") }}</el-button>
       <el-button size="small" @click="validate">{{ t("aed.validate") }}</el-button>
       <el-button size="small" @click="preview?.run()">{{ t("aed.preview") }}</el-button>
       <el-button size="small" @click="test">{{ t("aed.test") }}</el-button>
       <el-button size="small" type="primary" @click="publish">{{ t("aed.publish") }}</el-button>
       <el-button size="small" @click="versionsOpen = true">{{ t("aed.versions") }}</el-button>
       <el-button size="small" @click="lineageOpen = true">{{ t("lin.button") }}</el-button>
+      <el-button size="small" @click="governanceOpen = true">{{ t("gov.button") }}</el-button>
       <el-button size="small" @click="openStats">{{ t("aed.stats") }}</el-button>
       <el-button size="small" @click="docsOpen = true">{{ t("aed.docs") }}</el-button>
       <el-button size="small" @click="toggle">
@@ -106,6 +107,7 @@
                 :image-size="60" />
     </el-drawer>
     <lineage-drawer v-model="lineageOpen" :asset-id="id" />
+    <governance-drawer v-model="governanceOpen" :asset-id="id" />
   </div>
 </template>
 
@@ -122,6 +124,7 @@ import ParamsPanel from "../studio/api/ParamsPanel.vue";
 import ApiPreview from "../studio/api/ApiPreview.vue";
 import ApiDocs from "../studio/api/ApiDocs.vue";
 import LineageDrawer from "../components/LineageDrawer.vue";
+import GovernanceDrawer from "../components/GovernanceDrawer.vue";
 import { useDraftSafety } from "../draftSafety";
 import { normalizeContent } from "../studio/api/content";
 
@@ -138,6 +141,7 @@ const items = ref([]);
 const versions = ref([]);
 const versionsOpen = ref(false);
 const lineageOpen = ref(false);
+const governanceOpen = ref(false);
 const statsOpen = ref(false);
 const stats = ref({ total: { count: 0, errors: 0, avg_ms: 0 },
                     days: [], keys: [] });

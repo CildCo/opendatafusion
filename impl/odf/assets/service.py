@@ -116,6 +116,13 @@ def update_draft(session, asset_id, content, actor, note="",
             not current or current.version != int(base_version)):
         raise DraftConflict(
             "draft changed since version %s" % base_version)
+    if a.type == "dataset" and content.get("mode") == "sql":
+        from odf.modelstudio.content import derive_sql_columns
+        try:
+            content = {**content, "columns": derive_sql_columns(
+                session, content, a.project_id)}
+        except ValueError:
+            content = {**content, "columns": []}
     v = AssetVersion(asset_id=asset_id, version=_next_version(session, asset_id),
                      content_json=content, status="draft",
                      created_by=actor, note=note)

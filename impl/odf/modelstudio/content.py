@@ -5,6 +5,7 @@ from odf.apistudio.content import validate_content
 from odf.models import Asset, AssetVersion
 
 _ALIAS = re.compile(r"^\w+$", re.UNICODE)
+METRIC_AGGS = AGGREGATES | {"count_distinct"}
 
 
 def empty_dataset():
@@ -40,8 +41,24 @@ def _published_dataset(session, dataset_id, project_id):
 def validate_dataset(session, content, project_id):
     if not isinstance(content, dict):
         return [_err("content", "content must be an object")]
-    if content.get("mode") != "visual":
-        return [_err("mode", "dataset mode must be visual")]
+    mode = content.get("mode")
+    if mode == "sql":
+        errs = validate_content(session, content, project_id)
+        if errs:
+            return errs
+        if content.get("params"):
+            return [_err("params",
+                         "SQL datasets do not support parameters; use an API")]
+        try:
+            content["columns"] = derive_sql_columns(session, content,
+                                                    project_id)
+        except ValueError as exc:
+            return [_err("sql", str(exc)[:300])]
+        if not content["columns"]:
+            return [_err("sql", "SQL dataset returned no columns")]
+        return []
+    if mode != "visual":
+        return [_err("mode", "dataset mode must be visual or sql")]
     errs = validate_content(session, content, project_id)
     if errs:
         return errs
@@ -61,7 +78,25 @@ def validate_dataset(session, content, project_id):
     return []
 
 
+def derive_sql_columns(session, content, project_id):
+    from odf.apistudio.compiler import render_sql
+    from odf.models import Datasource
+    from odf.services.query import execute_query
+    from odf.services.sqldialect import limited
+    ds_id = (content.get("query") or {}).get("datasource_id")
+    ds = session.get(Datasource, ds_id) if ds_id else None
+    if not ds or ds.project_id != project_id:
+        raise ValueError("datasource does not belong to project")
+    sql, binds = render_sql(content.get("sql") or "", [], {})
+    result = execute_query(session, ds, limited(sql, ds.kind, 1), binds, 1)
+    return [{"name": name, "type": "unknown"}
+            for name in result.get("columns") or []]
+
+
 def dataset_output_columns(content):
+    if content.get("mode") == "sql":
+        return [c.get("name") for c in content.get("columns") or []
+                if isinstance(c, dict) and c.get("name")]
     out = []
     query = content.get("query") or {}
     for item in query.get("select") or []:
@@ -87,7 +122,7 @@ def validate_metric(session, content, project_id):
         return [_err("measure", "measure must be an object")]
     agg = measure.get("agg")
     col = measure.get("column")
-    if not isinstance(agg, str) or agg not in AGGREGATES:
+    if not isinstance(agg, str) or agg not in METRIC_AGGS:
         errs.append(_err("measure.agg", "unsupported aggregate"))
     if not isinstance(col, str) or (col != "*" and col not in names):
         errs.append(_err("measure.column", "column not in dataset output"))

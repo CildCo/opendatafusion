@@ -8,12 +8,13 @@
         {{ published ? t("med.published") : t("med.draft") }}
       </el-tag>
       <div class="spacer" />
-      <el-button size="small" @click="save">{{ t("med.save") }}</el-button>
+      <el-button size="small" @click="save()">{{ t("med.save") }}</el-button>
       <el-button size="small" @click="validate">{{ t("med.validate") }}</el-button>
       <el-button size="small" :loading="querying" @click="preview">{{ t("med.preview") }}</el-button>
       <el-button size="small" type="primary" @click="publish">{{ t("med.publish") }}</el-button>
       <el-button size="small" @click="versionsOpen = true">{{ t("med.versions") }}</el-button>
       <el-button size="small" @click="lineageOpen = true">{{ t("lin.button") }}</el-button>
+      <el-button size="small" @click="governanceOpen = true">{{ t("gov.button") }}</el-button>
     </div>
 
     <div class="body">
@@ -115,6 +116,7 @@
       </el-table>
     </el-drawer>
     <lineage-drawer v-model="lineageOpen" :asset-id="id" />
+    <governance-drawer v-model="governanceOpen" :asset-id="id" />
   </div>
 </template>
 
@@ -125,6 +127,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getProject, getRole } from "../api";
 import { t } from "../i18n";
 import LineageDrawer from "../components/LineageDrawer.vue";
+import GovernanceDrawer from "../components/GovernanceDrawer.vue";
 import { useDraftSafety } from "../draftSafety";
 
 const route = useRoute();
@@ -142,7 +145,8 @@ const querying = ref(false);
 const versions = ref([]);
 const versionsOpen = ref(false);
 const lineageOpen = ref(false);
-const aggs = ["sum", "count", "avg", "min", "max"];
+const governanceOpen = ref(false);
+const aggs = ["sum", "count", "avg", "min", "max", "count_distinct"];
 const content = ref({
   dataset_id: null,
   measure: { agg: "sum", column: "", as: "value" },

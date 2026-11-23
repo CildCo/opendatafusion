@@ -25,6 +25,7 @@
         </el-button>
         <el-button size="small" type="primary" @click="$emit('publish')">{{ t("shell.publish") }}</el-button>
         <el-button size="small" @click="$emit('versions')">{{ t("shell.versions") }}</el-button>
+        <el-button size="small" @click="$emit('governance')">{{ t("gov.button") }}</el-button>
       </div>
     </header>
     <div class="studio-body">
@@ -48,7 +49,7 @@ defineProps({
 });
 defineEmits(["save", "validate", "preview", "run", "backfill", "cursors",
              "toggle", "publish", "versions", "rename", "rename-save",
-             "schedule"]);
+             "schedule", "governance"]);
 </script>
 
 <style scoped>

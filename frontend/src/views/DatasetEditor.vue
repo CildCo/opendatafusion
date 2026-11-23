@@ -7,8 +7,13 @@
       <el-tag size="small" :type="published ? 'success' : 'info'">
         {{ published ? t("ded.published") : t("ded.draft") }}
       </el-tag>
+      <el-radio-group v-model="content.mode" size="small"
+                      @change="modeChanged">
+        <el-radio-button value="visual">{{ t("ded.visualMode") }}</el-radio-button>
+        <el-radio-button value="sql">{{ t("ded.sqlMode") }}</el-radio-button>
+      </el-radio-group>
       <div class="spacer" />
-      <el-button size="small" @click="save">{{ t("ded.save") }}</el-button>
+      <el-button size="small" @click="save()">{{ t("ded.save") }}</el-button>
       <el-button size="small" @click="validate">{{ t("ded.validate") }}</el-button>
       <el-button size="small" :loading="previewing" @click="preview">{{ t("ded.preview") }}</el-button>
       <el-button size="small" type="primary" @click="publish">{{ t("ded.publish") }}</el-button>
@@ -16,10 +21,23 @@
       <el-button size="small" @click="openColumnPolicies">{{ t("ded.columnMasking") }}</el-button>
       <el-button size="small" @click="versionsOpen = true">{{ t("ded.versions") }}</el-button>
       <el-button size="small" @click="lineageOpen = true">{{ t("lin.button") }}</el-button>
+      <el-button size="small" @click="governanceOpen = true">{{ t("gov.button") }}</el-button>
     </div>
     <div class="body">
       <main class="center">
-        <VisualBuilder :content="content" :datasources="datasources" />
+        <template v-if="content.mode === 'sql'">
+          <div class="sql-bar">
+            <span>{{ t("ded.datasource") }}</span>
+            <el-select v-model="content.query.datasource_id" size="small"
+                       style="width: 220px">
+              <el-option v-for="d in datasources" :key="d.id" :value="d.id"
+                         :label="d.name" />
+            </el-select>
+            <span class="muted">{{ t("ded.sqlHint") }}</span>
+          </div>
+          <sql-editor v-model="content.sql" />
+        </template>
+        <VisualBuilder v-else :content="content" :datasources="datasources" />
       </main>
       <aside class="right">
         <el-table v-if="rows.length" :data="rows" size="small" height="320">
@@ -154,6 +172,7 @@
       </el-table>
     </el-drawer>
     <lineage-drawer v-model="lineageOpen" :asset-id="id" />
+    <governance-drawer v-model="governanceOpen" :asset-id="id" />
   </div>
 </template>
 
@@ -164,7 +183,9 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
 import VisualBuilder from "../studio/api/VisualBuilder.vue";
+import SqlEditor from "../studio/api/SqlEditor.vue";
 import LineageDrawer from "../components/LineageDrawer.vue";
+import GovernanceDrawer from "../components/GovernanceDrawer.vue";
 import { useDraftSafety } from "../draftSafety";
 import { normalizeContent } from "../studio/api/content";
 
@@ -183,6 +204,7 @@ const previewing = ref(false);
 const versions = ref([]);
 const versionsOpen = ref(false);
 const lineageOpen = ref(false);
+const governanceOpen = ref(false);
 const policiesOpen = ref(false);
 const policies = ref([]);
 const policyColumns = ref([]);
@@ -301,6 +323,27 @@ async function load() {
   draftGuard.reset();
 }
 
+function modeChanged(mode) {
+  if (mode === "sql") {
+    content.value.query = content.value.query || {
+      datasource_id: null, table: "",
+    };
+    if (!content.value.query.datasource_id && datasources.value.length) {
+      content.value.query.datasource_id = datasources.value[0].id;
+    }
+    if (!content.value.sql) {
+      content.value.sql = "select * from ";
+    }
+  } else if (!content.value.query?.table) {
+    content.value.query = {
+      datasource_id: content.value.query?.datasource_id
+        || datasources.value[0]?.id || null,
+      table: "", select: [], filters: [], group_by: [], order_by: [],
+      limit: 1000,
+    };
+  }
+}
+
 async function save(silent = false) {
   try {
     const body = { content: content.value };
@@ -409,4 +452,7 @@ onMounted(load);
 .stats { margin: 8px 0; font-size: 12px; color: #475569; }
 .sql { background: #0f172a; color: #e2e8f0; padding: 8px; border-radius: 6px;
        font-size: 11px; white-space: pre-wrap; }
+.sql-bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+           border-bottom: 1px solid #eef2f7; font-size: 12px; }
+.muted { color: #64748b; font-size: 12px; }
 </style>

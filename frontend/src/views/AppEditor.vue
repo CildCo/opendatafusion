@@ -8,7 +8,7 @@
         {{ published ? t("aedit.published") : t("aedit.draft") }}
       </el-tag>
       <div class="spacer" />
-      <el-button size="small" @click="save">{{ t("aedit.save") }}</el-button>
+      <el-button size="small" @click="save()">{{ t("aedit.save") }}</el-button>
       <el-button size="small" @click="validate">
         {{ t("aedit.validate") }}
       </el-button>
@@ -17,6 +17,9 @@
       </el-button>
       <el-button size="small" type="primary" @click="publish">
         {{ t("aedit.publish") }}
+      </el-button>
+      <el-button size="small" @click="governanceOpen = true">
+        {{ t("gov.button") }}
       </el-button>
       <el-button size="small" @click="versionsOpen = true">
         {{ t("aedit.versions") }}
@@ -294,6 +297,7 @@
         </el-table-column>
       </el-table>
     </el-drawer>
+    <governance-drawer v-model="governanceOpen" :asset-id="id" />
   </div>
 </template>
 
@@ -305,12 +309,14 @@ import { api, errMsg } from "../api";
 import { t } from "../i18n";
 import AppRuntime from "../studio/app/AppRuntime.vue";
 import ShareDialog from "../studio/share/ShareDialog.vue";
+import GovernanceDrawer from "../components/GovernanceDrawer.vue";
 import { useDraftSafety } from "../draftSafety";
 
 const route = useRoute();
 const id = Number(route.params.id);
 const name = ref("");
 const draftVersion = ref(null);
+const governanceOpen = ref(false);
 const published = ref(false);
 const content = ref({ start_page: "p1", pages: [] });
 const currentId = ref("");
