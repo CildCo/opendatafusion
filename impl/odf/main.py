@@ -9,8 +9,8 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from odf.api import (alerts, approvals, audit, auth, catalog, changes,
-                     dashboard, datasources, dependencies, flows, health,
-                     interfaces, mcp, notifications, platform_admin,
+                     dashboard, datasources, dependencies, flows, governance,
+                     health, interfaces, mcp, notifications, platform_admin,
                      probe,
                      metadata, openapi_gateway, projects, quality, runs,
                      saved_queries, standards, users)
@@ -45,7 +45,8 @@ for r in (datasources.router, metadata.router, flows.router, runs.router,
           interfaces.router, health.router, mcp.router, users.router,
           projects.router, catalog.router, quality.router,
           standards.router, alerts.router, changes.router, audit.router,
-          notifications.router, saved_queries.router, dashboard.router):
+          notifications.router, saved_queries.router, governance.router,
+          dashboard.router):
     app.include_router(r, prefix="/api/v1",
                        dependencies=[Depends(require_user)])
 app.include_router(approvals.router, prefix="/api/v1",

@@ -4,6 +4,22 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.7.0] - 2026-11-23
+
+### Added
+
+- SQL datasets: define a read-only query over a datasource, derive its
+  output columns, and use it as the source for metrics, dashboards and apps.
+  This enables multi-table joins inside the semantic layer without a pipeline.
+- `count_distinct` metric aggregation.
+- Business domains and a glossary, assignable to logical assets and catalog
+  tables, with lookup pages in the console.
+- Asset contracts (owner, SLA, schema fields, quality commitments, usage
+  notes) and a per-asset usage analysis of references, runs, downstream assets
+  and API calls.
+- A governance drawer in every studio editor and on catalog table details.
+- Pivot and area dashboard widgets.
+
 ## [1.6.0] - 2026-11-23
 
 ### Added

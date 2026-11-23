@@ -8,12 +8,13 @@
         {{ published ? t("dedit.published") : t("dedit.draft") }}
       </el-tag>
       <div class="spacer" />
-      <el-button size="small" @click="save">{{ t("dedit.save") }}</el-button>
+      <el-button size="small" @click="save()">{{ t("dedit.save") }}</el-button>
       <el-button size="small" @click="validate">{{ t("dedit.validate") }}</el-button>
       <el-button size="small" :loading="loadingData" @click="refresh">{{ t("dedit.refreshData") }}</el-button>
       <el-button size="small" type="primary" @click="publish">{{ t("dedit.publish") }}</el-button>
       <el-button size="small" @click="versionsOpen = true">{{ t("dedit.versions") }}</el-button>
       <el-button size="small" @click="lineageOpen = true">{{ t("lin.button") }}</el-button>
+      <el-button size="small" @click="governanceOpen = true">{{ t("gov.button") }}</el-button>
       <el-button size="small" :disabled="!published"
                  @click="$router.push(`/dashboards/${id}/run`)">
         {{ t("dedit.run") }}
@@ -136,7 +137,7 @@
                              :label="m.name" />
                 </el-select>
               </el-form-item>
-              <el-form-item v-if="['line','bar','pie'].includes(selected.type)"
+              <el-form-item v-if="['line','bar','area','pie'].includes(selected.type)"
                             :label="t('dedit.dimension')">
                 <el-select v-model="selected.dimension" filterable
                            style="width: 100%" @change="syncEmit">
@@ -144,6 +145,22 @@
                              :label="d" />
                 </el-select>
               </el-form-item>
+              <template v-if="selected.type === 'pivot'">
+                <el-form-item :label="t('dedit.rowDimension')">
+                  <el-select v-model="selected.row_dimension" filterable
+                             style="width: 100%">
+                    <el-option v-for="d in metricDims" :key="d" :value="d"
+                               :label="d" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item :label="t('dedit.columnDimension')">
+                  <el-select v-model="selected.column_dimension" filterable
+                             style="width: 100%">
+                    <el-option v-for="d in metricDims" :key="d" :value="d"
+                               :label="d" />
+                  </el-select>
+                </el-form-item>
+              </template>
               <el-form-item :label="t('dedit.valueColumn')">
                 <el-select v-model="selected.value_column" filterable
                            clearable style="width: 100%">
@@ -208,6 +225,7 @@
       </el-table>
     </el-drawer>
     <lineage-drawer v-model="lineageOpen" :asset-id="id" />
+    <governance-drawer v-model="governanceOpen" :asset-id="id" />
   </div>
 </template>
 
@@ -221,6 +239,7 @@ import DashboardGrid from "../studio/dashboard/DashboardGrid.vue";
 import DashboardFilters from "../studio/dashboard/DashboardFilters.vue";
 import ShareDialog from "../studio/share/ShareDialog.vue";
 import LineageDrawer from "../components/LineageDrawer.vue";
+import GovernanceDrawer from "../components/GovernanceDrawer.vue";
 import { useDraftSafety } from "../draftSafety";
 
 const route = useRoute();
@@ -242,13 +261,16 @@ const loadingData = ref(false);
 const versions = ref([]);
 const versionsOpen = ref(false);
 const lineageOpen = ref(false);
+const governanceOpen = ref(false);
 const draftVersion = ref(null);
 const dirty = ref(false);
 const types = computed(() => [
   { type: "card", label: t("dedit.typeCard") },
   { type: "line", label: t("dedit.typeLine") },
   { type: "bar", label: t("dedit.typeBar") },
+  { type: "area", label: t("dedit.typeArea") },
   { type: "pie", label: t("dedit.typePie") },
+  { type: "pivot", label: t("dedit.typePivot") },
   { type: "table", label: t("dedit.typeTable") },
   { type: "text", label: t("dedit.text") },
 ]);
@@ -256,7 +278,7 @@ const types = computed(() => [
 const metricDims = computed(
   () => metricContent.value?.dimensions || []);
 const isChart = computed(
-  () => ["line", "bar", "pie"].includes(selected.value?.type));
+  () => ["line", "bar", "area", "pie"].includes(selected.value?.type));
 const filterColumns = computed(() => {
   const wid = selected.value?.id;
   return data.value?.[wid]?.columns || [];
@@ -305,9 +327,14 @@ function add(ty) {
     h: ty.type === "card" || ty.type === "text" ? 2 : 4,
     filters: [],
   };
-  if (["card", "line", "bar", "pie"].includes(ty.type)) {
+  if (["card", "line", "bar", "area", "pie"].includes(ty.type)) {
     widget.metric_id = metrics.value[0]?.id || null;
-    if (["line", "bar", "pie"].includes(ty.type)) widget.dimension = "";
+    if (["line", "bar", "area", "pie"].includes(ty.type)) widget.dimension = "";
+  }
+  if (ty.type === "pivot") {
+    widget.metric_id = metrics.value[0]?.id || null;
+    widget.row_dimension = "";
+    widget.column_dimension = "";
   }
   if (ty.type === "table") {
     widget.dataset_id = datasets.value[0]?.id || null;

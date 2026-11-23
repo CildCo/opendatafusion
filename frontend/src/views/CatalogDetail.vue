@@ -17,6 +17,7 @@
       <el-button v-if="canCreate" @click="scanPii" :loading="pii.loading">
         {{ t("cat.piiScan") }}
       </el-button>
+      <el-button @click="governanceOpen = true">{{ t("gov.button") }}</el-button>
       <el-button v-if="canCreate" @click="createInterface">
         {{ t("catd.createInterface") }}
       </el-button>
@@ -314,6 +315,8 @@
                    @click="saveProperties">{{ t("cat.submit") }}</el-button>
       </template>
     </el-dialog>
+    <governance-drawer v-model="governanceOpen" :asset-id="Number(route.params.id)"
+                       mode="table" />
   </div>
 </template>
 
@@ -327,6 +330,7 @@ import { fmtDate, t } from "../i18n";
 import GraphCanvas from "../components/GraphCanvas.vue";
 import JsonView from "../components/JsonView.vue";
 import PropertyEditor from "../components/PropertyEditor.vue";
+import GovernanceDrawer from "../components/GovernanceDrawer.vue";
 
 function tr(key, vars = {}) {
   return Object.entries(vars).reduce(
@@ -340,6 +344,7 @@ const datasetId = computed(() => Number(route.params.id));
 const detail = ref({});
 const notFound = ref(false);
 const tab = ref("overview");
+const governanceOpen = ref(false);
 const loading = ref(false);
 const rules = ref([]);
 const history = ref([]);

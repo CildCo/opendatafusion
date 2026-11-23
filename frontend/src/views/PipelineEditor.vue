@@ -6,7 +6,8 @@
                @preview="preview" @run="run" @backfill="backfillOpen = true"
                @cursors="openCursors" @toggle="toggle"
                @publish="publishDialog = true"
-               @versions="versionsOpen = true">
+               @versions="versionsOpen = true"
+               @governance="governanceOpen = true">
     <template #tree>
       <AssetTree :items="treeItems" :active-id="id" @select="openOther" />
     </template>
@@ -23,6 +24,7 @@
     </template>
   </StudioShell>
   <VersionDrawer v-model="versionsOpen" :asset-id="id" @changed="load" />
+  <GovernanceDrawer v-model="governanceOpen" :asset-id="id" />
   <PublishDialog v-model="publishDialog" @confirm="publish" />
   <el-dialog v-model="cursorsOpen" :title="t('ped.cursorsTitle')" width="680px">
     <el-alert type="warning" :closable="false" show-icon
@@ -92,6 +94,7 @@ import NodeConfig from "../studio/pipeline/NodeConfig.vue";
 import PreviewPanel from "../studio/pipeline/PreviewPanel.vue";
 import VersionDrawer from "../studio/pipeline/VersionDrawer.vue";
 import PublishDialog from "../studio/pipeline/PublishDialog.vue";
+import GovernanceDrawer from "../components/GovernanceDrawer.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -109,6 +112,7 @@ const enabled = ref(true);
 const saving = ref(false);
 const dirty = ref(false);
 const versionsOpen = ref(false);
+const governanceOpen = ref(false);
 const publishDialog = ref(false);
 const backfillOpen = ref(false);
 const cursorsOpen = ref(false);

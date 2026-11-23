@@ -21,6 +21,11 @@
                            :prop="c" :label="c" />
         </el-table>
       </template>
+      <el-table v-else-if="widget.type === 'pivot'" :data="pivot.rows"
+                size="small" height="100%">
+        <el-table-column v-for="c in pivot.columns" :key="c"
+                         :prop="c" :label="c" />
+      </el-table>
       <ChartView v-else-if="chartOption" :option="chartOption"
                  @click="onChartClick" />
     </div>
@@ -61,6 +66,33 @@ const cardValue = computed(() => {
   return row[col] ?? "-";
 });
 
+const pivot = computed(() => {
+  const rows = props.data?.rows || [];
+  const rowDim = props.widget.row_dimension;
+  const colDim = props.widget.column_dimension;
+  const cols = props.data?.columns || [];
+  const value = props.widget.value_column
+    || cols[cols.length - 1] || "value";
+  if (!rowDim || !colDim || !rows.length) {
+    return { rows: [], columns: [] };
+  }
+  const colValues = [];
+  for (const row of rows) {
+    if (!colValues.includes(row[colDim])) colValues.push(row[colDim]);
+  }
+  const map = new Map();
+  for (const row of rows) {
+    const key = row[rowDim];
+    if (!map.has(key)) {
+      const item = { [rowDim]: key };
+      for (const c of colValues) item[c] = null;
+      map.set(key, item);
+    }
+    map.get(key)[row[colDim]] = row[value];
+  }
+  return { rows: [...map.values()], columns: [rowDim, ...colValues] };
+});
+
 const chartOption = computed(() => {
   const rows = props.data?.rows || [];
   const dim = props.widget.dimension;
@@ -78,12 +110,17 @@ const chartOption = computed(() => {
       }],
     };
   }
+  const series = {
+    type: props.widget.type === "area" ? "line" : props.widget.type,
+    data: values, smooth: true,
+  };
+  if (props.widget.type === "area") series.areaStyle = {};
   return {
     tooltip: { trigger: "axis" },
     grid: { left: 40, right: 16, top: 24, bottom: 28 },
     xAxis: { type: "category", data: labels },
     yAxis: { type: "value" },
-    series: [{ type: props.widget.type, data: values, smooth: true }],
+    series: [series],
   };
 });
 </script>

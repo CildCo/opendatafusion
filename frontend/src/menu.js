@@ -26,6 +26,7 @@ export const MENU_GROUPS = [
   ] },
   { key: "nav.governance", items: [
     { path: "/apis", key: "menu.apis", icon: Connection },
+    { path: "/governance", key: "menu.governance", icon: Collection },
     { path: "/interfaces", key: "menu.interfaces", icon: Connection },
     { path: "/grants", key: "menu.grants", icon: Key },
     { path: "/webhooks", key: "menu.webhooks", icon: Promotion },

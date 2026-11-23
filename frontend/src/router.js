@@ -33,6 +33,7 @@ const Dependencies = () => import("./views/Dependencies.vue");
 const AppEditor = () => import("./views/AppEditor.vue");
 const AppRun = () => import("./views/AppRun.vue");
 const OpsCenter = () => import("./views/OpsCenter.vue");
+const Governance = () => import("./views/Governance.vue");
 const Workbench = () => import("./views/Workbench.vue");
 const Engines = () => import("./views/Engines.vue");
 const Cdc = () => import("./views/Cdc.vue");
@@ -62,6 +63,7 @@ const routes = [
       { path: "dashboard", component: Dashboard, meta: { title: "概览" } },
       { path: "datasources", component: Datasources, meta: { title: "数据源" } },
       { path: "catalog", component: Catalog, meta: { title: "数据目录" } },
+      { path: "governance", component: Governance, meta: { title: "业务域与术语" } },
       { path: "catalog/:id", component: CatalogDetail, meta: { title: "数据目录" } },
       { path: "pipelines", component: PipelineList, meta: { title: "数据管道" } },
       { path: "pipelines/:id", component: PipelineEditor, meta: { title: "管道编辑" } },

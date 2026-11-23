@@ -53,15 +53,16 @@ def test_dataset_rejects_unknown_column(tmp_path):
     assert validate_dataset(s, content, 1)
 
 
-def test_sql_mode_dataset_is_rejected(tmp_path):
+def test_sql_mode_dataset_derives_columns(tmp_path):
     s = _env(tmp_path)
     content = {"mode": "sql", "query": {"datasource_id": 1},
-               "sql": "select * from t", "params": []}
+               "sql": "select id, city, amount from t", "params": []}
     a = create_asset(s, 1, "dataset", "D", content, "admin", enabled=False)
-    assert validate_dataset(s, content, 1)
-    import pytest
-    with pytest.raises(ValueError):
-        preview_dataset(s, a.id)
+    assert validate_dataset(s, content, 1) == []
+    assert [c["name"] for c in content["columns"]] == ["id", "city",
+                                                             "amount"]
+    out = preview_dataset(s, a.id)
+    assert out["row_count"] == 2
 
 
 def test_duplicate_dataset_output_is_rejected(tmp_path):

@@ -57,6 +57,8 @@ The tree groups source → schema → table. Selecting a table opens its dataset
 - **Table properties** (Trino tables) submits a Spark job that sets Iceberg properties such as `gc.enabled=true`; follow it under Engines.
 - **PII scan** inspects column names and sampled values, lists likely sensitive fields and can create masking policies for them in one step.
 - **Search** matches table and column names and links to the dataset.
+- **Domains and glossary** (sidebar): create business domains and glossary terms, assign terms to a domain, and use domains to group tables and logical assets.
+- **Governance** on a table opens the domain assignment; the same drawer on a pipeline, dataset, metric, API, dashboard or app also records a data owner, SLA, contract fields, quality commitments, notes and usage analysis.
 
 ## 6. SQL workbench
 
@@ -111,6 +113,8 @@ Scheduling dependencies live on the **Scheduling dependencies** page: a downstre
 Datasets and metrics.
 
 - Creating either opens the editor: choose source, table and columns, then add filters, sorting, grouping and a row limit; the preview panel shows the generated SQL and rows.
+- **SQL dataset**: switch the editor to SQL, choose a datasource and write a read-only query (joins are allowed); saving derives the output columns, and metrics, dashboards and apps can use them. SQL datasets do not take parameters; use API Studio when parameters are required.
+- Metrics aggregate with sum, count, average, minimum, maximum or distinct count over the dataset output.
 - Validate, Save and Publish; published datasets can be used by dashboards, apps and APIs.
 - **Row policies** append filters per column, operator, value and role; admins are exempt.
 - **Column masking** sets a classification (PII/confidential/sensitive), a mask type (redact, partial, hash, null) and exempt roles.
@@ -119,10 +123,11 @@ Datasets and metrics.
 
 ## 13. Dashboards
 
-Add metric cards, line/bar/pie charts, tables and text; drag to move and resize from the corner.
+Add metric cards, line/bar/area/pie charts, pivot tables, tables and text; drag to move and resize from the corner.
 
 - Save, Validate, Publish and Run.
 - In the run view, **Export CSV** writes the rows of every data-bearing widget to one CSV file.
+- A **pivot** widget needs a metric with two dimensions; choose the row dimension, column dimension and value column, and the console renders the cross-tab.
 - **Share** creates a read-only link with an expiry; links can be copied and revoked.
 - **Versions** lists history; the list page deletes dashboards and their share links.
 

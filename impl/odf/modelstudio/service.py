@@ -36,6 +36,11 @@ def dataset_schema(session, asset_id, published=True):
     errs = validate_dataset(session, v.content_json, a.project_id)
     if errs:
         raise ValueError("invalid dataset: %s" % errs)
+    if v.content_json.get("mode") == "sql":
+        cols = v.content_json.get("columns") or []
+        return {"asset_id": asset_id, "columns": cols,
+                "datasource_id": v.content_json["query"]["datasource_id"],
+                "table": ""}
     q = v.content_json["query"]
     ds = session.get(Datasource, q["datasource_id"])
     info = {c["name"]: c["type"] for c in
@@ -106,16 +111,30 @@ def metric_sql(session, content, extra_filters=None,
         session, content["dataset_id"], content.get("project_id", 0))
     if err:
         raise ValueError(err["message"])
-    q = ds_content["query"]
-    ds = session.get(Datasource, q["datasource_id"])
-    cols = [c["name"] for c in table_column_info(session, ds, q["table"])]
-    if base_filters:
-        q = {**q, "filters": [*(q.get("filters") or []), *base_filters]}
-    base_sql, base_binds = compile_visual(q, cols, {}, limit_override=0)
+    extra_base = []
+    q = ds_content.get("query") or {}
+    ds = session.get(Datasource, q.get("datasource_id"))
+    if ds_content.get("mode") == "sql":
+        from odf.apistudio.compiler import render_sql
+        base_sql, base_binds = render_sql(
+            ds_content.get("sql") or "", [], {})
+        base_sql = base_sql.strip().rstrip(";")
+        extra_base = list(base_filters or [])
+    else:
+        if base_filters:
+            q = {**q, "filters": [*(q.get("filters") or []), *base_filters]}
+        cols = [c["name"] for c in table_column_info(
+            session, ds, q["table"])]
+        base_sql, base_binds = compile_visual(q, cols, {},
+                                              limit_override=0)
     measure = content["measure"]
     agg = measure["agg"].upper()
     col = measure["column"]
-    expr = "COUNT(*)" if col == "*" else "%s(%s)" % (agg, quote_ident(col))
+    if measure["agg"] == "count_distinct":
+        expr = "COUNT(DISTINCT %s)" % quote_ident(col)
+    else:
+        expr = "COUNT(*)" if col == "*" else "%s(%s)" % (
+            agg, quote_ident(col))
     alias = measure.get("as") or "value"
     dims = content.get("dimensions") or []
     selects = [quote_ident(d) for d in dims] + [
@@ -130,7 +149,8 @@ def metric_sql(session, content, extra_filters=None,
             n += 1
         return key
 
-    filters = list(content.get("filters") or []) + list(extra_filters or [])
+    filters = (list(content.get("filters") or [])
+               + list(extra_filters or []) + extra_base)
     for i, f in enumerate(filters):
         col_sql = quote_ident(f["column"])
         op = f["op"]
