@@ -68,3 +68,35 @@ def test_sql_dataset_joins_and_derives_columns(tmp_path):
     distinct = create_asset(s, 1, "metric", "D", distinct_content, "u")
     publish_asset(s, distinct.id, "u")
     assert query_metric(s, distinct.id, limit=10)["rows"][0]["regions"] == 2
+
+
+def test_expression_metric_and_validation(tmp_path):
+    from odf.modelstudio.content import compile_expression, validate_metric
+    assert compile_expression(
+        "sum(amount) / nullif(count(*), 0)", ["amount"]) == (
+        'SUM("amount")/NULLIF(COUNT(*),0)')
+    try:
+        compile_expression("sum(amount); drop table x", ["amount"])
+        assert False
+    except ValueError:
+        pass
+    s, ds = _session(tmp_path)
+    content = {"mode": "sql", "query": {"datasource_id": ds.id},
+               "sql": "select * from orders", "params": [], "auth": None}
+    dataset = create_asset(s, 1, "dataset", "D", content, "u")
+    update_draft(s, dataset.id, content, "u", base_version=1)
+    publish_asset(s, dataset.id, "u")
+    metric_content = {
+        "dataset_id": dataset.id,
+        "measure": {"expr": "sum(amount) / nullif(count(*), 0)",
+                    "as": "avg_amount"},
+        "dimensions": [], "filters": [], "format": {"type": "number"},
+    }
+    from odf.modelstudio.service import query_metric
+    metric = create_asset(s, 1, "metric", "E", metric_content, "u")
+    publish_asset(s, metric.id, "u")
+    out = query_metric(s, metric.id, limit=10)
+    assert out["rows"][0]["avg_amount"] == 15
+    bad = dict(metric_content)
+    bad["measure"] = {"expr": "sum(nope)", "as": "x"}
+    assert validate_metric(s, bad, 1)

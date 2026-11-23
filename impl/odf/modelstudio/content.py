@@ -6,6 +6,41 @@ from odf.models import Asset, AssetVersion
 
 _ALIAS = re.compile(r"^\w+$", re.UNICODE)
 METRIC_AGGS = AGGREGATES | {"count_distinct"}
+EXPR_FUNCS = {"sum", "count", "avg", "min", "max", "coalesce",
+              "nullif", "round"}
+EXPR_TOKEN = re.compile(r"[A-Za-z_]\w*|\d+(?:\.\d+)?|[()+\-*/,]|\S")
+EXPR_AGG = {"sum", "count", "avg", "min", "max"}
+
+
+def compile_expression(expr, columns):
+    from odf.apistudio.compiler import quote_ident
+    if not isinstance(expr, str) or not expr.strip() or len(expr) > 1000:
+        raise ValueError("expression is required")
+    if any(ch in expr for ch in ("'", '"', ";", "--", "/*", "*/")):
+        raise ValueError("expression contains unsupported characters")
+    tokens = EXPR_TOKEN.findall(expr)
+    out, used_agg = [], False
+    for index, token in enumerate(tokens):
+        low = token.lower()
+        if re.fullmatch(r"[A-Za-z_]\w*", token):
+            nxt = tokens[index + 1] if index + 1 < len(tokens) else ""
+            if nxt == "(":
+                if low not in EXPR_FUNCS:
+                    raise ValueError("unsupported function: %s" % token)
+                if low in EXPR_AGG:
+                    used_agg = True
+                out.append(low.upper())
+            elif token in columns:
+                out.append(quote_ident(token))
+            else:
+                raise ValueError("unknown column: %s" % token)
+        elif token in "()+-*/, " or re.fullmatch(r"\d+(?:\.\d+)?", token):
+            out.append(token)
+        else:
+            raise ValueError("unsupported token: %s" % token)
+    if not used_agg:
+        raise ValueError("expression needs an aggregate function")
+    return "".join(out)
 
 
 def empty_dataset():
@@ -120,14 +155,29 @@ def validate_metric(session, content, project_id):
     measure = content.get("measure")
     if not isinstance(measure, dict):
         return [_err("measure", "measure must be an object")]
+    expr = measure.get("expr")
     agg = measure.get("agg")
     col = measure.get("column")
-    if not isinstance(agg, str) or agg not in METRIC_AGGS:
-        errs.append(_err("measure.agg", "unsupported aggregate"))
-    if not isinstance(col, str) or (col != "*" and col not in names):
-        errs.append(_err("measure.column", "column not in dataset output"))
-    if agg != "count" and col == "*":
-        errs.append(_err("measure.column", "* is only valid for count"))
+    if expr is not None:
+        try:
+            compile_expression(expr, names)
+        except ValueError as exc:
+            errs.append(_err("measure.expr", str(exc)))
+        ds_id = (ds_content.get("query") or {}).get("datasource_id")
+        from odf.models import Datasource
+        from odf.services.masking import datasource_has_policies
+        ds = session.get(Datasource, ds_id) if ds_id else None
+        if ds and datasource_has_policies(session, ds.id):
+            errs.append(_err(
+                "measure.expr",
+                "expression metrics are disabled for governed datasources"))
+    else:
+        if not isinstance(agg, str) or agg not in METRIC_AGGS:
+            errs.append(_err("measure.agg", "unsupported aggregate"))
+        if not isinstance(col, str) or (col != "*" and col not in names):
+            errs.append(_err("measure.column", "column not in dataset output"))
+        if agg != "count" and col == "*":
+            errs.append(_err("measure.column", "* is only valid for count"))
     alias = measure.get("as") or "value"
     if not isinstance(alias, str) or not _ALIAS.fullmatch(alias):
         errs.append(_err("measure.as", "invalid alias"))

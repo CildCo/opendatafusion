@@ -198,6 +198,8 @@ for _row in SPECS:
         _row["fields"] = _row["fields"] + SSH_FIELDS
 
 SPEC_BY_KIND = {row["kind"]: row for row in SPECS}
+EXTRA_SOURCES = {}
+EXTRA_SINKS = {}
 GROUPS = [
     {"key": "database", "label": "Databases"},
     {"key": "analytics", "label": "Analytics engines"},
@@ -229,6 +231,58 @@ def supports(kind, capability):
 
 def catalog():
     return {"groups": GROUPS, "connectors": SPECS}
+
+
+def register_connector(spec, source_factory=None, sink_factory=None):
+    """Register an external connector at import time.
+
+    A plugin module exports ``register()`` and calls this with the same spec
+    shape used by the built-in registry.  Factories receive ``(datasource,
+    dag)`` and must implement ``read(cursor, limit)`` (source) or
+    ``write(rows)`` (sink).
+    """
+    import re
+    kind = str((spec or {}).get("kind") or "").strip().lower()
+    if not re.fullmatch(r"[a-z][a-z0-9_]{1,31}", kind):
+        raise ValueError("invalid connector kind")
+    if kind in SPEC_BY_KIND:
+        raise ValueError("connector already registered: %s" % kind)
+    label = str(spec.get("label") or kind)
+    group = str(spec.get("group") or "database")
+    if group not in {row["key"] for row in GROUPS}:
+        raise ValueError("unknown connector group: %s" % group)
+    caps = spec.get("capabilities") or {}
+    caps = {key: bool(caps.get(key)) for key in
+            ("test", "metadata", "query", "source", "sink", "cdc")}
+    fields = spec.get("fields")
+    if not isinstance(fields, list) or not fields:
+        raise ValueError("connector fields are required")
+    for item in fields:
+        if not isinstance(item, dict) or not item.get("key") or \
+                not item.get("label") or not item.get("type"):
+            raise ValueError("invalid connector field")
+    row = {"kind": kind, "label": label, "group": group,
+           "capabilities": caps, "fields": fields,
+           "plugin": True}
+    if source_factory and caps["source"]:
+        EXTRA_SOURCES[kind] = source_factory
+    if sink_factory and caps["sink"]:
+        EXTRA_SINKS[kind] = sink_factory
+    SPECS.append(row)
+    SPEC_BY_KIND[kind] = row
+    return row
+
+
+def load_plugins():
+    import importlib
+    import os
+    raw = os.environ.get("ODF_CONNECTOR_PLUGINS", "")
+    for name in [x.strip() for x in raw.split(",") if x.strip()]:
+        module = importlib.import_module(name)
+        register = getattr(module, "register", None)
+        if not callable(register):
+            raise ValueError("connector plugin %s has no register()" % name)
+        register()
 
 
 def build_dsn(kind, values):
@@ -461,3 +515,6 @@ def _default_port(kind):
             "opengauss": 5432, "kingbase": 5432,
             "gaussdb": 5432, "mongodb": 27017, "hive": 10000,
             "dm": 5236}.get(kind)
+
+
+load_plugins()

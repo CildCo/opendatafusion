@@ -186,3 +186,37 @@ def test_postgres_ssh_tunnel_fields_roundtrip():
     assert back["ssh_host"] == "bastion"
     assert back["ssh_port"] == 2222
     assert back["ssh_password"] == "ssh-secret"
+
+
+def test_external_connector_plugin_registration():
+    from types import SimpleNamespace
+    from odf.connectors import factory, registry
+
+    class DemoSource:
+        def __init__(self, ds, dag):
+            self.ds = ds
+
+    spec = {
+        "kind": "demo_plugin",
+        "label": "Demo plugin",
+        "group": "database",
+        "capabilities": {"test": True, "metadata": True, "query": True,
+                         "source": True, "sink": False, "cdc": False},
+        "fields": [{"key": "host", "label": "Host", "type": "text",
+                    "required": True}],
+    }
+    try:
+        registry.register_connector(spec, DemoSource)
+        assert registry.SPEC_BY_KIND["demo_plugin"]["plugin"] is True
+        ds = SimpleNamespace(kind="demo_plugin")
+        assert isinstance(factory.source_for(ds, {}), DemoSource)
+        try:
+            registry.register_connector(spec)
+            assert False
+        except ValueError:
+            pass
+    finally:
+        registry.SPECS = [row for row in registry.SPECS
+                          if row["kind"] != "demo_plugin"]
+        registry.SPEC_BY_KIND.pop("demo_plugin", None)
+        registry.EXTRA_SOURCES.pop("demo_plugin", None)

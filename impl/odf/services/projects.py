@@ -1,8 +1,9 @@
 from odf.models import Project, ProjectMember
 
 
-def create_project(session, code: str, name: str) -> Project:
-    p = Project(code=code, name=name, status=1)
+def create_project(session, code: str, name: str,
+                   environment: str = "dev") -> Project:
+    p = Project(code=code, name=name, status=1, environment=environment)
     session.add(p)
     session.commit()
     session.refresh(p)

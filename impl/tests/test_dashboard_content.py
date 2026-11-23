@@ -195,3 +195,25 @@ def test_blank_non_string_default_is_no_default(tmp_path):
                "widgets": [{"id": "t", "type": "text", "text": "x",
                             "x": 0, "y": 0, "w": 3, "h": 2}]}
     assert validate_dashboard(s, content, 1) == []
+
+
+def test_pivot_and_area_widgets_validate(tmp_path):
+    s = _env(tmp_path)
+    ds = create_asset(s, 1, "dataset", "D", DATASET, "admin",
+                      enabled=False)
+    publish_asset(s, ds.id, "admin")
+    metric = create_asset(s, 1, "metric", "M", {
+        "dataset_id": ds.id,
+        "measure": {"agg": "sum", "column": "amount", "as": "value"},
+        "dimensions": ["city", "amount"], "filters": [],
+        "format": {"type": "number"},
+    }, "admin", enabled=False)
+    publish_asset(s, metric.id, "admin")
+    content = {"columns": 12, "widgets": [
+        {"id": "p1", "type": "pivot", "metric_id": metric.id,
+         "row_dimension": "city", "column_dimension": "amount",
+         "value_column": "value", "x": 0, "y": 0, "w": 6, "h": 4},
+        {"id": "a1", "type": "area", "metric_id": metric.id,
+         "dimension": "city", "x": 6, "y": 0, "w": 6, "h": 4},
+    ]}
+    assert validate_dashboard(s, content, 1) == []

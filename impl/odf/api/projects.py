@@ -1,4 +1,7 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -20,11 +23,13 @@ router = APIRouter()
 class ProjectIn(BaseModel):
     code: str
     name: str
+    environment: str = "dev"
 
 
 class ProjectUpdateIn(BaseModel):
     name: str | None = None
     status: int | None = None
+    environment: str | None = None
     quota: dict | None = None
 
 
@@ -38,9 +43,14 @@ class KeyPolicyIn(BaseModel):
     rate_limit_per_min: int | None = None
 
 
+class BundleIn(BaseModel):
+    bundle: dict
+
+
 def _project(p):
     return {"id": p.id, "code": p.code, "name": p.name,
-            "status": p.status, "quota": p.quota_json or {}}
+            "status": p.status, "environment": p.environment,
+            "quota": p.quota_json or {}}
 
 
 @router.get("/projects")
@@ -100,10 +110,57 @@ def sample(claims: dict = Depends(require_editor),
     return result
 
 
+@router.get("/projects/{project_id}/bundle")
+def export_project_bundle(project_id: int,
+                          s: Session = Depends(get_session),
+                          claims: dict = Depends(require_project_admin)):
+    _scope(s, claims, project_id)
+    from odf.services.bundles import export_bundle
+    try:
+        bundle = export_bundle(s, project_id)
+    except ValueError as error:
+        raise HTTPException(404, str(error))
+    body = json.dumps(bundle, ensure_ascii=False, indent=2, default=str)
+    return Response(
+        content=body, media_type="application/json",
+        headers={"Content-Disposition":
+                 'attachment; filename="odf-bundle-%d.json"' % project_id})
+
+
+@router.post("/projects/{project_id}/bundle/validate")
+def validate_project_bundle(project_id: int, body: BundleIn,
+                            s: Session = Depends(get_session),
+                            claims: dict = Depends(require_project_admin)):
+    _scope(s, claims, project_id)
+    from odf.services.bundles import validate_bundle
+    try:
+        return validate_bundle(s, project_id, body.bundle)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+
+
+@router.post("/projects/{project_id}/bundle/import")
+def import_project_bundle(project_id: int, body: BundleIn,
+                          s: Session = Depends(get_session),
+                          claims: dict = Depends(require_project_admin)):
+    _scope(s, claims, project_id)
+    from odf.services.bundles import import_bundle
+    try:
+        result = import_bundle(s, project_id, body.bundle, claims["sub"])
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    write_audit(s, claims["sub"], "import_project_bundle",
+                str(project_id), {k: result[k] for k in
+                                  ("created", "updated", "skipped")})
+    return result
+
+
 @router.post("/projects")
 def create(body: ProjectIn, s: Session = Depends(get_session),
            claims: dict = Depends(require_platform_admin)):
-    p = create_project(s, body.code, body.name)
+    if body.environment not in ("dev", "staging", "prod"):
+        raise HTTPException(400, "environment must be dev, staging or prod")
+    p = create_project(s, body.code, body.name, body.environment)
     write_audit(s, claims["sub"], "create_project", str(p.id),
                 {"code": p.code, "name": p.name})
     return _project(p)
@@ -121,6 +178,11 @@ def update(project_id: int, body: ProjectUpdateIn,
         project.name = body.name
     if body.status is not None:
         project.status = body.status
+    if body.environment is not None:
+        if body.environment not in ("dev", "staging", "prod"):
+            raise HTTPException(400,
+                                "environment must be dev, staging or prod")
+        project.environment = body.environment
     if body.quota is not None:
         project.quota_json = body.quota
     s.commit()
