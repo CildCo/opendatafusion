@@ -76,7 +76,7 @@ OpenDataFusion 是一个开源自托管的数据平台，把通常分散在数�
 
 | 领域 | 能力 |
 | --- | --- |
-| **数据源** | PostgreSQL、MySQL/MariaDB、SQLite、Oracle、SQL Server、ClickHouse、HTTP、Elasticsearch，以及 CSV/TSV/Parquet/JSON/Excel 文件；DSN 加密、连通性测试、元数据同步和 schema drift 告警。 |
+| **数据源** | 通过统一注册表接入 24 种数据源：PostgreSQL、MySQL/MariaDB、SQLite、Oracle、SQL Server、TiDB、Apache Doris、StarRocks、OceanBase、openGauss、KingbaseES、GaussDB、达梦 DM、ClickHouse、Trino、DuckDB、Hive/Spark Thrift、S3/MinIO、CSV/TSV/Parquet/JSON/Excel、HTTP、Elasticsearch、MongoDB 和 Kafka。按类型生成表单、能力范围、新建前测试、DSN 加密、元数据同步和 schema drift 告警。 |
 | **管道 Studio** | 可视化 DAG：source、filter、select、rename、cast、join、aggregate、union、dedupe、quality、sink；schema 校验、节点级错误策略、预览、版本化发布、cron、游标查看/重置、有界回填。 |
 | **接口 Studio** | 可视化单表查询或受控 SQL；类型化参数；预览/测试；审批发布与回滚；生成文档；AK/SK 签名调用 `/openapi/{key}`。 |
 | **模型 Studio** | 数据集和指标资产；schema、预览、审批发布；面向 AI 的读取工具。 |

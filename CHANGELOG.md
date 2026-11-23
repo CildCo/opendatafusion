@@ -4,6 +4,47 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] - 2026-11-23
+
+### Added
+
+- A separate platform administration console: users and platform roles,
+  projects and quotas, sign-in policy with OIDC/LDAP tests, branding and
+  announcements, feature flags, engine and CDC defaults, operations and
+  platform audit.
+- A connector registry with typed forms and capability scopes (test, metadata,
+  query, pipeline source/sink). New connectors: S3/MinIO, DuckDB, TiDB,
+  Apache Doris, StarRocks, OceanBase, openGauss, KingbaseES, GaussDB, MongoDB,
+  Kafka, Hive/Spark Thrift and Dameng DM, bringing the total to 24 types.
+- Structured console interactions: JSON trees, result tables, a log viewer,
+  diff views, a visual alert-rule builder, a typed property editor, CodeMirror
+  SQL editors, draggable pipeline nodes and quick-create actions in the search
+  palette.
+- Usability work: a command palette, role-aware action visibility, localized
+  backend errors, persisted filters and column choices, a virtualized audit
+  table and a getting-started checklist.
+- Project administrators can manage their own project members; quality actions
+  are audited; pipeline runs expose per-node rows, time and error.
+
+### Changed
+
+- Personal settings moved out of the workspace sidebar; platform
+  administrators get a fixed administration shortcut.
+- The console reads the effective project role so controls match API
+  permissions.
+
+### Fixed
+
+- OIDC discovery uses the guarded outbound client; Elasticsearch traffic is
+  guarded; connector errors are client-safe.
+- Kafka health checks use the admin client signature, and pipeline validation
+  skips SQL reflection for pipeline-only connectors.
+- Dameng internal `##` tables are excluded from schema sync.
+
+### Security
+
+- The dependency refresh updates Python, frontend and CI tooling floors.
+
 ## [1.3.0] - 2026-11-20
 
 ### Added

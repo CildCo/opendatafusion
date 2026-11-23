@@ -94,7 +94,7 @@ Chinese from the header switch.
 
 | Area | What you get |
 | --- | --- |
-| **Data sources** | PostgreSQL, MySQL/MariaDB, SQLite, Oracle, SQL Server, ClickHouse, HTTP, Elasticsearch and CSV/TSV/Parquet/JSON/Excel files. Encrypted DSNs, connectivity tests, metadata sync and schema-drift alerts. |
+| **Data sources** | 24 connectors through one registry: PostgreSQL, MySQL/MariaDB, SQLite, Oracle, SQL Server, TiDB, Apache Doris, StarRocks, OceanBase, openGauss, KingbaseES, GaussDB, Dameng DM, ClickHouse, Trino, DuckDB, Hive/Spark Thrift, S3/MinIO, CSV/TSV/Parquet/JSON/Excel, HTTP, Elasticsearch, MongoDB and Kafka. Typed connection forms, capability scopes, pre-save tests, encrypted DSNs, metadata sync and schema-drift alerts. |
 | **Pipeline Studio** | Visual DAGs with source, filter, select, rename, cast, join, aggregate, union, dedupe, quality and sink nodes; schema validation; per-node error policy; preview; versioned publish; cron; cursor inspection/reset; bounded backfill. |
 | **API Studio** | Visual single-table queries or guarded SQL; typed parameters; preview/test; approval-gated publish and rollback; generated docs; AK/SK-signed execution at `/openapi/{key}`. |
 | **Model Studio** | Dataset and metric assets over curated tables; schema; preview; approval publishing; AI read tools. |
