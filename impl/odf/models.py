@@ -21,6 +21,7 @@ class Project(Base):
     code: Mapped[str] = mapped_column(String(64), unique=True)
     name: Mapped[str] = mapped_column(String(128))
     status: Mapped[int] = mapped_column(Integer, default=1)
+    environment: Mapped[str] = mapped_column(String(16), default="dev")
     quota_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 

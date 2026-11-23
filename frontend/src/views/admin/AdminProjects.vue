@@ -19,6 +19,13 @@
         </el-table-column>
         <el-table-column prop="code" :label="t('adm.projectCode')"
                          width="150" />
+        <el-table-column :label="t('adm.environment')" width="110">
+          <template #default="{ row }">
+            <el-tag size="small" effect="plain">
+              {{ row.environment || "dev" }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column :label="t('adm.status')" width="110">
           <template #default="{ row }">
             <status-dot :status="row.status === 1"
@@ -31,12 +38,20 @@
             <span class="muted">{{ quotaText(row.quota) }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('adm.actions')" width="230" fixed="right">
+        <el-table-column :label="t('adm.actions')" width="380" fixed="right">
           <template #default="{ row }">
             <el-button link @click="openUsage(row)">{{ t("adm.usage") }}</el-button>
             <el-button link @click="openMembers(row)">{{ t("adm.members") }}</el-button>
             <el-button link @click="openQuota(row)">{{ t("adm.quotaEdit") }}</el-button>
             <el-button link @click="openEdit(row)">{{ t("adm.edit") }}</el-button>
+            <el-button link @click="exportBundle(row)">
+              {{ t("adm.exportBundle") }}
+            </el-button>
+            <el-upload :auto-upload="false" :show-file-list="false"
+                       accept=".json,application/json"
+                       :on-change="(file) => importBundle(row, file)">
+              <el-button link>{{ t("adm.importBundle") }}</el-button>
+            </el-upload>
           </template>
         </el-table-column>
       </el-table>
@@ -52,6 +67,13 @@
         </el-form-item>
         <el-form-item :label="t('adm.projectName')" prop="name">
           <el-input v-model="form.name" />
+        </el-form-item>
+        <el-form-item :label="t('adm.environment')">
+          <el-select v-model="form.environment" style="width: 100%">
+            <el-option value="dev" label="dev" />
+            <el-option value="staging" label="staging" />
+            <el-option value="prod" label="prod" />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -69,6 +91,13 @@
         </el-form-item>
         <el-form-item :label="t('adm.status')">
           <el-switch v-model="edit.enabled" />
+        </el-form-item>
+        <el-form-item :label="t('adm.environment')">
+          <el-select v-model="edit.environment" style="width: 100%">
+            <el-option value="dev" label="dev" />
+            <el-option value="staging" label="staging" />
+            <el-option value="prod" label="prod" />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -184,8 +213,8 @@ const quotaOpen = ref(false);
 const membersOpen = ref(false);
 const current = ref(null);
 const formRef = ref(null);
-const form = reactive({ code: "", name: "" });
-const edit = reactive({ name: "", enabled: true });
+const form = reactive({ code: "", name: "", environment: "dev" });
+const edit = reactive({ name: "", enabled: true, environment: "dev" });
 const quota = reactive({ cpu: "", memory: "", pods: "", storage: "",
                          max_jobs: "", max_assets: "" });
 const usageOpen = ref(false);
@@ -224,6 +253,7 @@ function quotaText(q) {
 function openCreate() {
   form.code = "";
   form.name = "";
+  form.environment = "dev";
   dialog.value = true;
 }
 
@@ -236,7 +266,8 @@ async function create() {
   saving.value = true;
   try {
     await api.post("/projects", { code: form.code.trim(),
-                                  name: form.name.trim() });
+                                  name: form.name.trim(),
+                                  environment: form.environment });
     dialog.value = false;
     await load();
     ElMessage.success(t("adm.created"));
@@ -251,6 +282,7 @@ function openEdit(row) {
   current.value = row;
   edit.name = row.name;
   edit.enabled = row.status === 1;
+  edit.environment = row.environment || "dev";
   editOpen.value = true;
 }
 
@@ -259,6 +291,7 @@ async function saveEdit() {
   try {
     await api.put(`/projects/${current.value.id}`, {
       name: edit.name, status: edit.enabled ? 1 : 0,
+      environment: edit.environment,
     });
     editOpen.value = false;
     await load();
@@ -346,6 +379,50 @@ async function removeMember(row) {
     ElMessage.success(t("adm.memberRemoved"));
   } catch (e) {
     ElMessage.error(errMsg(e));
+  }
+}
+
+async function exportBundle(row) {
+  try {
+    await api.download(`/projects/${row.id}/bundle`,
+                       `odf-bundle-${row.code}.json`);
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function importBundle(row, file) {
+  let bundle;
+  try {
+    bundle = JSON.parse(await file.raw.text());
+  } catch {
+    ElMessage.error(t("adm.bundleInvalid"));
+    return;
+  }
+  try {
+    const check = await api.post(
+      `/projects/${row.id}/bundle/validate`, { bundle });
+    if ((check.conflicts || []).length) {
+      ElMessage.error(t("adm.bundleConflict") + " " +
+                      check.conflicts.join("; "));
+      return;
+    }
+    const unresolved = check.unresolved_datasources || [];
+    const text = t("adm.bundleConfirm")
+      .replace("{create}", check.create)
+      .replace("{update}", check.update)
+      + (unresolved.length
+        ? "\n" + t("adm.bundleUnresolved") + " " + unresolved.join(", ")
+        : "");
+    await ElMessageBox.confirm(text, t("adm.importBundle"),
+                               { type: "warning" });
+    const out = await api.post(`/projects/${row.id}/bundle/import`,
+                               { bundle });
+    ElMessage.success(t("adm.bundleImported")
+      .replace("{create}", out.created)
+      .replace("{update}", out.updated));
+  } catch (e) {
+    if (e !== "cancel") ElMessage.error(errMsg(e));
   }
 }
 

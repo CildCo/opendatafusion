@@ -15,6 +15,9 @@ SINK_KINDS = ("postgres", "postgresql", "sqlite", "mysql", "mariadb")
 
 
 def source_for(ds, dag):
+    from odf.connectors.registry import EXTRA_SOURCES
+    if ds.kind in EXTRA_SOURCES:
+        return EXTRA_SOURCES[ds.kind](ds, dag)
     if ds.kind == "file":
         return FileSource(ds, dag)
     if ds.kind == "clickhouse":
@@ -39,6 +42,9 @@ def source_for(ds, dag):
 
 
 def sink_for(ds, dag):
+    from odf.connectors.registry import EXTRA_SINKS
+    if ds.kind in EXTRA_SINKS:
+        return EXTRA_SINKS[ds.kind](ds, dag)
     if ds.kind in SINK_KINDS:
         return SQLSink(ds, dag)
     if ds.kind == "http":

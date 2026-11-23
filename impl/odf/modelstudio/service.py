@@ -128,9 +128,13 @@ def metric_sql(session, content, extra_filters=None,
         base_sql, base_binds = compile_visual(q, cols, {},
                                               limit_override=0)
     measure = content["measure"]
-    agg = measure["agg"].upper()
-    col = measure["column"]
-    if measure["agg"] == "count_distinct":
+    agg = (measure.get("agg") or "").upper()
+    col = measure.get("column")
+    if measure.get("expr"):
+        from odf.modelstudio.content import compile_expression
+        expr = compile_expression(measure["expr"],
+                                  dataset_output_columns(ds_content))
+    elif measure["agg"] == "count_distinct":
         expr = "COUNT(DISTINCT %s)" % quote_ident(col)
     else:
         expr = "COUNT(*)" if col == "*" else "%s(%s)" % (

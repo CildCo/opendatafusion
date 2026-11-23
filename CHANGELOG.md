@@ -4,6 +4,20 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.8.0] - 2026-11-24
+
+### Added
+
+- Environment labels (`dev`, `staging`, `prod`) on projects.
+- Project asset bundles: export published assets, datasource names, domains
+  and terms as reviewable JSON; validate and import into another project.
+  Imports create drafts, remap datasource and asset references, and suffix
+  keys that collide across projects.
+- Expression metrics: aggregate expressions such as
+  `sum(amount) / nullif(count(*), 0)` with a column/function whitelist.
+- An external connector SDK: register connector specs and source/sink
+  factories from installed modules via `ODF_CONNECTOR_PLUGINS`.
+
 ## [1.7.0] - 2026-11-23
 
 ### Added

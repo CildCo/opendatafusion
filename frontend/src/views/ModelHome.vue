@@ -169,6 +169,7 @@ const compare = ref({ changes: [], published_version: null,
 
 function definition(row) {
   const measure = row.measure || {};
+  if (measure.expr) return measure.expr;
   if (!measure.agg) return "-";
   const column = measure.column || "*";
   const dims = row.dimensions || [];

@@ -115,6 +115,7 @@ Datasets and metrics.
 - Creating either opens the editor: choose source, table and columns, then add filters, sorting, grouping and a row limit; the preview panel shows the generated SQL and rows.
 - **SQL dataset**: switch the editor to SQL, choose a datasource and write a read-only query (joins are allowed); saving derives the output columns, and metrics, dashboards and apps can use them. SQL datasets do not take parameters; use API Studio when parameters are required.
 - Metrics aggregate with sum, count, average, minimum, maximum or distinct count over the dataset output.
+- **Expression metrics** switch the definition to an aggregate expression such as `sum(amount) / nullif(count(*), 0)`; only columns from the dataset output and `sum/count/avg/min/max/coalesce/nullif/round` are accepted, and expression metrics are disabled on governed datasources.
 - Validate, Save and Publish; published datasets can be used by dashboards, apps and APIs.
 - **Row policies** append filters per column, operator, value and role; admins are exempt.
 - **Column masking** sets a classification (PII/confidential/sensitive), a mask type (redact, partial, hash, null) and exempt roles.
@@ -225,8 +226,11 @@ project members keep using the workspace.
   administrative actions.
 - **Users and access**: create, reset, deactivate users; grant the platform
   administrator flag (the last one cannot be removed); review login state.
-- **Projects and tenants**: create, rename, disable projects, set asset and job
-  quotas, open a usage drawer and manage members with project roles.
+- **Projects and tenants**: create, rename, disable projects, set an
+  environment label, set asset and job quotas, open a usage drawer and manage
+  members with project roles. **Export bundle** downloads published assets,
+  datasource names, domains and terms as JSON; **Import bundle** validates and
+  imports them as drafts, reporting missing datasources and type conflicts.
 - **Sign-in and identity**: session length, roles that must use two-factor
   authentication, OIDC discovery test and LDAP bind test.
 - **Brand and content**: platform name, theme colour, welcome text, default

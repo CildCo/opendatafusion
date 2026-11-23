@@ -27,17 +27,31 @@
                          :label="d.name" />
             </el-select>
           </el-form-item>
-          <el-form-item :label="t('med.aggregation')">
-            <el-select v-model="content.measure.agg" style="width: 100%">
-              <el-option v-for="a in aggs" :key="a" :value="a" :label="a" />
-            </el-select>
+          <el-form-item :label="t('med.definitionMode')">
+            <el-radio-group v-model="measureMode" size="small"
+                            @change="setMeasureMode">
+              <el-radio-button value="agg">{{ t("med.aggMode") }}</el-radio-button>
+              <el-radio-button value="expr">{{ t("med.exprMode") }}</el-radio-button>
+            </el-radio-group>
           </el-form-item>
-          <el-form-item :label="t('med.measureColumn')">
-            <el-select v-model="content.measure.column" filterable
-                       style="width: 100%">
-              <el-option v-for="c in columnOptions" :key="c" :value="c"
-                         :label="c" />
-            </el-select>
+          <template v-if="measureMode === 'agg'">
+            <el-form-item :label="t('med.aggregation')">
+              <el-select v-model="content.measure.agg" style="width: 100%">
+                <el-option v-for="a in aggs" :key="a" :value="a" :label="a" />
+              </el-select>
+            </el-form-item>
+            <el-form-item :label="t('med.measureColumn')">
+              <el-select v-model="content.measure.column" filterable
+                         style="width: 100%">
+                <el-option v-for="c in columnOptions" :key="c" :value="c"
+                           :label="c" />
+              </el-select>
+            </el-form-item>
+          </template>
+          <el-form-item v-else :label="t('med.expression')">
+            <el-input v-model="content.measure.expr" type="textarea"
+                      :rows="3"
+                      placeholder="sum(amount) / nullif(count(*), 0)" />
           </el-form-item>
           <el-form-item :label="t('med.outputName')">
             <el-input v-model="content.measure.as" />
@@ -147,6 +161,7 @@ const versionsOpen = ref(false);
 const lineageOpen = ref(false);
 const governanceOpen = ref(false);
 const aggs = ["sum", "count", "avg", "min", "max", "count_distinct"];
+const measureMode = ref("agg");
 const content = ref({
   dataset_id: null,
   measure: { agg: "sum", column: "", as: "value" },
@@ -160,6 +175,17 @@ const columnOptions = computed(() => {
   if (content.value.measure.agg === "count") return ["*", ...columns.value];
   return columns.value;
 });
+
+function setMeasureMode(mode) {
+  if (mode === "expr") {
+    if (!content.value.measure.expr) content.value.measure.expr = "";
+    content.value.measure.agg = "";
+    content.value.measure.column = "";
+  } else {
+    delete content.value.measure.expr;
+    content.value.measure.agg = content.value.measure.agg || "sum";
+  }
+}
 
 async function load() {
   const a = await api.get(`/metrics/${id}`);
@@ -176,6 +202,7 @@ async function load() {
     format: { type: "number", unit: "", decimals: 2,
               ...(draft.format || {}) },
   };
+  measureMode.value = draft.measure?.expr ? "expr" : "agg";
   datasets.value = ((await api.get("/datasets?page_size=200")).items || [])
     .filter((d) => d.published);
   if (content.value.dataset_id) await loadSchema();

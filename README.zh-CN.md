@@ -173,6 +173,8 @@ cp .env.example .env
 | [性能](docs/PERFORMANCE.md) | 指标、连接池、压测和基准结果 |
 | [基准测试](docs/BENCHMARKS.md) | 30GB 多源结果和缓存实验 |
 | [测试](docs/TESTING.md) | 单元、集成、浏览器和完整矩阵测试 |
+| [环境与资产包](docs/ENVIRONMENTS.md) | 环境标签、资产包导入导出与环境晋级 |
+| [连接器 SDK](docs/CONNECTOR_SDK.md) | 注册外部连接器包 |
 | [控制台使用指南](docs/USER_GUIDE.zh-CN.md) | 每个页面与按钮的操作说明（[英文版](docs/USER_GUIDE.md)） |
 
 ## 开发
