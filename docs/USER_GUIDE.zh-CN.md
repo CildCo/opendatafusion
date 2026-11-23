@@ -32,7 +32,7 @@
 ## 4. 数据源
 
 - **新建数据源**：类型按「数据库 / 分析引擎 / 文件 / API 与搜索」分组。选择类型后按字段填写主机、端口、库名、账号等，不再手写连接串；密码只保存不显示，编辑时留空表示保持不变。类型创建后不可修改。
-- **支持范围**：数据库与分析引擎可测试、同步元数据、查询、作为管道源；PostgreSQL、MySQL/MariaDB、SQLite 还可作为管道目标。文件类型支持 CSV/TSV/Parquet/JSON/Excel。HTTP API 仅作为管道源/目标；Elasticsearch 可作为管道源/目标并同步索引元数据，但不支持 SQL 查询和 SQL 接口。
+- **支持范围**：数据库与分析引擎可测试、同步元数据、查询、作为管道源；PostgreSQL、MySQL/MariaDB、SQLite、TiDB、OceanBase 还可作为管道目标。数据库类型包括 PostgreSQL、MySQL/MariaDB、SQLite、Oracle、SQL Server，以及 MySQL 协议的 TiDB、Apache Doris、StarRocks、OceanBase 和 PostgreSQL 协议的 openGauss、KingbaseES、GaussDB；分析引擎包括 ClickHouse、Trino 和 DuckDB（本地数据库文件）。MongoDB 支持连接测试与集合字段元数据，不支持 SQL 查询。文件类型支持 CSV/TSV/Parquet/JSON/Excel。HTTP API 和 Kafka 仅作为管道源/目标（Kafka 消息写入对象存储前可先落湖）；Elasticsearch 可作为管道源/目标并同步索引元数据，但不支持 SQL 查询和 SQL 接口。
 - **测试连接**：新建或编辑时可直接「测试连接」；列表中的「测试」也会显示具体失败原因，例如主机不可达或地址不允许。
 - **测试**：验证连通性，成功提示「连接正常」。
 - **同步元数据**：读取表结构并写入数据目录；已有数据集会原地更新，标签、质量规则不会丢失。
@@ -85,7 +85,7 @@
 
 ## 10. 增量同步
 
-- **新建 CDC 源**：先选择 PostgreSQL、MySQL 或 Oracle，再填写名称、数据库主机、端口、库、用户、密码、schema、订阅表与 topic 前缀。MySQL 的 schema 字段表示数据库列表；Oracle 的 schema 字段表示 owner。创建后连接器注册到 Debezium。
+- **新建 CDC 源**：先选择 PostgreSQL、MySQL、Oracle 或 SQL Server，再填写名称、数据库主机、端口、库、用户、密码、schema、订阅表与 topic 前缀。MySQL 的 schema 字段表示数据库列表；Oracle 的 schema 字段表示 owner；SQL Server 的 schema 默认 `dbo`。创建后连接器注册到 Debezium。SQL Server 需要先在数据库和订阅表上启用 CDC。
 - **暂停/恢复**：切换连接器运行状态。
 - **同步状态**：从 Debezium 刷新当前状态。
 - **详情**：查看连接器状态、各任务状态与错误 trace，并可编辑订阅表后保存。

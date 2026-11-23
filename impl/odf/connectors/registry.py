@@ -34,6 +34,9 @@ FIELDS = {
                "required": False, "placeholder": "sales"},
     "secure": {"key": "secure", "label": "TLS", "type": "select",
                "required": False},
+    "bootstrap": {"key": "bootstrap", "label": "Bootstrap servers",
+                  "type": "text", "required": True,
+                  "placeholder": "kafka:9092"},
 }
 
 
@@ -77,6 +80,45 @@ SPECS = [
      "capabilities": _caps(),
      "fields": [field("host"), field("port", default=1433),
                 field("database"), field("username"), field("password")]},
+    {"kind": "tidb", "label": "TiDB", "group": "database",
+     "capabilities": _caps(sink=True),
+     "fields": [field("host"), field("port", default=4000),
+                field("database"), field("username"), field("password")]},
+    {"kind": "doris", "label": "Apache Doris", "group": "database",
+     "capabilities": _caps(),
+     "fields": [field("host"), field("port", default=9030),
+                field("database"), field("username"), field("password")]},
+    {"kind": "starrocks", "label": "StarRocks", "group": "database",
+     "capabilities": _caps(),
+     "fields": [field("host"), field("port", default=9030),
+                field("database"), field("username"), field("password")]},
+    {"kind": "oceanbase", "label": "OceanBase (MySQL)", "group": "database",
+     "capabilities": _caps(sink=True),
+     "fields": [field("host"), field("port", default=2881),
+                field("database"), field("username"), field("password")]},
+    {"kind": "opengauss", "label": "openGauss", "group": "database",
+     "capabilities": _caps(),
+     "fields": [field("host"), field("port", default=5432),
+                field("database"), field("username"), field("password"),
+                field("sslmode", options=SSLMODES)]},
+    {"kind": "kingbase", "label": "KingbaseES", "group": "database",
+     "capabilities": _caps(),
+     "fields": [field("host"), field("port", default=5432),
+                field("database"), field("username"), field("password"),
+                field("sslmode", options=SSLMODES)]},
+    {"kind": "mongodb", "label": "MongoDB", "group": "database",
+     "capabilities": _caps(query=False, source=False),
+     "fields": [field("host"), field("port", default=27017),
+                field("database"), field("username", required=False),
+                field("password")]},
+    {"kind": "gaussdb", "label": "GaussDB / openGauss", "group": "database",
+     "capabilities": _caps(),
+     "fields": [field("host"), field("port", default=5432),
+                field("database"), field("username"), field("password"),
+                field("sslmode", options=SSLMODES)]},
+    {"kind": "duckdb", "label": "DuckDB", "group": "analytics",
+     "capabilities": _caps(),
+     "fields": [field("path", placeholder="duckdb:///data/analytics.db")]},
     {"kind": "clickhouse", "label": "ClickHouse", "group": "analytics",
      "capabilities": _caps(),
      "fields": [field("host"), field("port", default=8123),
@@ -92,6 +134,10 @@ SPECS = [
     {"kind": "file", "label": "Local file", "group": "file",
      "capabilities": _caps(sink=False),
      "fields": [field("path")]},
+    {"kind": "kafka", "label": "Kafka", "group": "stream",
+     "capabilities": _caps(metadata=False, query=False, source=True,
+                           sink=True),
+     "fields": [field("bootstrap")]},
     {"kind": "http", "label": "HTTP API", "group": "api",
      "capabilities": _caps(metadata=False, query=False, sink=True),
      "fields": [field("url")]},
@@ -106,6 +152,7 @@ GROUPS = [
     {"key": "analytics", "label": "Analytics engines"},
     {"key": "file", "label": "Files"},
     {"key": "api", "label": "APIs and search"},
+    {"key": "stream", "label": "Streaming"},
 ]
 
 
@@ -148,11 +195,26 @@ def build_dsn(kind, values):
         return str(values.get("path", "")).strip()
     if kind in ("http", "es"):
         return str(values.get("url", "")).strip()
+    if kind == "kafka":
+        return "kafka://" + str(values.get("bootstrap", "")).strip()
+    if kind == "mongodb":
+        auth = ""
+        if values.get("username"):
+            auth = "%s:%s@" % (_q(values["username"]),
+                               _q(values.get("password", "")))
+        return "mongodb://%s%s:%s/%s" % (
+            auth, values["host"], values.get("port") or 27017,
+            _q(values.get("database", "")))
     if kind == "sqlite":
         path = str(values.get("path", "")).strip()
         if path.startswith("sqlite:"):
             return path
         return "sqlite:///" + path
+    if kind == "duckdb":
+        path = str(values.get("path", "")).strip()
+        if path.startswith("duckdb:"):
+            return path
+        return "duckdb:///" + path
     if kind == "clickhouse":
         secure = str(values.get("secure", "false")).lower() == "true"
         scheme = "clickhouse+https" if secure else "clickhouse"
@@ -177,10 +239,15 @@ def build_dsn(kind, values):
             values["host"], values.get("port") or 1521,
             _q(values["service"]))
     driver = {"postgres": "postgresql+psycopg", "mysql": "mysql+pymysql",
-              "mariadb": "mysql+pymysql", "mssql": "mssql+pymssql"}[kind]
+              "mariadb": "mysql+pymysql", "mssql": "mssql+pymssql",
+              "tidb": "mysql+pymysql", "doris": "mysql+pymysql",
+              "starrocks": "mysql+pymysql", "oceanbase": "mysql+pymysql",
+              "opengauss": "postgresql+psycopg",
+              "kingbase": "postgresql+psycopg",
+              "gaussdb": "postgresql+psycopg"}[kind]
     database = _q(values.get("database", ""))
     query = ""
-    if kind == "postgres" and values.get("sslmode"):
+    if kind in ("postgres", "opengauss", "kingbase", "gaussdb") and             values.get("sslmode"):
         query = "?sslmode=" + _q(values["sslmode"])
     return "%s://%s:%s@%s:%s/%s%s" % (
         driver, _q(values["username"]), _q(values.get("password", "")),
@@ -197,8 +264,20 @@ def parse_dsn(kind, dsn):
     if kind in ("file", "http", "es"):
         key = "path" if kind == "file" else "url"
         return {key: dsn}
+    if kind == "kafka":
+        return {"bootstrap": dsn[len("kafka://"):]
+                if dsn.startswith("kafka://") else dsn}
+    if kind == "mongodb":
+        parsed = urlparse(dsn)
+        return {"host": parsed.hostname or "", "port": parsed.port or 27017,
+                "database": unquote((parsed.path or "").lstrip("/")),
+                "username": unquote(parsed.username or ""),
+                "password": unquote(parsed.password or "")}
     if kind == "sqlite":
         prefix = "sqlite:///"
+        return {"path": dsn[len(prefix):] if dsn.startswith(prefix) else dsn}
+    if kind == "duckdb":
+        prefix = "duckdb:///"
         return {"path": dsn[len(prefix):] if dsn.startswith(prefix) else dsn}
     if kind == "clickhouse":
         from odf.clickhouse import parse_dsn as parse_clickhouse
@@ -228,7 +307,7 @@ def parse_dsn(kind, dsn):
               "database": (url.database or "").lstrip("/"),
               "username": url.username or "",
               "password": url.password or ""}
-    if kind == "postgres":
+    if kind in ("postgres", "opengauss", "kingbase", "gaussdb"):
         values["sslmode"] = (url.query.get("sslmode") or "")
     return values
 
@@ -261,4 +340,7 @@ def _q(value):
 def _default_port(kind):
     return {"postgres": 5432, "mysql": 3306, "mariadb": 3306,
             "mssql": 1433, "oracle": 1521, "clickhouse": 8123,
-            "trino": 8080}.get(kind)
+            "trino": 8080, "tidb": 4000, "doris": 9030,
+            "starrocks": 9030, "oceanbase": 2881,
+            "opengauss": 5432, "kingbase": 5432,
+            "gaussdb": 5432, "mongodb": 27017}.get(kind)

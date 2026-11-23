@@ -149,3 +149,66 @@ def test_edit_without_password_keeps_the_stored_secret(seeded):
         dsn = get_dsn(s.get(Datasource, ds_id))
     assert "db2.internal" in dsn
     assert "top-secret" in dsn
+
+
+def test_duckdb_datasource_is_usable(seeded, tmp_path):
+    import duckdb
+    path = tmp_path / "analytics.duckdb"
+    con = duckdb.connect(str(path))
+    try:
+        con.execute("create table events(id integer, name varchar)")
+        con.execute("insert into events values (1, 'a'), (2, 'b')")
+    finally:
+        con.close()
+    c = TestClient(app)
+    created = c.post("/api/v1/datasources", headers=headers(), json={
+        "name": "duck", "kind": "duckdb", "config": {"path": str(path)}})
+    assert created.status_code == 200, created.text
+    ds_id = created.json()["id"]
+    assert c.post("/api/v1/datasources/%d/test" % ds_id,
+                  headers=headers()).json()["ok"] is True
+    sync = c.post("/api/v1/datasources/%d/sync" % ds_id, headers=headers())
+    assert sync.status_code == 200, sync.text
+    tables = c.get("/api/v1/datasources/%d/tables" % ds_id,
+                   headers=headers()).json()
+    row = next(t for t in tables if t["table"] == "events")
+    assert {c["name"] for c in row["columns"]} == {"id", "name"}
+
+
+def test_mongodb_probe_and_metadata(seeded, monkeypatch):
+    assert __import__("odf.connectors.mongo", fromlist=["x"])
+    monkeypatch.setattr("odf.connectors.mongo.ping", lambda dsn, timeout=5: True)
+    monkeypatch.setattr("odf.connectors.mongo.collections", lambda dsn, timeout=5: [
+        {"schema": "app", "table": "orders", "columns": [
+            {"name": "_id", "type": "object"},
+            {"name": "total", "type": "double"}]}])
+    c = TestClient(app)
+    created = c.post("/api/v1/datasources", headers=headers(), json={
+        "name": "mongo", "kind": "mongodb",
+        "config": {"host": "mongo", "port": 27017, "database": "app",
+                   "username": "odf", "password": "pw"}})
+    assert created.status_code == 200, created.text
+    ds_id = created.json()["id"]
+    assert c.post("/api/v1/datasources/%d/test" % ds_id,
+                  headers=headers()).json()["ok"] is True
+    sync = c.post("/api/v1/datasources/%d/sync" % ds_id, headers=headers())
+    assert sync.status_code == 200, sync.text
+    tables = c.get("/api/v1/datasources/%d/tables" % ds_id,
+                   headers=headers()).json()
+    assert tables[0]["schema"] == "app"
+    assert {x["name"] for x in tables[0]["columns"]} == {"_id", "total"}
+
+
+def test_kafka_probe_and_pipeline_only_metadata(seeded, monkeypatch):
+    monkeypatch.setattr("odf.connectors.kafka.ping", lambda dsn, timeout=5: True)
+    c = TestClient(app)
+    created = c.post("/api/v1/datasources", headers=headers(), json={
+        "name": "events", "kind": "kafka",
+        "config": {"bootstrap": "kafka:9092"}})
+    assert created.status_code == 200, created.text
+    ds_id = created.json()["id"]
+    assert c.post("/api/v1/datasources/%d/test" % ds_id,
+                  headers=headers()).json()["ok"] is True
+    sync = c.post("/api/v1/datasources/%d/sync" % ds_id, headers=headers())
+    assert sync.status_code == 400
+    assert "pipeline connector" in sync.json()["detail"]

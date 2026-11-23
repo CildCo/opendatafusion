@@ -76,6 +76,7 @@
             <el-option value="postgres" label="PostgreSQL" />
             <el-option value="mysql" label="MySQL" />
             <el-option value="oracle" label="Oracle" />
+            <el-option value="mssql" label="SQL Server" />
           </el-select>
         </el-form-item>
         <el-form-item :label="t('cdc.host')" required>
@@ -199,20 +200,20 @@ const blank = () => ({
   kafka_bootstrap: "kafka:9092",
 });
 
-const PORTS = { postgres: 5432, mysql: 3306, oracle: 1521 };
+const PORTS = { postgres: 5432, mysql: 3306, oracle: 1521, mssql: 1433 };
 const schemaHint = computed(() => ({
-  postgres: "public", mysql: "shop", oracle: "ODF",
+  postgres: "public", mysql: "shop", oracle: "ODF", mssql: "dbo",
 }[form.engine] || "public"));
 const tableHint = computed(() => ({
   postgres: "public.events,public.orders",
   mysql: "shop.orders,shop.items",
-  oracle: "ODF.EVENTS,ODF.ORDERS",
+  oracle: "ODF.EVENTS,ODF.ORDERS", mssql: "dbo.orders,dbo.items",
 }[form.engine] || "public.events"));
 
 function onEngine(value) {
   form.port = PORTS[value] || form.port;
   form.schema_list = { postgres: "public", mysql: "shop",
-                       oracle: "ODF" }[value] || "public";
+                       oracle: "ODF", mssql: "dbo" }[value] || "public";
   form.table_list = "";
   if (/^cdc-postgres/.test(form.host)) form.host = "";
 }

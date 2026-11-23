@@ -2,6 +2,7 @@ from odf.connectors.clickhouse import ClickHouseSource
 from odf.connectors.es import ESSink, ESSource
 from odf.connectors.file import FileSource
 from odf.connectors.http import HTTPSink, HTTPSource
+from odf.connectors.kafka import KafkaSink, KafkaSource
 from odf.connectors.sql import SQLSink, SQLSource
 from odf.connectors.trino import TrinoSource
 
@@ -23,6 +24,8 @@ def source_for(ds, dag):
         return HTTPSource(ds, dag)
     if ds.kind == "es":
         return ESSource(ds, dag)
+    if ds.kind == "kafka":
+        return KafkaSource(ds, dag)
     raise ValueError("unsupported source kind: %s" % ds.kind)
 
 
@@ -33,4 +36,6 @@ def sink_for(ds, dag):
         return HTTPSink(ds, dag)
     if ds.kind == "es":
         return ESSink(ds, dag)
+    if ds.kind == "kafka":
+        return KafkaSink(ds, dag)
     raise ValueError("unsupported sink kind: %s" % ds.kind)

@@ -116,6 +116,44 @@ def _sync_file(session, ds) -> int:
     return 1
 
 
+def _sync_mongo(session, ds) -> int:
+    from odf.connectors import mongo
+    found = mongo.collections(get_dsn(ds))
+    before = _existing_columns(session, ds.id)
+    tables = {(t["schema"], t["table"]): t["columns"] for t in found}
+    _upsert(session, ds, tables)
+    _detect_drift(session, ds, before,
+                  {k: {c["name"]: c["type"] for c in v}
+                   for k, v in tables.items()})
+    return len(found)
+
+
+def _sync_duckdb(session, ds) -> int:
+    import duckdb
+    raw = get_dsn(ds)
+    prefix = "duckdb:///"
+    path = raw[len(prefix):] if raw.startswith(prefix) else raw
+    con = duckdb.connect(path, read_only=True)
+    try:
+        rows = con.execute(
+            "select table_schema, table_name, column_name, data_type "
+            "from information_schema.columns "
+            "where table_schema not in ('information_schema', 'pg_catalog') "
+            "order by table_schema, table_name, ordinal_position").fetchall()
+    finally:
+        con.close()
+    tables = {}
+    for schema, table, column, data_type in rows:
+        tables.setdefault((schema, table), []).append(
+            {"name": column, "type": data_type})
+    before = _existing_columns(session, ds.id)
+    _upsert(session, ds, tables)
+    _detect_drift(session, ds, before,
+                  {k: {c["name"]: c["type"] for c in v}
+                   for k, v in tables.items()})
+    return len(tables)
+
+
 def _sync_clickhouse(session, ds) -> int:
     from odf import clickhouse
     found = clickhouse.tables(ds)
@@ -135,13 +173,15 @@ def _sync_sql(session, ds) -> int:
     insp = inspect(engine)
     before = _existing_columns(session, ds.id)
 
-    if engine.dialect.name == "sqlite":
+    if engine.dialect.name in ("sqlite", "duckdb"):
         schemas = ["main"]
     elif engine.dialect.name in ("oracle", "mssql"):
         schemas = [insp.default_schema_name]
     else:
-        schemas = [s for s in insp.get_schema_names()
-                   if s not in ("pg_catalog", "information_schema")]
+        system = ("pg_catalog", "information_schema")
+        if engine.dialect.name in ("mysql", "mariadb"):
+            system += ("mysql", "performance_schema", "sys")
+        schemas = [s for s in insp.get_schema_names() if s not in system]
 
     tables = {}
     for schema in schemas:
@@ -228,6 +268,10 @@ def sync_datasource(session, datasource_id: int) -> int:
             % ds.kind)
     if ds.kind == "es":
         return _sync_es(session, ds)
+    if ds.kind == "duckdb":
+        return _sync_duckdb(session, ds)
+    if ds.kind == "mongodb":
+        return _sync_mongo(session, ds)
     if ds.kind == "file":
         return _sync_file(session, ds)
     if ds.kind == "clickhouse":

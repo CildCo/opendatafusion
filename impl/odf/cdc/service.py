@@ -14,6 +14,7 @@ CONNECTOR_CLASSES = {
     "postgres": "io.debezium.connector.postgresql.PostgresConnector",
     "mysql": "io.debezium.connector.mysql.MySqlConnector",
     "oracle": "io.debezium.connector.oracle.OracleConnector",
+    "mssql": "io.debezium.connector.sqlserver.SqlServerConnector",
 }
 CONNECTOR_CLASS = CONNECTOR_CLASSES["postgres"]
 
@@ -77,6 +78,17 @@ def connector_payload(config: dict, password: str | None,
                                          or database),
             "database.server.id": str(zlib.crc32(seed.encode()) % 1000000
                                       + 1000),
+            "schema.history.internal.kafka.bootstrap.servers": str(
+                config.get("kafka_bootstrap") or "kafka:9092"),
+            "schema.history.internal.kafka.topic": "schema-history-%s" % (
+                name or config.get("topic_prefix") or "odf"),
+        })
+    elif engine == "mssql":
+        payload.update({
+            "database.port": str(config.get("port") or 1433),
+            "database.names": database,
+            "database.encrypt": "false",
+            "schema.include.list": str(config.get("schema_list") or "dbo"),
             "schema.history.internal.kafka.bootstrap.servers": str(
                 config.get("kafka_bootstrap") or "kafka:9092"),
             "schema.history.internal.kafka.topic": "schema-history-%s" % (

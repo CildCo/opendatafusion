@@ -9,7 +9,10 @@ def test_catalog_covers_every_console_type():
     rows = catalog()
     kinds = {row["kind"] for row in rows["connectors"]}
     assert kinds == {"postgres", "mysql", "mariadb", "sqlite", "oracle",
-                     "mssql", "clickhouse", "trino", "file", "http", "es"}
+                     "mssql", "clickhouse", "trino", "file", "http", "es",
+                     "duckdb", "tidb", "doris", "starrocks", "oceanbase",
+                     "opengauss", "kingbase", "gaussdb", "mongodb",
+                     "kafka"}
     for row in rows["connectors"]:
         assert row["capabilities"]["test"] is True
         assert row["fields"]
@@ -93,3 +96,43 @@ def test_required_fields_and_masking():
     assert masked["password"] == ""
     assert masked["has_password"] is True
     assert "secret" not in str(masked)
+
+
+def test_database_families_roundtrip():
+    tidb = build_dsn("tidb", {"host": "tidb", "port": 4000,
+                              "database": "app", "username": "root",
+                              "password": "pw"})
+    assert tidb.startswith("mysql+pymysql://")
+    back = parse_dsn("tidb", tidb)
+    assert back["port"] == 4000 and back["password"] == "pw"
+    gauss = build_dsn("opengauss", {"host": "gauss", "port": 5432,
+                                    "database": "app", "username": "odf",
+                                    "password": "pw", "sslmode": "require"})
+    assert gauss.startswith("postgresql+psycopg://")
+    assert "sslmode=require" in gauss
+    back = parse_dsn("opengauss", gauss)
+    assert back["sslmode"] == "require"
+    duck = build_dsn("duckdb", {"path": "/data/analytics.duckdb"})
+    assert duck == "duckdb:////data/analytics.duckdb"
+    assert parse_dsn("duckdb", duck)["path"] == "/data/analytics.duckdb"
+
+
+def test_mongodb_roundtrip_and_capabilities():
+    dsn = build_dsn("mongodb", {"host": "mongo", "port": 27017,
+                                "database": "app", "username": "odf",
+                                "password": "p@ss"})
+    assert dsn.startswith("mongodb://")
+    back = parse_dsn("mongodb", dsn)
+    assert back["database"] == "app" and back["password"] == "p@ss"
+    caps = capabilities("mongodb")
+    assert caps["metadata"] is True and caps["query"] is False
+    assert caps["source"] is False
+
+
+def test_kafka_roundtrip_and_capabilities():
+    dsn = build_dsn("kafka", {"bootstrap": "kafka:9092,kafka2:9092"})
+    assert dsn == "kafka://kafka:9092,kafka2:9092"
+    assert parse_dsn("kafka", dsn)["bootstrap"] == "kafka:9092,kafka2:9092"
+    caps = capabilities("kafka")
+    assert caps["source"] and caps["sink"]
+    assert caps["metadata"] is False and caps["query"] is False
