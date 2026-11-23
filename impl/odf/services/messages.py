@@ -19,6 +19,9 @@ MESSAGES = {
     "auth.bad_otp": ("一次性验证码无效", "Invalid or missing one-time code"),
     "auth.too_many_logins": ("登录尝试过于频繁，请稍后再试",
                              "Too many login attempts"),
+    "auth.mfa_required": ("该账号需要先绑定双因子认证，请联系管理员",
+                          "Two-factor authentication is required for this "
+                          "account; ask an administrator"),
 }
 
 

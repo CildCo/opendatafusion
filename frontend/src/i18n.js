@@ -6,6 +6,7 @@ import development from "./locales/development";
 import studio from "./locales/studio";
 import governance from "./locales/governance";
 import admin from "./locales/admin";
+import adminConsole from "./locales/admin_console";
 import pipelineEditor from "./locales/pipeline_editor";
 import modelEditor from "./locales/model_editor";
 import dashboardEditor from "./locales/dashboard_editor";
@@ -135,6 +136,16 @@ const base = {
     "dash.qualityRules": "质量规则",
     "common.refresh": "刷新",
     "common.help": "用户指南",
+    "admin.console": "系统管理",
+    "admin.back": "返回工作台",
+    "admin.overview": "平台概览",
+    "admin.users": "用户与权限",
+    "admin.projects": "项目与租户",
+    "admin.identity": "登录与身份",
+    "admin.appearance": "品牌与内容",
+    "admin.platform": "数据平面",
+    "admin.operations": "运营与维护",
+    "admin.audit": "平台审计",
     "fmt.number": "数字",
     "fmt.currency": "货币",
     "fmt.percent": "百分比",
@@ -324,6 +335,16 @@ const base = {
     "dash.qualityRules": "Quality rules",
     "common.refresh": "Refresh",
     "common.help": "User guide",
+    "admin.console": "Administration",
+    "admin.back": "Back to workspace",
+    "admin.overview": "Overview",
+    "admin.users": "Users and access",
+    "admin.projects": "Projects and tenants",
+    "admin.identity": "Sign-in and identity",
+    "admin.appearance": "Brand and content",
+    "admin.platform": "Data plane",
+    "admin.operations": "Operations",
+    "admin.audit": "Platform audit",
     "fmt.number": "Number",
     "fmt.currency": "Currency",
     "fmt.percent": "Percent",
@@ -407,6 +428,7 @@ const base = {
 };
 
 const parts = [assets, development, studio, governance, admin,
+               adminConsole,
                pipelineEditor, modelEditor, dashboardEditor, appEditor, apiEditor];
 
 const messages = {

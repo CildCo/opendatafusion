@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from odf.db import Base, SessionLocal
 from odf.main import app
-from odf.models import PortalSetting, Project, User
+from odf.models import PortalSetting, Project, ProjectMember, User
 from odf.services.auth import create_token
 from odf.portal.service import get_portal, update_portal
 
@@ -71,16 +71,42 @@ def test_portal_routes():
     assert r.status_code == 200 and r.json()["brand_name"] == "Portal X"
     _user(1, "editor")
     assert c.put("/api/v1/portal", json={"brand_name": "Editor"},
+                 headers=h).status_code == 403
+    with SessionLocal() as s2:
+        if not (s2.query(ProjectMember)
+                .filter_by(project_id=1, user_id=1).first()):
+            s2.add(ProjectMember(project_id=1, user_id=1, role="admin"))
+            s2.commit()
+    assert c.put("/api/v1/portal", json={"brand_name": "Editor"},
                  headers=h).status_code == 200
     assert c.put("/api/v1/portal", json={"allowed_menus": ["/datasets"]},
-                 headers=h).status_code == 403
+                 headers=h).status_code == 200
     _user(1, "viewer")
+    with SessionLocal() as s2:
+        row = (s2.query(ProjectMember)
+               .filter_by(project_id=1, user_id=1).first())
+        if row:
+            row.role = "viewer"
+            s2.commit()
     assert c.put("/api/v1/portal", json={"brand_name": "X"},
                  headers=h).status_code == 403
     assert c.get("/api/v1/portal",
                  headers={"Authorization": "Bearer "
                           + create_token(1, 2)}).json()["brand_name"] != \
         "Portal X"
+
+
+    _cleanup_portal()
+
+
+def _cleanup_portal():
+    with SessionLocal() as s2:
+        row = s2.query(PortalSetting).filter_by(project_id=1).first()
+        if row:
+            row.allowed_menus = None
+            row.hidden_menus = []
+        s2.query(ProjectMember).filter_by(project_id=1, user_id=1).delete()
+        s2.commit()
 
 
 def test_blank_brand_is_rejected():

@@ -5,7 +5,11 @@ from sqlalchemy.orm import Session
 from odf.db import get_session
 from odf.services.aksk_admin import issue_aksk, list_aksk, revoke_aksk
 from odf.models import User
-from odf.services.auth import require_admin, require_approver, require_user
+from odf.services.audit import write_audit
+from odf.services.auth import (require_admin, require_approver,
+                               require_platform_admin, require_project_admin,
+                               require_user)
+from odf.services.platform import is_platform_admin
 from odf.services.projects import (add_member, create_project, list_members,
                                    list_projects, list_projects_for_user,
                                    remove_member)
@@ -16,6 +20,12 @@ router = APIRouter()
 class ProjectIn(BaseModel):
     code: str
     name: str
+
+
+class ProjectUpdateIn(BaseModel):
+    name: str | None = None
+    status: int | None = None
+    quota: dict | None = None
 
 
 class MemberIn(BaseModel):
@@ -29,7 +39,8 @@ class KeyPolicyIn(BaseModel):
 
 
 def _project(p):
-    return {"id": p.id, "code": p.code, "name": p.name, "status": p.status}
+    return {"id": p.id, "code": p.code, "name": p.name,
+            "status": p.status, "quota": p.quota_json or {}}
 
 
 @router.get("/projects")
@@ -49,29 +60,67 @@ def mine(s: Session = Depends(get_session),
 
 @router.post("/projects")
 def create(body: ProjectIn, s: Session = Depends(get_session),
-           claims: dict = Depends(require_admin)):
-    return _project(create_project(s, body.code, body.name))
+           claims: dict = Depends(require_platform_admin)):
+    p = create_project(s, body.code, body.name)
+    write_audit(s, claims["sub"], "create_project", str(p.id),
+                {"code": p.code, "name": p.name})
+    return _project(p)
+
+
+@router.put("/projects/{project_id}")
+def update(project_id: int, body: ProjectUpdateIn,
+           s: Session = Depends(get_session),
+           claims: dict = Depends(require_platform_admin)):
+    from odf.models import Project
+    project = s.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "project not found")
+    if body.name is not None:
+        project.name = body.name
+    if body.status is not None:
+        project.status = body.status
+    if body.quota is not None:
+        project.quota_json = body.quota
+    s.commit()
+    write_audit(s, claims["sub"], "update_project", str(project.id),
+                {"status": project.status, "quota": project.quota_json})
+    return _project(project)
+
+
+def _scope(s, claims, project_id):
+    user = s.get(User, int(claims["sub"]))
+    if is_platform_admin(user):
+        return
+    if int(claims["project_id"]) != int(project_id):
+        raise HTTPException(404, "project not found")
 
 
 @router.get("/projects/{project_id}/members")
 def members(project_id: int, s: Session = Depends(get_session),
-            claims: dict = Depends(require_approver)):
+            claims: dict = Depends(require_project_admin)):
+    _scope(s, claims, project_id)
     return [{"id": m.id, "user_id": m.user_id, "role": m.role}
             for m in list_members(s, project_id)]
 
 
 @router.post("/projects/{project_id}/members")
 def add(project_id: int, body: MemberIn, s: Session = Depends(get_session),
-        claims: dict = Depends(require_admin)):
+        claims: dict = Depends(require_project_admin)):
+    _scope(s, claims, project_id)
     m = add_member(s, project_id, body.user_id, body.role)
+    write_audit(s, claims["sub"], "add_project_member", str(project_id),
+                {"user_id": body.user_id, "role": body.role})
     return {"id": m.id, "user_id": m.user_id, "role": m.role}
 
 
 @router.delete("/projects/{project_id}/members/{user_id}", status_code=204)
 def remove(project_id: int, user_id: int, s: Session = Depends(get_session),
-           claims: dict = Depends(require_admin)):
+           claims: dict = Depends(require_project_admin)):
+    _scope(s, claims, project_id)
     if not remove_member(s, project_id, user_id):
         raise HTTPException(404, "member not found")
+    write_audit(s, claims["sub"], "remove_project_member", str(project_id),
+                {"user_id": user_id})
 
 
 @router.post("/projects/{project_id}/aksk")

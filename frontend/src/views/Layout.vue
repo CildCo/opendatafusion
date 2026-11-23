@@ -74,6 +74,9 @@
             </button>
             <template #dropdown>
               <el-dropdown-menu>
+                <el-dropdown-item v-if="platformAdmin" command="admin">
+                  {{ t("admin.console") }}
+                </el-dropdown-item>
                 <el-dropdown-item command="security">{{ t("top.security") }}</el-dropdown-item>
                 <el-dropdown-item command="workspace">{{ t("top.workspace") }}</el-dropdown-item>
                 <el-dropdown-item command="logout" divided>{{ t("top.logout") }}</el-dropdown-item>
@@ -96,8 +99,8 @@ import { useRoute, useRouter } from "vue-router";
 import { Search } from "@element-plus/icons-vue";
 import { MENU_GROUPS, MENU_ITEMS } from "../menu";
 import { ElMessage } from "element-plus";
-import { api, clearSession, getProject, getRole, setProject }
-  from "../api";
+import { api, clearSession, getPlatformAdmin, getProject, getRole,
+         setPlatformAdmin, setProject } from "../api";
 import { t, toggleLocale } from "../i18n";
 import CommandPalette from "../components/CommandPalette.vue";
 import { pushRecent } from "../recent";
@@ -107,6 +110,7 @@ const router = useRouter();
 const paletteOpen = ref(false);
 const appVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
 const role = getRole() || "viewer";
+const platformAdmin = ref(getPlatformAdmin());
 const online = ref(true);
 const projects = ref([]);
 const currentProject = ref(getProject());
@@ -114,15 +118,20 @@ const portal = ref({ brand_name: "OpenDataFusion", primary_color: "#1d4ed8",
                      hidden_menus: [], allowed_menus: null });
 
 const groups = MENU_GROUPS;
+const FEATURE_PATHS = {"/workbench": "workbench", "/cdc": "cdc",
+                       "/tools": "tools", "/apps": "apps",
+                       "/dashboards": "dashboards"};
 
 const menuGroups = computed(() => {
   const hidden = portal.value.hidden_menus || [];
   const allowed = role === "admin" ? null : portal.value.allowed_menus;
+  const features = portal.value.features || {};
   return groups.map((g) => ({
     ...g,
-    items: g.items.filter((m) => !m.adminOnly || role === "admin")
+    items: g.items.filter((m) => !m.adminOnly || platformAdmin.value)
       .filter((m) => !hidden.includes(m.path)
-        && (allowed == null || allowed.includes(m.path))),
+        && (allowed == null || allowed.includes(m.path)))
+      .filter((m) => features[FEATURE_PATHS[m.path]] !== false),
   })).filter((g) => g.items.length)
     .map((g) => ({ ...g, items: g.items }));
 });
@@ -201,6 +210,8 @@ async function loadProjects() {
   try {
     const me = await api.get("/auth/me");
     username.value = me.username || "admin";
+    platformAdmin.value = !!me.platform_admin;
+    setPlatformAdmin(me.platform_admin);
     if (!getProject() && me.project_id) {
       setProject(me.project_id);
       currentProject.value = me.project_id;
@@ -222,6 +233,10 @@ async function switchProject(id) {
 }
 
 function onUserCommand(command) {
+  if (command === "admin") {
+    router.push("/admin/overview");
+    return;
+  }
   if (command === "logout") {
     clearSession();
     router.push("/login");

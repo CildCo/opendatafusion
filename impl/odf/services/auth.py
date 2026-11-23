@@ -13,7 +13,8 @@ _bearer = HTTPBearer(auto_error=False)
 
 
 def create_token(user_id: int, project_id: int,
-                 token_version: int | None = None) -> str:
+                 token_version: int | None = None,
+                 ttl_hours: int | None = None) -> str:
     if token_version is None:
         from odf.db import SessionLocal
         from odf.models import User
@@ -21,7 +22,7 @@ def create_token(user_id: int, project_id: int,
             user = s.get(User, user_id)
             token_version = user.token_version if user else 0
     now = datetime.now(timezone.utc)
-    ttl = get_settings().token_ttl_hours
+    ttl = ttl_hours or get_settings().token_ttl_hours
     return jwt.encode({"sub": str(user_id), "project_id": project_id,
                        "ver": int(token_version or 0),
                        "iat": now, "exp": now + timedelta(hours=ttl)},
@@ -95,11 +96,35 @@ def require_approver(claims: dict = Depends(require_user),
     return claims
 
 
-def require_admin(claims: dict = Depends(require_user),
-                  s: Session = Depends(get_session),
-                  accept_language: str | None = Header(default=None)) -> dict:
+def require_platform_admin(
+        claims: dict = Depends(require_user),
+        s: Session = Depends(get_session),
+        accept_language: str | None = Header(default=None)) -> dict:
     from odf.models import User
+    from odf.services.platform import is_platform_admin
     user = s.get(User, int(claims["sub"]))
-    if not user or not user.active or user.role != "admin":
+    if not user or not user.active or not is_platform_admin(user):
         raise HTTPException(403, tr(accept_language, "auth.admin"))
     return claims
+
+
+def require_project_admin(
+        claims: dict = Depends(require_user),
+        s: Session = Depends(get_session),
+        accept_language: str | None = Header(default=None)) -> dict:
+    from odf.models import ProjectMember, User
+    from odf.services.platform import is_platform_admin
+    user = s.get(User, int(claims["sub"]))
+    if not user or not user.active:
+        raise HTTPException(403, tr(accept_language, "auth.admin"))
+    if is_platform_admin(user):
+        return claims
+    member = (s.query(ProjectMember)
+              .filter_by(project_id=claims["project_id"],
+                         user_id=user.id).first())
+    if not member or member.role != "admin":
+        raise HTTPException(403, tr(accept_language, "auth.admin"))
+    return claims
+
+
+require_admin = require_platform_admin

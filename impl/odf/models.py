@@ -21,6 +21,7 @@ class Project(Base):
     code: Mapped[str] = mapped_column(String(64), unique=True)
     name: Mapped[str] = mapped_column(String(128))
     status: Mapped[int] = mapped_column(Integer, default=1)
+    quota_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
@@ -31,6 +32,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(256))
     role: Mapped[str] = mapped_column(String(32), default="viewer")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    platform_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     totp_secret_encrypted: Mapped[str | None] = mapped_column(
         String(512), nullable=True)
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -359,6 +361,14 @@ class PortalSetting(Base):
     hidden_menus: Mapped[list] = mapped_column(JSON, default=list)
     allowed_menus: Mapped[list | None] = mapped_column(JSON, nullable=True)
     updated_by: Mapped[str] = mapped_column(String(64), default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now, onupdate=now)
+
+
+class PlatformSetting(Base):
+    __tablename__ = "platform_setting"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    settings_json: Mapped[dict] = mapped_column(JSON, default=dict)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  default=now, onupdate=now)
 

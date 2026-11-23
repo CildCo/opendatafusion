@@ -100,8 +100,13 @@ def login(body: LoginIn, request: Request,
                                         "auth.bad_otp"))
         u.totp_last_step = step
         s.commit()
+    from odf.services.platform import mfa_roles, session_hours
+    if u.role in mfa_roles(s) and not u.totp_enabled:
+        raise HTTPException(403, tr(request.headers.get("accept-language"),
+                                    "auth.mfa_required"))
     write_audit(s, u.username, "login", str(u.id), {})
-    return {"token": create_token(u.id, body.project_id, u.token_version)}
+    return {"token": create_token(u.id, body.project_id, u.token_version,
+                                  ttl_hours=session_hours(s))}
 
 
 class SwitchIn(BaseModel):
@@ -256,5 +261,6 @@ def me(claims: dict = Depends(require_user),
     return {"id": u.id if u else None,
             "username": u.username if u else None,
             "role": u.role if u else None,
+            "platform_admin": bool(u.platform_admin) if u else False,
             "totp_enabled": bool(u.totp_enabled) if u else False,
             "project_id": claims.get("project_id")}

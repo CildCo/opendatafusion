@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from odf.api import (alerts, approvals, audit, auth, catalog, changes,
                      dashboard, datasources, dependencies, flows, health,
-                     interfaces, mcp,
+                     interfaces, mcp, platform_admin,
                      probe,
                      metadata, openapi_gateway, projects, quality, runs,
                      standards, users)
@@ -40,6 +40,7 @@ if get_settings().log_json:
 
 app = FastAPI(title="ODF")
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(platform_admin.router, prefix="/api/v1")
 for r in (datasources.router, metadata.router, flows.router, runs.router,
           interfaces.router, health.router, mcp.router, users.router,
           projects.router, catalog.router, quality.router,
@@ -176,7 +177,8 @@ async def menu_permission(request: Request, call_next):
     with SessionLocal() as s:
         user = s.get(User, int(claims["sub"]))
         denied = False
-        if user and user.active and user.role != "admin":
+        from odf.services.platform import is_platform_admin
+        if user and user.active and not is_platform_admin(user):
             row = (s.query(PortalSetting)
                    .filter_by(project_id=claims["project_id"]).first())
             allowed = row.allowed_menus if row else None
@@ -186,6 +188,18 @@ async def menu_permission(request: Request, call_next):
         return JSONResponse({"detail": "menu access denied"},
                             status_code=403)
     return await call_next(request)
+
+
+@app.on_event("startup")
+def _load_platform_overrides():
+    from odf.db import SessionLocal
+    from odf.services.platform import apply_runtime
+    try:
+        with SessionLocal() as session:
+            apply_runtime(session)
+    except Exception:
+        logging.getLogger("odf").warning(
+            "platform overrides not applied", exc_info=True)
 
 
 @app.get("/")

@@ -202,3 +202,28 @@ Every recorded action with actor, action, target, time and details, with paging.
 - **Deleting a data source is refused**: review the dependent datasets, rules and tags, then confirm the cascade.
 - **A new user cannot sign in**: add the user to a project.
 - **An interface cannot be called**: issue AK/SK under Access control and sign requests as shown in the interface docs.
+
+## 27. Platform administration
+
+Platform administrators open **Administration** from the avatar menu (or
+`#/admin`). It uses its own layout and only platform administrators can enter;
+project members keep using the workspace.
+
+- **Overview**: users, projects, assets, queue, open alerts and recent
+  administrative actions.
+- **Users and access**: create, reset, deactivate users; grant the platform
+  administrator flag (the last one cannot be removed); review login state.
+- **Projects and tenants**: create, rename, disable projects, set quotas and
+  manage members with project roles.
+- **Sign-in and identity**: session length, roles that must use two-factor
+  authentication, OIDC discovery test and LDAP bind test.
+- **Brand and content**: platform name, theme colour, welcome text, default
+  language, announcement and feature flags (workbench, CDC, AI tools, apps,
+  dashboards).
+- **Data plane**: default Spark image, Flink SQL Gateway address, SQL write
+  switch, CDC topic prefix and Kafka bootstrap defaults.
+- **Operations**: queue health, feature state and backup/restore commands.
+- **Platform audit**: every administrative action, filterable and exportable.
+
+Enable required two-factor authentication only after the selected roles have
+enrolled; otherwise those users cannot sign in.

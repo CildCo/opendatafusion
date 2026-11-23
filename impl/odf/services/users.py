@@ -96,6 +96,31 @@ def reset_password_by_name(session, username: str, password: str) -> User:
     return u
 
 
+def set_platform_admin(session, user_id: int, value: bool,
+                       actor_id: int | None = None) -> User:
+    u = session.get(User, user_id)
+    if not u:
+        raise ValueError("user not found")
+    if actor_id is not None and u.id == actor_id:
+        raise ValueError("you cannot change your own platform role")
+    if not value and is_platform_admin(u):
+        others = (session.query(User)
+                  .filter(User.id != u.id,
+                          (User.platform_admin.is_(True))
+                          | (User.role == "admin"))
+                  .count())
+        if others == 0:
+            raise ValueError("at least one platform administrator is required")
+    u.platform_admin = value
+    session.commit()
+    return u
+
+
+def is_platform_admin(user) -> bool:
+    return bool(user and (getattr(user, "platform_admin", False)
+                          or user.role == "admin"))
+
+
 def reset_totp_by_name(session, username: str) -> User:
     """Break-glass helper for a lost authenticator device."""
     u = session.query(User).filter_by(username=username).first()
