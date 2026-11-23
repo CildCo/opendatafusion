@@ -35,6 +35,10 @@ Tabs: overview, tasks, alerts, health, API calls, timeline and audit.
 - **Capabilities**: databases and analytics engines can be tested, synchronised, queried and used as pipeline sources; PostgreSQL, MySQL/MariaDB, SQLite, TiDB and OceanBase can also be pipeline sinks. Database types cover PostgreSQL, MySQL/MariaDB, SQLite, Oracle, SQL Server, the MySQL-protocol TiDB, Apache Doris, StarRocks and OceanBase, the PostgreSQL-protocol openGauss, KingbaseES and GaussDB, and DM (达梦); analytics engines cover ClickHouse, Trino, DuckDB (a local database file) and Hive / Spark Thrift (the HiveServer2 protocol). MongoDB supports connection testing and collection field metadata (set authSource when authenticating against the admin database), but not SQL queries. S3 / MinIO supports a single object (CSV/TSV/Parquet/JSON/Excel) with testing, metadata, query and pipeline-source use; queries download the object to a temporary file, so it suits small and medium objects. Local files cover the same formats. HTTP API and Kafka work as pipeline sources/sinks only (Kafka nodes take a topic directly). Elasticsearch works as a pipeline source/sink and synchronises index metadata, but does not support SQL queries or SQL interfaces.
 - **Test connection** is available while creating or editing, and the list action reports a concrete failure reason such as an unreachable host or a blocked address.
 - **Test** checks connectivity.
+- **Health** shows recent connectivity and metadata-sync attempts with status, duration and the failure reason.
+- **Auto sync**: set an interval in minutes on the source; the scheduler refreshes metadata and records the outcome. Zero disables it.
+- **Quick sync** creates a pipeline from a source table to a target table with a ready-to-run source and sink.
+- **SSH jump host**: SQL database types accept optional SSH host, port, user and password fields; all test, sync and query traffic then goes through that host.
 - **Sync metadata** reads the schema into the catalog. Existing datasets are updated in place; tags and quality rules survive.
 - **Tables** lists synced schemas, tables and column counts.
 - **Edit** renames the source; leave the connection string blank to keep it.
@@ -51,6 +55,7 @@ The tree groups source → schema → table. Selecting a table opens its dataset
 - **Dependencies and impact** shows downstream and column-level lineage; **Activity** records dataset-scoped actions.
 - **Add tag** saves a new tag; the close button on a tag removes it.
 - **Table properties** (Trino tables) submits a Spark job that sets Iceberg properties such as `gc.enabled=true`; follow it under Engines.
+- **PII scan** inspects column names and sampled values, lists likely sensitive fields and can create masking policies for them in one step.
 - **Search** matches table and column names and links to the dataset.
 
 ## 6. SQL workbench
@@ -109,6 +114,7 @@ Datasets and metrics.
 - **Row policies** append filters per column, operator, value and role; admins are exempt.
 - **Column masking** sets a classification (PII/confidential/sensitive), a mask type (redact, partial, hash, null) and exempt roles.
 - **Versions** lists history and supports rollback; the list page can delete a dataset or metric.
+- **Lineage** opens the upstream graph and column-level edges for the current dataset, metric, API or dashboard without leaving the editor.
 
 ## 13. Dashboards
 
@@ -150,7 +156,7 @@ Create a subscription with name, callback URL, events (blank means all) and sign
 
 Create rules by dataset, kind (not null, unique, range, freshness, schema and more), column and configuration. Run a rule and inspect Results; deleting a rule deletes its results. Creating, running and deleting a rule is written to the audit log, searchable by `quality_rule`.
 
-The list shows the last result and the pass rate over recent runs. Results summarises that trend and links to the dataset page.
+The list shows the last result and the pass rate over recent runs. Results summarises that trend and links to the dataset page. A rule can carry a cron schedule; the scheduler runs it automatically, and when alert-on-failure is enabled a failed run raises an alert.
 
 ## 19. Alerts
 
@@ -187,7 +193,7 @@ Changing the password requires the current one; the new password follows the sam
 
 ## 25. Audit
 
-Every recorded action with actor, action, target, time and details, with paging.
+Every recorded action with actor, action, target, time and details, with paging. Platform administrators can set a retention period and forward new audit records to a SIEM endpoint under Platform administration → Operations.
 
 ## 26. Troubleshooting
 
@@ -208,8 +214,8 @@ project members keep using the workspace.
   administrative actions.
 - **Users and access**: create, reset, deactivate users; grant the platform
   administrator flag (the last one cannot be removed); review login state.
-- **Projects and tenants**: create, rename, disable projects, set quotas and
-  manage members with project roles.
+- **Projects and tenants**: create, rename, disable projects, set asset and job
+  quotas, open a usage drawer and manage members with project roles.
 - **Sign-in and identity**: session length, roles that must use two-factor
   authentication, OIDC discovery test and LDAP bind test.
 - **Brand and content**: platform name, theme colour, welcome text, default
@@ -217,7 +223,10 @@ project members keep using the workspace.
   dashboards).
 - **Data plane**: default Spark image, Flink SQL Gateway address, SQL write
   switch, CDC topic prefix and Kafka bootstrap defaults.
-- **Operations**: queue health, feature state and backup/restore commands.
+- **Operations**: runtime and high-availability state, MCP activity, queue
+  health, feature state, audit retention and SIEM forwarding, and backup
+  export/restore. Restore replaces control-plane data from a downloaded
+  archive and requires typing `RESTORE` to confirm.
 - **Platform audit**: every administrative action, filterable and exportable.
 
 Enable required two-factor authentication only after the selected roles have
