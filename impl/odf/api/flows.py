@@ -31,10 +31,24 @@ def _flow(session, flow_id: int, claims: dict) -> Flow:
 def list_(s: Session = Depends(get_session),
           claims: dict = Depends(require_user)):
     return [{"id": f.id, "name": f.name, "cron": f.cron,
-             "status": f.status, "version": f.current_version}
+             "status": f.status, "version": f.current_version,
+             "migrated_asset_id": f.migrated_asset_id}
             for f in (s.query(Flow)
                       .filter_by(project_id=claims["project_id"])
                       .order_by(Flow.id).all())]
+
+
+@router.post("/flows/{flow_id}/migrate")
+def migrate(flow_id: int, s: Session = Depends(get_session),
+            claims: dict = Depends(require_editor)):
+    from odf.services.legacy import migrate_flow
+    try:
+        asset = migrate_flow(s, claims["project_id"], flow_id, claims["sub"])
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    write_audit(s, claims["sub"], "migrate_flow", str(flow_id),
+                {"asset_id": asset.id})
+    return {"asset_id": asset.id, "link": "/pipelines/%d" % asset.id}
 
 
 @router.get("/flows/{flow_id}")

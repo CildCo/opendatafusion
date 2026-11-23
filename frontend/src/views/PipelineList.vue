@@ -3,6 +3,9 @@
     <page-header icon="pipeline" :title="t('menu.pipelines')"
                  :intro="t('pipe.intro')" />
     <div class="toolbar">
+      <el-input v-model="q" :placeholder="t('pipe.search')" clearable
+                style="width: 260px" @keyup.enter="search"
+                @clear="search" />
       <el-button @click="load" :loading="loading">{{ t("pipe.refresh") }}</el-button>
       <el-button v-if="canEdit" type="danger" :disabled="!selected.length"
                  @click="removeSelected">
@@ -45,6 +48,10 @@
           </template>
         </el-table-column>
       </el-table>
+      <el-pagination v-if="total > pageSize" class="pager"
+                     layout="total, prev, pager, next"
+                     :total="total" :page-size="pageSize"
+                     :current-page="page" @current-change="changePage" />
       <empty-state v-if="!loading && !rows.length"
                    :title="t('pipe.empty')" :description="t('pipe.intro')"
                    :action-text="canEdit ? t('pipe.newPipeline') : ''"
@@ -98,6 +105,10 @@ import PageHeader from "../components/PageHeader.vue";
 import StatusDot from "../components/StatusDot.vue";
 
 const rows = ref([]);
+const total = ref(0);
+const page = ref(1);
+const pageSize = ref(50);
+const q = ref("");
 const selected = ref([]);
 const canEdit = canWrite();
 const loading = ref(false);
@@ -110,12 +121,28 @@ const route = useRoute();
 async function load() {
   loading.value = true;
   try {
-    rows.value = await api.get("/pipelines");
+    const params = new URLSearchParams({
+      page: String(page.value), page_size: String(pageSize.value),
+    });
+    if (q.value.trim()) params.set("q", q.value.trim());
+    const result = await api.get(`/pipelines?${params.toString()}`);
+    rows.value = result.items || [];
+    total.value = result.total || 0;
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
     loading.value = false;
   }
+}
+
+function search() {
+  page.value = 1;
+  load();
+}
+
+function changePage(next) {
+  page.value = next;
+  load();
 }
 
 async function removeSelected() {
@@ -219,4 +246,5 @@ onMounted(() => { if (route.query.new && canEdit) create(); });
   word-break: break-all;
 }
 .muted { color: #64748b; font-size: 12px; }
+.pager { margin-top: 12px; justify-content: flex-end; }
 </style>

@@ -105,6 +105,8 @@ class Flow(Base):
     cron: Mapped[str] = mapped_column(String(64), default="")
     status: Mapped[int] = mapped_column(Integer, default=0)
     current_version: Mapped[int] = mapped_column(Integer, default=1)
+    migrated_asset_id: Mapped[int | None] = mapped_column(Integer,
+                                                          nullable=True)
 
     def __init__(self, **kw):
         kw.setdefault("status", 0)
@@ -146,6 +148,8 @@ class Interface(Base):
     params_json: Mapped[list] = mapped_column(JSON, default=list)
     output_json: Mapped[list] = mapped_column(JSON, default=list)
     status: Mapped[int] = mapped_column(Integer, default=0)
+    migrated_asset_id: Mapped[int | None] = mapped_column(Integer,
+                                                          nullable=True)
 
 
 class AkSk(Base):
@@ -258,6 +262,47 @@ class Alert(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
     acked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Notification(Base):
+    __tablename__ = "notification"
+    id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(32), default="info")
+    title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text, default="")
+    link: Mapped[str] = mapped_column(String(256), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now, index=True)
+
+
+class NotificationRead(Base):
+    __tablename__ = "notification_read"
+    __table_args__ = (UniqueConstraint("user_id", "notification_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("app_user.id"),
+                                         index=True)
+    notification_id: Mapped[int] = mapped_column(
+        ForeignKey("notification.id"), index=True)
+    read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                              default=now)
+
+
+class SavedQuery(Base):
+    __tablename__ = "saved_query"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"), index=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("app_user.id"),
+                                          index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    tab: Mapped[str] = mapped_column(String(16), default="single")
+    datasource_id: Mapped[int | None] = mapped_column(
+        ForeignKey("datasource.id"), nullable=True)
+    sql_text: Mapped[str] = mapped_column(Text, default="")
+    sources_json: Mapped[list] = mapped_column(JSON, default=list)
+    row_limit: Mapped[int] = mapped_column(Integer, default=1000)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now)
 
 
 class ColumnPolicy(Base):
@@ -487,6 +532,7 @@ class Job(Base):
     locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

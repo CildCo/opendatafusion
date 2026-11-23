@@ -50,16 +50,16 @@ def test_quality_rules_are_scoped_to_token_project():
     c = TestClient(app)
     r = c.get("/api/v1/quality/rules", headers=_h(8102, 8102))
     assert r.status_code == 200
-    assert all(x["id"] != 8101 for x in r.json())
+    assert all(x["id"] != 8101 for x in r.json()["items"])
 
     r = c.get("/api/v1/quality/rules?project_id=8101",
               headers=_h(8102, 8102))
     assert r.status_code == 200
-    assert all(x["id"] != 8101 for x in r.json())
+    assert all(x["id"] != 8101 for x in r.json()["items"])
 
     r = c.get("/api/v1/quality/rules", headers=_h(8101, 8101))
     assert r.status_code == 200
-    assert any(x["id"] == 8101 for x in r.json())
+    assert any(x["id"] == 8101 for x in r.json()["items"])
 
 
 def test_viewer_cannot_create_quality_rule():
@@ -105,7 +105,8 @@ def test_editor_can_create_rule_in_own_project():
     assert r.status_code == 200
     rid = r.json()["id"]
     assert any(x["id"] == rid for x in
-               c.get("/api/v1/quality/rules", headers=_h(8103, 8101)).json())
+               c.get("/api/v1/quality/rules",
+                     headers=_h(8103, 8101)).json()["items"])
 
 
 def test_quality_rule_changes_are_audited():

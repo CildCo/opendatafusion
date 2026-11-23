@@ -8,6 +8,9 @@
       <el-button size="small" :loading="loading" @click="refresh">
         {{ t("dedit.refreshData") }}
       </el-button>
+      <el-button size="small" :disabled="!published" @click="exportCsv">
+        {{ t("dedit.exportCsv") }}
+      </el-button>
       <el-button size="small" @click="$router.push(`/dashboards/${id}`)">
         {{ t("dedit.edit") }}
       </el-button>
@@ -69,6 +72,15 @@ async function load() {
 
 function setParams(p) {
   paramValues.value = { ...p };
+}
+
+async function exportCsv() {
+  try {
+    await api.download(`/dashboards/${id}/export.csv`,
+                       `dashboard-${id}.csv`);
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
 }
 
 async function refresh() {

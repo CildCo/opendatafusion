@@ -98,7 +98,8 @@ def test_audit_requires_admin_and_alerts_ignore_spoofed_project():
     assert c.get("/api/v1/audit", headers=h).status_code == 403
     _user(1, "admin")
     assert c.get("/api/v1/ops/audit", headers=_h()).status_code == 200
-    alerts = c.get("/api/v1/alerts?project_id=904", headers=_h()).json()
+    alerts = c.get("/api/v1/alerts?project_id=904",
+                   headers=_h()).json()["items"]
     assert [a["id"] for a in alerts] == [9411]
     assert c.post("/api/v1/alerts/9412/ack",
                   headers=_h()).status_code == 404

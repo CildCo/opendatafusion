@@ -463,7 +463,7 @@ async function runProfile() {
 
 async function loadRules() {
   try {
-    const rows = await api.get("/quality/rules");
+    const rows = (await api.get("/quality/rules?page_size=200")).items || [];
     rules.value = rows.filter((r) => r.dataset_id === datasetId.value);
   } catch {
     rules.value = [];

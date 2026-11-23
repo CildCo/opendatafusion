@@ -35,8 +35,16 @@
                           ? t('flows.enabled') : t('flows.disabled')" />
           </template>
         </el-table-column>
-        <el-table-column :label="t('flows.actions')" width="300" fixed="right">
+        <el-table-column :label="t('flows.actions')" width="380" fixed="right">
           <template #default="{ row }">
+            <el-button v-if="canEdit && !row.migrated_asset_id" link
+                       @click.stop="migrate(row)">
+              {{ t("flows.migrate") }}
+            </el-button>
+            <el-button v-if="row.migrated_asset_id" link
+                       @click.stop="$router.push(`/pipelines/${row.migrated_asset_id}`)">
+              {{ t("flows.openPipeline") }}
+            </el-button>
             <el-button v-if="canEdit" link @click.stop="toggle(row)">
               {{ row.status === 1 ? t("flows.disabled") : t("flows.enabled") }}
             </el-button>
@@ -317,7 +325,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search, Right } from "@element-plus/icons-vue";
 import { api, canWrite, errMsg, getProject } from "../api";
@@ -336,6 +344,7 @@ function tr(key, vars = {}) {
 const rows = ref([]);
 const canEdit = canWrite();
 const route = useRoute();
+const router = useRouter();
 const datasources = ref([]);
 const sourceTables = ref([]);
 const sinkTables = ref([]);
@@ -601,6 +610,23 @@ async function run(row) {
     await api.post(`/flows/${row.id}/runs`);
     ElMessage.success(t("flows.queued"));
     if (drawer.value && current.value.id === row.id) await pollDetail();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function migrate(row) {
+  try {
+    await ElMessageBox.confirm(
+      t("flows.migrateConfirm").replace("{name}", row.name),
+      t("flows.migrateTitle"), { type: "warning" });
+  } catch (e) {
+    return;
+  }
+  try {
+    const result = await api.post(`/flows/${row.id}/migrate`, {});
+    ElMessage.success(t("flows.migrated"));
+    router.push(result.link);
   } catch (e) {
     ElMessage.error(errMsg(e));
   }

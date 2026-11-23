@@ -76,6 +76,36 @@ def heartbeat(session, job_id: int, worker_id: str) -> None:
         session.commit()
 
 
+def _job_project(session, job):
+    from odf.models import Asset, Flow
+    if job.flow_id:
+        flow = session.get(Flow, job.flow_id)
+        return flow.project_id if flow else None
+    if job.asset_id:
+        asset = session.get(Asset, job.asset_id)
+        return asset.project_id if asset else None
+    return None
+
+
+def cancel_job(session, project_id: int, job_id: int) -> Job:
+    job = session.get(Job, job_id)
+    if not job or _job_project(session, job) != project_id:
+        raise ValueError("job not found")
+    if job.status in ("success", "failed", "cancelled", "skipped"):
+        return job
+    job.cancel_requested = True
+    if job.status == "queued":
+        job.status = "cancelled"
+        job.finished_at = _now()
+        job.locked_by = None
+        job.cancel_requested = False
+    session.commit()
+    from odf.services.notifications import notify
+    notify(session, project_id, "job", "任务已请求取消 #%d" % job.id,
+           "运行中的任务会在当前批次结束后停止", "/ops")
+    return job
+
+
 def complete(session, job_id: int, success: bool,
              error: str | None = None) -> Job:
     job = session.get(Job, job_id)
@@ -84,6 +114,12 @@ def complete(session, job_id: int, success: bool,
     if success:
         job.status = "success"
         job.finished_at = _now()
+    elif job.cancel_requested:
+        job.status = "cancelled"
+        job.finished_at = _now()
+        job.locked_by = None
+        job.locked_at = None
+        job.cancel_requested = False
     else:
         job.attempts += 1
         job.last_error = error
@@ -112,6 +148,10 @@ def complete(session, job_id: int, success: bool,
             emit_safe(session, project_id, "job.failed",
                       {"job_id": job.id, "flow_id": job.flow_id,
                        "asset_id": job.asset_id})
+            from odf.services.notifications import notify
+            notify(session, project_id, "job",
+                   "任务失败 #%d" % job.id,
+                   (job.last_error or "")[:300], "/ops")
     return job
 
 
@@ -170,6 +210,9 @@ def _pipeline_drainable(session, asset_id: int) -> bool:
 
 
 def process_job(session, job, worker_id):
+    if job.cancel_requested:
+        complete(session, job.id, False, "cancelled by user")
+        return
     if job.asset_type == "pipeline":
         from odf.pipeline.runner import execute_pipeline
         batches = MAX_DRAIN_BATCHES if _pipeline_drainable(
@@ -179,6 +222,10 @@ def process_job(session, job, worker_id):
                                       worker_id)
             if not isinstance(result, dict) or not result:
                 break
+            session.refresh(job)
+            if job.cancel_requested:
+                complete(session, job.id, False, "cancelled by user")
+                return
             if (result.get("exhausted")
                     or result.get("source_rows", 0) == 0):
                 break

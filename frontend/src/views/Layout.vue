@@ -62,6 +62,13 @@
             <span>{{ t("top.search") }}</span>
             <kbd class="search-kbd">Ctrl K</kbd>
           </button>
+          <el-badge :value="unread" :hidden="!unread" :max="99">
+            <el-button size="small" text circle
+                       :aria-label="t('notif.title')"
+                       @click="openNotifications">
+              <el-icon><Bell /></el-icon>
+            </el-button>
+          </el-badge>
           <el-button size="small" text @click="toggleLocale">
             {{ t("top.language") }}
           </el-button>
@@ -96,28 +103,60 @@
         </div>
       </header>
       <main class="content">
-        <router-view :key="$route.fullPath" />
+        <div v-if="renderError" class="render-error">
+          <h3>{{ t("err.renderTitle") }}</h3>
+          <p>{{ t("err.renderHint") }}</p>
+          <el-button type="primary" @click="reloadPage">
+            {{ t("common.refresh") }}
+          </el-button>
+        </div>
+        <router-view v-else :key="$route.fullPath" />
       </main>
     </div>
   </div>
+  <el-drawer v-model="notifOpen" :title="t('notif.title')" size="420px"
+             @open="loadNotifications">
+    <div class="notif-actions">
+      <el-button size="small" text :disabled="!unread"
+                 @click="readAll">{{ t("notif.readAll") }}</el-button>
+    </div>
+    <div v-if="notifications.length" class="notif-list">
+      <button v-for="item in notifications" :key="item.id" type="button"
+              class="notif-item" :class="{ unread: !item.read }"
+              @click="openNotification(item)">
+        <span class="notif-dot" :class="item.kind"></span>
+        <span class="notif-copy">
+          <b>{{ item.title }}</b>
+          <small v-if="item.body">{{ item.body }}</small>
+          <small class="notif-time">{{ fmtDate(item.created_at) }}</small>
+        </span>
+      </button>
+    </div>
+    <el-empty v-else :description="t('notif.empty')" :image-size="60" />
+  </el-drawer>
   <command-palette v-model="paletteOpen" />
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onErrorCaptured, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { Search, Setting, User } from "@element-plus/icons-vue";
+import { Bell, Search, Setting, User } from "@element-plus/icons-vue";
 import { MENU_GROUPS, MENU_ITEMS } from "../menu";
 import { ElMessage } from "element-plus";
 import { api, clearSession, getPlatformAdmin, getProject, getRole,
          setPlatformAdmin, setProject, setRole } from "../api";
-import { t, toggleLocale } from "../i18n";
+import { fmtDate, t, toggleLocale } from "../i18n";
 import CommandPalette from "../components/CommandPalette.vue";
 import { pushRecent } from "../recent";
 
 const route = useRoute();
 const router = useRouter();
 const paletteOpen = ref(false);
+const notifOpen = ref(false);
+const notifications = ref([]);
+const unread = ref(0);
+const renderError = ref(false);
+let notifTimer = null;
 const appVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
 const role = ref(getRole() || "viewer");
 const platformAdmin = ref(getPlatformAdmin());
@@ -302,9 +341,68 @@ function onKeydown(event) {
   chord = false;
 }
 
+function reloadPage() {
+  renderError.value = false;
+  router.go(0);
+}
+
+onErrorCaptured((error) => {
+  console.error(error);
+  renderError.value = true;
+  return false;
+});
+
+async function loadNotifications() {
+  try {
+    const result = await api.get("/notifications?limit=50");
+    notifications.value = result.items || [];
+    unread.value = result.unread || 0;
+  } catch {
+    notifications.value = [];
+  }
+}
+
+function openNotifications() {
+  notifOpen.value = true;
+  loadNotifications();
+}
+
+async function markRead(item) {
+  if (item.read) return;
+  try {
+    await api.post(`/notifications/${item.id}/read`, {});
+    item.read = true;
+    unread.value = Math.max(0, unread.value - 1);
+  } catch {
+    /* keep unread */
+  }
+}
+
+async function openNotification(item) {
+  await markRead(item);
+  if (item.link) {
+    notifOpen.value = false;
+    router.push(item.link);
+  }
+}
+
+async function readAll() {
+  try {
+    await api.post("/notifications/read-all", {});
+    notifications.value = notifications.value.map((row) => ({
+      ...row, read: true,
+    }));
+    unread.value = 0;
+  } catch {
+    /* ignore */
+  }
+}
+
 onMounted(async () => {
   window.addEventListener("keydown", onKeydown);
   await Promise.all([loadProjects(), loadPortal()]);
+  loadNotifications();
+  notifTimer = setInterval(loadNotifications, 30000);
   try {
     await api.get("/dashboard");
     online.value = true;
@@ -316,6 +414,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKeydown);
   clearTimeout(chordTimer);
+  if (notifTimer) clearInterval(notifTimer);
 });
 </script>
 
@@ -758,4 +857,32 @@ onBeforeUnmount(() => {
     width: 108px;
   }
 }
+.notif-actions { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.notif-list { display: flex; flex-direction: column; gap: 6px; }
+.notif-item {
+  display: flex; gap: 10px; width: 100%; text-align: left;
+  padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px;
+  background: #fff; cursor: pointer;
+}
+.notif-item.unread { background: #f8fafc; border-color: #cbd5e1; }
+.notif-item:hover { border-color: var(--odf-primary); }
+.notif-dot {
+  width: 8px; height: 8px; margin-top: 5px; border-radius: 50%;
+  background: #94a3b8; flex: none;
+}
+.notif-dot.alert { background: #dc2626; }
+.notif-dot.job { background: #d97706; }
+.notif-dot.publish { background: #16a34a; }
+.notif-dot.approval { background: #2563eb; }
+.notif-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.notif-copy b { font-size: 13px; }
+.notif-copy small { color: #64748b; font-size: 12px; }
+.notif-time { font-size: 11px; color: #94a3b8; }
+.render-error {
+  max-width: 520px; margin: 12vh auto; padding: 28px;
+  border: 1px solid #e5e7eb; border-radius: 12px; background: #fff;
+  text-align: center;
+}
+.render-error h3 { margin: 0 0 8px; }
+.render-error p { color: #64748b; font-size: 13px; margin-bottom: 18px; }
 </style>

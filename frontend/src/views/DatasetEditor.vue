@@ -165,11 +165,13 @@ import { api, errMsg } from "../api";
 import { t } from "../i18n";
 import VisualBuilder from "../studio/api/VisualBuilder.vue";
 import LineageDrawer from "../components/LineageDrawer.vue";
+import { useDraftSafety } from "../draftSafety";
 import { normalizeContent } from "../studio/api/content";
 
 const route = useRoute();
 const id = Number(route.params.id);
 const name = ref("");
+const draftVersion = ref(null);
 const published = ref(false);
 const content = ref(normalizeContent(null));
 const datasources = ref([]);
@@ -292,21 +294,34 @@ async function removePolicy(row) {
 async function load() {
   const a = await api.get(`/datasets/${id}`);
   name.value = a.name;
+  draftVersion.value = a.draft_version;
   published.value = Boolean(a.published);
   content.value = normalizeContent(a.draft);
   datasources.value = await api.get("/datasources");
+  draftGuard.reset();
 }
 
-async function save() {
+async function save(silent = false) {
   try {
-    await api.put(`/datasets/${id}/draft`, { content: content.value });
-    ElMessage.success(t("ded.draftSaved"));
+    const body = { content: content.value };
+    if (draftVersion.value !== null) body.base_version = draftVersion.value;
+    const result = await api.put(`/datasets/${id}/draft`, body);
+    draftVersion.value = result.version;
+    if (!silent) ElMessage.success(t("ded.draftSaved"));
     return true;
   } catch (e) {
-    ElMessage.error(errMsg(e));
+    if (/draft changed/i.test(e.message || "")) {
+      ElMessageBox.confirm(t("draft.conflict"), t("draft.conflictTitle"),
+        { type: "warning" })
+        .then(() => load()).catch(() => {});
+    } else if (!silent) {
+      ElMessage.error(errMsg(e));
+    }
     return false;
   }
 }
+
+const draftGuard = useDraftSafety({ content, save });
 
 async function rename() {
   try {

@@ -84,10 +84,38 @@ def list_assets(session, project_id, type=None):
     return q.order_by(Asset.id).all()
 
 
-def update_draft(session, asset_id, content, actor, note=""):
+def page_assets(session, project_id, type=None, page=1, page_size=50,
+                q_text=None):
+    from sqlalchemy import or_
+    from odf.services.pagination import limits
+    page, page_size = limits(page, page_size)
+    q = session.query(Asset).filter_by(project_id=project_id)
+    if type:
+        q = q.filter_by(type=type)
+    if q_text:
+        like = "%%%s%%" % q_text
+        q = q.filter(or_(Asset.name.ilike(like), Asset.key.ilike(like)))
+    total = q.count()
+    rows = (q.order_by(Asset.id.desc())
+            .offset((page - 1) * page_size).limit(page_size).all())
+    return rows, total, page, page_size
+
+
+class DraftConflict(ValueError):
+    pass
+
+
+def update_draft(session, asset_id, content, actor, note="",
+                 base_version=None):
     a = session.get(Asset, asset_id)
     if not a:
         raise ValueError("asset not found")
+    current = (session.get(AssetVersion, a.draft_version_id)
+               if a.draft_version_id else None)
+    if base_version is not None and (
+            not current or current.version != int(base_version)):
+        raise DraftConflict(
+            "draft changed since version %s" % base_version)
     v = AssetVersion(asset_id=asset_id, version=_next_version(session, asset_id),
                      content_json=content, status="draft",
                      created_by=actor, note=note)
@@ -148,7 +176,22 @@ def publish_asset(session, asset_id, actor):
     emit_safe(session, a.project_id, "asset.published",
               {"asset_id": a.id, "type": a.type, "key": a.key,
                "name": a.name, "version": v.version})
+    from odf.services.notifications import notify
+    notify(session, a.project_id, "publish",
+           "%s 已发布：%s" % (ASSET_LABELS.get(a.type, a.type), a.name),
+           "版本 v%d" % v.version, asset_link(a))
     return v
+
+
+ASSET_LABELS = {"pipeline": "管道", "dataset": "数据集", "metric": "指标",
+                "api": "API", "dashboard": "看板", "app": "应用"}
+
+
+def asset_link(a):
+    prefix = {"pipeline": "pipelines", "dataset": "datasets",
+              "metric": "metrics", "api": "apis",
+              "dashboard": "dashboards", "app": "apps"}.get(a.type)
+    return "/%s/%d" % (prefix, a.id) if prefix else ""
 
 
 def rollback_asset(session, asset_id, version, actor):

@@ -305,10 +305,12 @@ import { api, errMsg } from "../api";
 import { t } from "../i18n";
 import AppRuntime from "../studio/app/AppRuntime.vue";
 import ShareDialog from "../studio/share/ShareDialog.vue";
+import { useDraftSafety } from "../draftSafety";
 
 const route = useRoute();
 const id = Number(route.params.id);
 const name = ref("");
+const draftVersion = ref(null);
 const published = ref(false);
 const content = ref({ start_page: "p1", pages: [] });
 const currentId = ref("");
@@ -387,6 +389,7 @@ function resetParams() {
 async function load() {
   const a = await api.get(`/apps/${id}`);
   name.value = a.name;
+  draftVersion.value = a.draft_version;
   published.value = Boolean(a.published_version);
   content.value = a.draft || { start_page: "p1", pages: [] };
   if (!content.value.pages?.length) {
@@ -405,11 +408,12 @@ async function load() {
   resetParams();
   if (currentPage.value?.components.length) await refresh();
   await loadModel();
+  draftGuard.reset();
 }
 
 async function loadOptions() {
-  const ds = await api.get("/datasets");
-  const ms = await api.get("/metrics");
+  const ds = (await api.get("/datasets?page_size=200")).items || [];
+  const ms = (await api.get("/metrics?page_size=200")).items || [];
   datasets.value = ds.filter((d) => d.published);
   metrics.value = ms.filter((m) => m.published);
 }
@@ -680,16 +684,27 @@ async function submitForm(componentId, values) {
   await refresh();
 }
 
-async function save() {
+async function save(silent = false) {
   try {
-    await api.put(`/apps/${id}/draft`, { content: content.value });
-    ElMessage.success(t("aedit.savedDraft"));
+    const body = { content: content.value };
+    if (draftVersion.value !== null) body.base_version = draftVersion.value;
+    const result = await api.put(`/apps/${id}/draft`, body);
+    draftVersion.value = result.version;
+    if (!silent) ElMessage.success(t("aedit.savedDraft"));
     return true;
   } catch (e) {
-    ElMessage.error(errMsg(e));
+    if (/draft changed/i.test(e.message || "")) {
+      ElMessageBox.confirm(t("draft.conflict"), t("draft.conflictTitle"),
+        { type: "warning" })
+        .then(() => load()).catch(() => {});
+    } else if (!silent) {
+      ElMessage.error(errMsg(e));
+    }
     return false;
   }
 }
+
+const draftGuard = useDraftSafety({ content, save });
 
 async function rename() {
   try {

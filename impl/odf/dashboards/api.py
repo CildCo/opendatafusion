@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from odf.assets.service import (create_asset, delete_asset_of,
-                                get_asset, list_assets, list_versions,
-                                update_asset, update_draft)
+from odf.assets.service import (DraftConflict, create_asset,
+                                delete_asset_of, get_asset, list_assets,
+                                list_versions, page_assets, update_asset,
+                                update_draft)
 from odf.dashboards.content import empty_dashboard, validate_dashboard
 from odf.dashboards.service import dashboard_data
 from odf.db import get_session
@@ -31,6 +32,7 @@ class UpdateIn(BaseModel):
 
 class ContentIn(BaseModel):
     content: dict
+    base_version: int | None = None
 
 
 class DataIn(BaseModel):
@@ -63,11 +65,15 @@ def _get(s, a):
 
 
 @router.get("/dashboards")
-def list_(s: Session = Depends(get_session),
+def list_(page: int = 1, page_size: int = 50, q: str | None = None,
+          s: Session = Depends(get_session),
           claims: dict = Depends(require_user)):
-    return [{"id": a.id, "key": a.key, "name": a.name,
-             "published": a.published_version_id is not None}
-            for a in list_assets(s, claims["project_id"], "dashboard")]
+    from odf.services.pagination import envelope
+    rows, total, page, page_size = page_assets(
+        s, claims["project_id"], "dashboard", page, page_size, q)
+    return envelope([{"id": a.id, "key": a.key, "name": a.name,
+                      "published": a.published_version_id is not None}
+                     for a in rows], total, page, page_size)
 
 
 @router.post("/dashboards")
@@ -115,7 +121,11 @@ def draft(asset_id: int, body: ContentIn,
           s: Session = Depends(get_session),
           claims: dict = Depends(require_editor)):
     a = _asset(s, asset_id, claims)
-    v = update_draft(s, a.id, body.content, claims["sub"])
+    try:
+        v = update_draft(s, a.id, body.content, claims["sub"],
+                         base_version=body.base_version)
+    except DraftConflict as error:
+        raise HTTPException(409, str(error))
     write_audit(s, claims["sub"], "update_dashboard_draft", str(a.id),
                 {"version": v.version})
     return {"version": v.version}
@@ -143,6 +153,47 @@ def data(asset_id: int, body: DataIn, s: Session = Depends(get_session),
     write_audit(s, claims["sub"], "query_dashboard", str(a.id),
                 {"widgets": len(result["widgets"])})
     return result
+
+
+@router.get("/dashboards/{asset_id}/export.csv")
+def export_csv(asset_id: int, s: Session = Depends(get_session),
+               claims: dict = Depends(require_user)):
+    import csv
+    import io
+    from fastapi import Response
+    a = _asset(s, asset_id, claims)
+    if not a.published_version_id:
+        raise HTTPException(400, "dashboard is not published")
+    try:
+        result = dashboard_data(s, a.id, None, None, 10000,
+                                published_only=True,
+                                role=claims_role(s, claims))
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    widgets = [(wid, data) for wid, data in result["widgets"].items()
+               if data.get("rows")]
+    if not widgets:
+        raise HTTPException(400, "dashboard has no tabular data")
+    multi = len(widgets) > 1
+    columns = []
+    for _, data in widgets:
+        for name in data.get("columns") or []:
+            if name not in columns:
+                columns.append(name)
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow((["widget"] if multi else []) + columns)
+    for widget_id, data in widgets:
+        for row in data.get("rows") or []:
+            writer.writerow(
+                ([widget_id] if multi else [])
+                + [row.get(name, "") for name in columns])
+    write_audit(s, claims["sub"], "export_dashboard", str(a.id),
+                {"widgets": len(widgets)})
+    filename = "dashboard-%d.csv" % a.id
+    return Response(content=buf.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition":
+                             'attachment; filename="%s"' % filename})
 
 
 @router.get("/dashboards/{asset_id}/versions")

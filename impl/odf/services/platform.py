@@ -46,6 +46,15 @@ DEFAULTS = {
         "workbench": True, "cdc": True, "tools": True,
         "apps": True, "dashboards": True,
     },
+    "audit": {
+        "retention_days": 0,
+        "siem_url": "",
+        "siem_token": "",
+        "siem_cursor": 0,
+    },
+    "alerts": {
+        "webhook_url": "",
+    },
 }
 
 SECRET_PATHS = (("identity", "oidc", "client_secret"),

@@ -81,9 +81,10 @@
 <script setup>
 import { onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
+import { useDraftSafety } from "../draftSafety";
 import StudioShell from "../studio/StudioShell.vue";
 import AssetTree from "../studio/AssetTree.vue";
 import PipelineCanvas from "../studio/pipeline/PipelineCanvas.vue";
@@ -96,6 +97,7 @@ const route = useRoute();
 const router = useRouter();
 const id = Number(route.params.id);
 const title = ref("");
+const draftVersion = ref(null);
 const savedTitle = ref("");
 const cron = ref("");
 const content = ref({ nodes: [], edges: [], settings: {} });
@@ -122,6 +124,7 @@ async function load() {
   try {
     const a = await api.get(`/pipelines/${id}`);
     title.value = a.name;
+    draftVersion.value = a.draft_version;
     savedTitle.value = a.name;
     cron.value = a.cron || "";
     content.value = a.draft || { nodes: [], edges: [], settings: {} };
@@ -129,8 +132,10 @@ async function load() {
     published.value = Boolean(a.published);
     enabled.value = a.enabled !== false;
     selected.value = null;
-    treeItems.value = await api.get("/pipelines");
+    treeItems.value = (await api.get("/pipelines?page_size=200")).items || [];
     datasources.value = await api.get("/datasources");
+    dirty.value = false;
+    draftGuard.reset();
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -161,20 +166,33 @@ function currentContent() {
   return normalized(canvasRef.value.serialize(settings.value));
 }
 
-async function save() {
-  if (!canvasRef.value) return;
+async function save(silent = false) {
+  if (!canvasRef.value) return false;
   saving.value = true;
   try {
     const c = currentContent();
-    await api.put(`/pipelines/${id}/draft`, { content: c });
+    const body = { content: c };
+    if (draftVersion.value !== null) body.base_version = draftVersion.value;
+    const result = await api.put(`/pipelines/${id}/draft`, body);
+    draftVersion.value = result.version;
     dirty.value = false;
-    ElMessage.success(t("ped.draftSaved"));
+    if (!silent) ElMessage.success(t("ped.draftSaved"));
+    return true;
   } catch (e) {
-    ElMessage.error(errMsg(e));
+    if (/draft changed/i.test(e.message || "")) {
+      ElMessageBox.confirm(t("draft.conflict"), t("draft.conflictTitle"),
+        { type: "warning" })
+        .then(() => load()).catch(() => {});
+    } else if (!silent) {
+      ElMessage.error(errMsg(e));
+    }
+    return false;
   } finally {
     saving.value = false;
   }
 }
+
+const draftGuard = useDraftSafety({ content, save });
 
 async function validate() {
   try {

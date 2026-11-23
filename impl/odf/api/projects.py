@@ -7,8 +7,8 @@ from odf.services.aksk_admin import issue_aksk, list_aksk, revoke_aksk
 from odf.models import ProjectMember, User
 from odf.services.audit import write_audit
 from odf.services.auth import (require_admin, require_approver,
-                               require_platform_admin, require_project_admin,
-                               require_user)
+                               require_editor, require_platform_admin,
+                               require_project_admin, require_user)
 from odf.services.platform import is_platform_admin
 from odf.services.projects import (add_member, create_project, list_members,
                                    list_projects, list_projects_for_user,
@@ -56,6 +56,48 @@ def mine(s: Session = Depends(get_session),
     if not user or not user.active:
         raise HTTPException(403, "user is inactive")
     return [_project(p) for p in list_projects_for_user(s, user)]
+
+
+@router.get("/projects/onboarding")
+def onboarding(s: Session = Depends(get_session),
+               claims: dict = Depends(require_user)):
+    from odf.models import Asset, Datasource
+    project_id = claims["project_id"]
+    counts = {
+        "datasources": s.query(Datasource)
+        .filter_by(project_id=project_id).count(),
+        "pipelines": s.query(Asset).filter_by(
+            project_id=project_id, type="pipeline").count(),
+        "datasets": s.query(Asset).filter_by(
+            project_id=project_id, type="dataset").count(),
+        "dashboards": s.query(Asset).filter_by(
+            project_id=project_id, type="dashboard").count(),
+        "apis": s.query(Asset).filter_by(
+            project_id=project_id, type="api").count(),
+    }
+    steps = [
+        {"key": "datasource", "done": counts["datasources"] > 0,
+         "link": "/datasources"},
+        {"key": "pipeline", "done": counts["pipelines"] > 0,
+         "link": "/pipelines"},
+        {"key": "dataset", "done": counts["datasets"] > 0,
+         "link": "/datasets"},
+        {"key": "dashboard", "done": counts["dashboards"] > 0,
+         "link": "/dashboards"},
+        {"key": "api", "done": counts["apis"] > 0, "link": "/apis"},
+    ]
+    return {"steps": steps, "counts": counts,
+            "complete": all(step["done"] for step in steps)}
+
+
+@router.post("/projects/sample")
+def sample(claims: dict = Depends(require_editor),
+           s: Session = Depends(get_session)):
+    from odf.services.sample import create_sample
+    result = create_sample(s, claims["project_id"], claims["sub"])
+    write_audit(s, claims["sub"], "create_sample_project",
+                str(claims["project_id"]), {})
+    return result
 
 
 @router.post("/projects")

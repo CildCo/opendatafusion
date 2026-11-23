@@ -2,6 +2,7 @@ export default {
   zh: {
     // PipelineList
     "pipe.refresh": "刷新",
+    "pipe.search": "搜索管道名称或 Key",
     "pipe.newPipeline": "新建管道",
     "pipe.newDefaultName": "新建管道",
     "pipe.intro": "可视化多节点数据管道：编排源、转换、质量检查与目标节点，按调度运行。",
@@ -70,6 +71,11 @@ export default {
     "flows.delete": "删除",
     "flows.deleteTitle": "删除流程",
     "flows.deleteConfirm": "删除流程「{name}」？其运行记录与作业会一并删除。",
+    "flows.migrate": "迁移为管道",
+    "flows.migrateTitle": "迁移确认",
+    "flows.migrateConfirm": "把「{name}」迁移为数据管道？迁移后旧流程会停用。",
+    "flows.migrated": "已迁移为管道",
+    "flows.openPipeline": "打开管道",
     "flows.deleted": "已删除",
     "flows.empty": "还没有流程",
     "flows.namePlaceholder": "例如：访客信息同步",
@@ -260,6 +266,7 @@ export default {
   en: {
     // PipelineList
     "pipe.refresh": "Refresh",
+    "pipe.search": "Search pipeline name or key",
     "pipe.newPipeline": "New pipeline",
     "pipe.newDefaultName": "New pipeline",
     "pipe.intro": "Visual multi-node pipelines: wire sources, transforms, quality checks and a sink, then run them on a schedule.",
@@ -328,6 +335,11 @@ export default {
     "flows.delete": "Delete",
     "flows.deleteTitle": "Delete flow",
     "flows.deleteConfirm": "Delete flow \"{name}\"? Its runs and jobs are removed as well.",
+    "flows.migrate": "Migrate to pipeline",
+    "flows.migrateTitle": "Confirm migration",
+    "flows.migrateConfirm": "Migrate \"{name}\" to a pipeline? The legacy flow is disabled after migration.",
+    "flows.migrated": "Migrated to a pipeline",
+    "flows.openPipeline": "Open pipeline",
     "flows.deleted": "Deleted",
     "flows.empty": "No flows yet",
     "flows.namePlaceholder": "e.g. Visitor sync",

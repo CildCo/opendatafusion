@@ -2,13 +2,14 @@
   <div class="page">
     <div class="toolbar">
       <el-input v-model="q" :placeholder="t('dash.search')" clearable
-                style="width: 260px" />
+                style="width: 260px" @keyup.enter="search"
+                @clear="search" />
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("dash.refresh") }}</el-button>
       <el-button v-if="canEdit" type="primary" @click="create">{{ t("dash.new") }}</el-button>
     </div>
     <el-card shadow="never">
-      <el-table :data="filtered" size="small" v-loading="loading">
+      <el-table :data="rows" size="small" v-loading="loading">
         <el-table-column prop="name" :label="t('dash.name')" min-width="180" />
         <el-table-column prop="key" :label="t('dash.key')" min-width="240">
           <template #default="{ row }">
@@ -37,13 +38,17 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && !filtered.length" :description="t('dash.empty')" />
+      <el-pagination v-if="total > pageSize" class="pager"
+                     layout="total, prev, pager, next"
+                     :total="total" :page-size="pageSize"
+                     :current-page="page" @current-change="changePage" />
+      <el-empty v-if="!loading && !rows.length" :description="t('dash.empty')" />
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, canWrite, errMsg } from "../api";
@@ -52,12 +57,12 @@ import { t } from "../i18n";
 const router = useRouter();
 const route = useRoute();
 const rows = ref([]);
+const total = ref(0);
+const page = ref(1);
+const pageSize = ref(50);
 const canEdit = canWrite();
 const q = ref("");
 const loading = ref(false);
-const filtered = computed(() => rows.value.filter(
-  (r) => !q.value || (r.name + r.key).toLowerCase()
-    .includes(q.value.toLowerCase())));
 
 async function remove(row) {
   try {
@@ -79,12 +84,28 @@ async function remove(row) {
 async function load() {
   loading.value = true;
   try {
-    rows.value = await api.get("/dashboards");
+    const params = new URLSearchParams({
+      page: String(page.value), page_size: String(pageSize.value),
+    });
+    if (q.value.trim()) params.set("q", q.value.trim());
+    const result = await api.get(`/dashboards?${params.toString()}`);
+    rows.value = result.items || [];
+    total.value = result.total || 0;
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
     loading.value = false;
   }
+}
+
+function search() {
+  page.value = 1;
+  load();
+}
+
+function changePage(next) {
+  page.value = next;
+  load();
 }
 
 async function create() {
@@ -107,4 +128,5 @@ onMounted(() => { if (route.query.new && canEdit) create(); });
 .toolbar { display: flex; gap: 10px; margin-bottom: 12px; align-items: center; }
 .spacer { flex: 1; }
 .mono { font-family: ui-monospace, monospace; font-size: 11px; }
+.pager { margin-top: 12px; justify-content: flex-end; }
 </style>

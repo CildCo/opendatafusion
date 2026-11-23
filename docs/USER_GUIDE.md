@@ -15,7 +15,7 @@ The console runs in Simplified Chinese and English. Switch from the login page, 
 
 ## 2. Overview
 
-Cards summarise data sources, flows, interfaces, quality rules, 24-hour runs and open alerts for the current project, followed by recent runs and unhandled alerts.
+Cards summarise data sources, flows, interfaces, quality rules, 24-hour runs and open alerts for the current project, followed by recent runs and unhandled alerts. The getting-started checklist tracks a source, pipeline, logical dataset, dashboard and API; **Create sample data** builds the whole path in one click. The bell in the header opens notifications for publishes, failures, alerts and approval requests.
 
 ## 3. Operations centre
 
@@ -62,6 +62,7 @@ The tree groups source → schema → table. Selecting a table opens its dataset
 
 - **Single source**: pick a source, run a read-only statement with a row limit, export the result as CSV.
 - **Cross-source**: run queries against several sources.
+- **Saved queries**: name and store the current statement, source or federation setup and row limit; open the saved list to restore or delete one.
 - Governed sources (with masking policies) disable the workbench for non-admins.
 
 ## 7. Files
@@ -97,7 +98,7 @@ Node palette: source, filter, select columns, rename, cast, join, aggregate, uni
 
 ## 11. Integration
 
-The flow list shows schedule, version and status. Run executes a flow immediately; the detail drawer exposes overview, versions, run history, downstream impact and the job queue.
+The flow list shows schedule, version and status. Run executes a flow immediately; the detail drawer exposes overview, versions, run history, downstream impact and the job queue. Flows are the legacy copy engine; **Migrate to pipeline** creates an equivalent pipeline asset and disables the flow, after which the entry links to the pipeline.
 
 - **Run history** shows start, finish and duration; open a run for throughput and the cursor, and use Retry to queue the flow again.
 - **Versions** can be compared with the current configuration, listing changed keys.
@@ -121,6 +122,7 @@ Datasets and metrics.
 Add metric cards, line/bar/pie charts, tables and text; drag to move and resize from the corner.
 
 - Save, Validate, Publish and Run.
+- In the run view, **Export CSV** writes the rows of every data-bearing widget to one CSV file.
 - **Share** creates a read-only link with an expiry; links can be copied and revoked.
 - **Versions** lists history; the list page deletes dashboards and their share links.
 
@@ -138,6 +140,7 @@ Build pages with text, metric cards, tables and forms.
 - Validate, Preview and Test run the configuration against real data.
 - **Docs** shows the path, AK/SK + projectKey authentication and curl/Python examples.
 - Publish serves the interface through the open API; take it offline to revoke.
+- Interfaces are the legacy SQL interface centre; **Migrate to API** creates an API Studio asset with the same SQL and key, and disables the old interface.
 - The detail panel shows the endpoint address with a copy button, SQL, parameters and a call history with caller, time and returned rows.
 - The list page can delete an interface.
 
@@ -158,11 +161,14 @@ Create rules by dataset, kind (not null, unique, range, freshness, schema and mo
 
 The list shows the last result and the pass rate over recent runs. Results summarises that trend and links to the dataset page. A rule can carry a cron schedule; the scheduler runs it automatically, and when alert-on-failure is enabled a failed run raises an alert.
 
+- **Custom SQL** expects zero rows, at least one row, at most N rows or at least N rows; the statement is read-only-checked before execution.
+- **Row-count anomaly** compares the current count with the mean of recent results and fails when the deviation exceeds the configured percentage; fewer than three samples only build the baseline.
+
 ## 19. Alerts
 
 Filter by status and severity. Acknowledge records that the alert was seen; Close removes it from the open list. Alerts come from engine failures, flow health and similar events.
 
-**Alert rules** below the list creates and deletes rules by name, kind and optional JSON configuration. **Subscriptions** opens webhook event subscriptions.
+**Alert rules** below the list creates and deletes rules by name, kind and optional JSON configuration. **Subscriptions** opens webhook event subscriptions. Platform administrators can also set an **alert webhook** under Platform administration → Operations; raised alerts post a Slack-compatible JSON message to it.
 
 ## 20. Changes
 

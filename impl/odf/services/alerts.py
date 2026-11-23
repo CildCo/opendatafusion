@@ -50,7 +50,32 @@ def raise_alert(session, project_id: int, severity: str, title: str,
     from odf.webhooks.service import emit_safe
     emit_safe(session, project_id, "alert.raised",
               {"alert_id": a.id, "severity": severity, "title": title})
+    from odf.services.notifications import notify
+    notify(session, project_id, "alert", "新告警：%s" % title,
+           "级别：%s" % severity, "/alerts")
+    _forward_webhook(session, a)
     return a
+
+
+def _forward_webhook(session, alert):
+    try:
+        import json
+        from odf.services.net import request as outbound
+        from odf.services.platform import get_doc
+        url = ((get_doc(session).get("alerts") or {})
+               .get("webhook_url") or "").strip()
+        if not url:
+            return
+        body = json.dumps({
+            "text": "[%s] %s" % (alert.severity, alert.title),
+            "alert": {"id": alert.id, "severity": alert.severity,
+                      "title": alert.title, "detail": alert.detail_json},
+        }).encode()
+        outbound(url, "POST", body,
+                 headers={"Content-Type": "application/json"},
+                 timeout=5)
+    except Exception:
+        pass
 
 
 def evaluate_health(session, project_id: int, flow_id: int,

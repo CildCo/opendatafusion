@@ -27,6 +27,10 @@
         <span class="onboard-hint">
           {{ onboardDone ? t("onboard.allDone") : t("onboard.hint") }}
         </span>
+        <button class="text-action" type="button" :disabled="sampleBusy"
+                @click="createSample">
+          {{ sampleBusy ? t("onboard.creating") : t("onboard.sample") }}
+        </button>
       </div>
       <div class="onboard-steps">
         <button v-for="step in onboardSteps" :key="step.key" type="button"
@@ -163,18 +167,21 @@ const now = ref(new Date());
 const runFilter = ref("all");
 let timer = null;
 
-const onboarding = ref({ sources: 0, catalog: 0, datasets: 0,
-                          interfaces: 0 });
+const onboarding = ref({ datasources: 0, pipelines: 0, datasets: 0,
+                          dashboards: 0, apis: 0 });
+const sampleBusy = ref(false);
 
 const onboardSteps = computed(() => [
-  { key: "source", done: onboarding.value.sources > 0,
+  { key: "source", done: onboarding.value.datasources > 0,
     label: t("onboard.source"), route: "/datasources" },
-  { key: "catalog", done: onboarding.value.catalog > 0,
-    label: t("onboard.catalog"), route: "/catalog" },
+  { key: "pipeline", done: onboarding.value.pipelines > 0,
+    label: t("onboard.pipeline"), route: "/pipelines" },
   { key: "dataset", done: onboarding.value.datasets > 0,
     label: t("onboard.dataset"), route: "/datasets" },
-  { key: "api", done: onboarding.value.interfaces > 0,
-    label: t("onboard.api"), route: "/interfaces" },
+  { key: "dashboard", done: onboarding.value.dashboards > 0,
+    label: t("onboard.dashboard"), route: "/dashboards" },
+  { key: "api", done: onboarding.value.apis > 0,
+    label: t("onboard.api"), route: "/apis" },
 ]);
 
 const onboardDone = computed(() =>
@@ -290,28 +297,33 @@ async function load() {
     const d = await api.get("/dashboard");
     stats.value = stats.value.map((s) => ({ ...s, value: d[s.key] ?? 0 }));
     recent.value = d.recent_runs || [];
-    alerts.value = await api.get("/alerts?status=open");
-    const pipelines = await api.get("/pipelines");
+    alerts.value = (await api.get("/alerts?status=open")).items || [];
+    const pipelines = (await api.get("/pipelines?page_size=200")).items || [];
     scheduled.value = (pipelines || [])
       .filter((p) => p.cron && p.enabled !== false).slice(0, 4);
     const portal = await api.get("/portal");
     welcome.value = { title: portal.welcome_title || "",
                       text: portal.welcome_text || "" };
-    const [sources, catalog, datasets, interfaces] = await Promise.allSettled([
-      api.get("/datasources"), api.get("/catalog/datasets"),
-      api.get("/datasets"), api.get("/interfaces"),
-    ]);
-    onboarding.value = {
-      sources: sources.status === "fulfilled" ? sources.value.length : 0,
-      catalog: catalog.status === "fulfilled" ? catalog.value.length : 0,
-      datasets: datasets.status === "fulfilled" ? datasets.value.length : 0,
-      interfaces: interfaces.status === "fulfilled"
-        ? interfaces.value.filter((row) => row.status === 1).length : 0,
-    };
+    const onboard = await api.get("/projects/onboarding");
+    onboarding.value = onboard.counts || {};
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
     loading.value = false;
+  }
+}
+
+async function createSample() {
+  sampleBusy.value = true;
+  try {
+    const result = await api.post("/projects/sample", {});
+    ElMessage.success(t("onboard.created"));
+    await load();
+    if (result.dashboard?.link) router.push(result.dashboard.link);
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    sampleBusy.value = false;
   }
 }
 
