@@ -137,10 +137,6 @@ def check_connection(dsn: str, timeout: int = 5,
             return {"ok": True, "error": None}
         if kind in ("http", "es"):
             return _check_http(dsn, timeout, kind)
-        if kind == "file":
-            from odf import filesource
-            filesource.describe(filesource.resolve_path(dsn))
-            return {"ok": True, "error": None}
         args = connect_args_for(kind, dsn, timeout)
         e = create_engine(dsn, connect_args=args)
         with e.connect() as c:

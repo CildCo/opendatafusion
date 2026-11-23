@@ -163,4 +163,11 @@ def test(datasource_id: int, s: Session = Depends(get_session),
     ds = s.get(Datasource, datasource_id)
     if not ds or ds.project_id != claims["project_id"]:
         raise HTTPException(404, "datasource not found")
+    if ds.kind == "file":
+        from odf import filesource
+        try:
+            filesource.describe(filesource.path_for(ds))
+            return {"ok": True, "error": None}
+        except Exception:
+            return {"ok": False, "error": "file is not readable"}
     return check_connection(get_dsn(ds), kind=ds.kind)
