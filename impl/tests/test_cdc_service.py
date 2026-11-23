@@ -156,3 +156,19 @@ def test_status_maps_failure(session, monkeypatch):
 def test_unconfigured_debezium_raises():
     with pytest.raises(ValueError, match="not configured"):
         cdc._client()
+
+
+def test_sqlserver_connector_payload():
+    payload = cdc.connector_payload(
+        _config(engine="mssql", host="sqlserver", port=1433,
+                database="shop", user="cdc", schema_list="dbo",
+                table_list="dbo.orders"), "pw", "orders")
+    assert payload["connector.class"] == (
+        "io.debezium.connector.sqlserver.SqlServerConnector")
+    assert payload["database.port"] == "1433"
+    assert payload["database.names"] == "shop"
+    assert payload["schema.include.list"] == "dbo"
+    assert payload["table.include.list"] == "dbo.orders"
+    assert payload["database.encrypt"] == "false"
+    assert payload["schema.history.internal.kafka.bootstrap.servers"] == \
+        "kafka:9092"

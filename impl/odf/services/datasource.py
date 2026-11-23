@@ -19,10 +19,15 @@ def mask_dsn(dsn: str) -> str:
 def normalize_dsn(kind: str, dsn: str) -> str:
     dsn = (dsn or "").strip()
     kind = (kind or "").lower()
-    if kind in ("mysql", "mariadb"):
+    if kind in ("mysql", "mariadb", "tidb", "doris", "starrocks",
+                "oceanbase"):
         for prefix in ("mysql://", "mariadb://"):
             if dsn.startswith(prefix):
                 return "mysql+pymysql://" + dsn[len(prefix):]
+    if kind in ("opengauss", "kingbase", "gaussdb"):
+        for prefix in ("postgres://", "postgresql://"):
+            if dsn.startswith(prefix):
+                return "postgresql+psycopg://" + dsn[len(prefix):]
     if kind == "oracle":
         for prefix in ("oracle://", "oracle+cx_oracle://"):
             if dsn.startswith(prefix):
@@ -45,6 +50,8 @@ def connect_args_for(kind: str, dsn: str = "", timeout: int = 5) -> dict:
     if kind == "clickhouse":
         return {}
     if kind == "trino":
+        return {}
+    if kind == "duckdb":
         return {}
     return {"connect_timeout": timeout}
 
@@ -137,10 +144,21 @@ def check_connection(dsn: str, timeout: int = 5,
             return {"ok": True, "error": None}
         if kind in ("http", "es"):
             return _check_http(dsn, timeout, kind)
+        if kind == "mongodb":
+            from odf.connectors import mongo
+            mongo.ping(dsn, timeout)
+            return {"ok": True, "error": None}
+        if kind == "kafka":
+            from odf.connectors import kafka
+            kafka.ping(dsn, timeout)
+            return {"ok": True, "error": None}
         args = connect_args_for(kind, dsn, timeout)
         e = create_engine(dsn, connect_args=args)
-        with e.connect() as c:
-            c.execute(text("select 1"))
+        try:
+            with e.connect() as c:
+                c.execute(text("select 1"))
+        finally:
+            e.dispose()
         return {"ok": True, "error": None}
     except Exception as error:
         return {"ok": False, "error": _safe_error(error, dsn)}

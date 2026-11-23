@@ -106,3 +106,62 @@ def test_es_source_and_sink(server):
     assert len(rows) == 2
     sink = ESSink(ds, {"sink_table": "idx", "pk": "id"})
     assert sink.write([{"id": 1}, {"id": 2}]) == 2
+
+
+def test_kafka_source_and_sink(monkeypatch):
+    import kafka
+
+    class Record:
+        def __init__(self, partition, offset, value):
+            self.partition = partition
+            self.offset = offset
+            self.value = value
+
+    class Consumer:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def subscribe(self, topics):
+            self.topics = topics
+
+        def assign(self, partitions):
+            self.assigned = partitions
+
+        def seek(self, partition, offset):
+            pass
+
+        def poll(self, timeout_ms=0, max_records=0):
+            key = kafka.TopicPartition("events", 0)
+            return {key: [Record(0, 5, b'{"id": 1}'),
+                          Record(0, 6, b'{"id": 2}')]}
+
+        def close(self):
+            pass
+
+    class Producer:
+        def __init__(self, **kwargs):
+            self.sent = []
+
+        def send(self, topic, row):
+            self.sent.append((topic, row))
+
+        def flush(self, timeout=None):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(kafka, "KafkaConsumer", Consumer)
+    monkeypatch.setattr(kafka, "KafkaProducer", Producer)
+    from odf.connectors.kafka import KafkaSink, KafkaSource
+    ds = Datasource(kind="kafka", dsn_encrypted=encrypt_secret(
+        "kafka://kafka:9092"))
+    source = KafkaSource(ds, {"source_table": "events",
+                              "consumer_group": "odf-test"})
+    rows, cursor = source.read(None, 10)
+    assert [row["id"] for row in rows] == [1, 2]
+    assert cursor == '{"0": 7}'
+    rows, cursor = source.read(cursor, 10)
+    assert rows and cursor == '{"0": 7}'
+    sink = KafkaSink(ds, {"sink_table": "events"})
+    assert sink.write([{"id": 1}, {"id": 2}]) == 2
