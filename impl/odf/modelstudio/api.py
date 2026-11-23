@@ -337,6 +337,16 @@ def metric_lineage_route(asset_id: int, s: Session = Depends(get_session),
     return out
 
 
+@router.get("/assets/{asset_id}/lineage")
+def asset_lineage_route(asset_id: int, s: Session = Depends(get_session),
+                        claims: dict = Depends(require_user)):
+    from odf.services.asset_lineage import asset_lineage
+    out = asset_lineage(s, claims["project_id"], asset_id)
+    if out is None:
+        raise HTTPException(404, "asset not found")
+    return out
+
+
 @router.get("/metrics/{asset_id}/diff")
 def metric_diff_route(asset_id: int, s: Session = Depends(get_session),
                       claims: dict = Depends(require_user)):

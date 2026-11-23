@@ -33,6 +33,23 @@
         </el-table>
       </el-card>
       <el-card shadow="never">
+        <template #header>
+          <div class="card-head">
+            <b>{{ t("adm.mcpActivity") }}</b>
+            <span class="muted">{{ data.mcp?.calls_24h || 0 }} / 24h</span>
+          </div>
+        </template>
+        <el-table :data="data.mcp?.recent || []" size="small">
+          <el-table-column prop="action" :label="t('adm.action')" />
+          <el-table-column prop="target" :label="t('adm.target')" width="120" />
+          <el-table-column :label="t('adm.time')" width="160">
+            <template #default="{ row }">{{ fmt(row.at) }}</template>
+          </el-table-column>
+        </el-table>
+        <el-empty v-if="!(data.mcp?.recent || []).length"
+                  :description="t('adm.mcpEmpty')" :image-size="50" />
+      </el-card>
+      <el-card shadow="never">
         <template #header><b>{{ t("adm.ovShortcuts") }}</b></template>
         <div class="links">
           <router-link v-for="link in links" :key="link.path" :to="link.path"
@@ -60,7 +77,7 @@ import EntityIcon from "../../components/EntityIcon.vue";
 const data = reactive({
   users: { total: 0, active: 0 }, projects: { total: 0, active: 0 },
   assets: { total: 0 }, jobs: { queued: 0, running: 0, failed_24h: 0 },
-  alerts: { open: 0 },
+  alerts: { open: 0 }, mcp: { calls_24h: 0, recent: [] },
 });
 const audit = ref([]);
 const announcement = ref("");

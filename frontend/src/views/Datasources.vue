@@ -15,6 +15,9 @@
       </el-select>
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("ds.refresh") }}</el-button>
+      <el-button v-if="canEdit" @click="quickOpen = true">
+        {{ t("quick.button") }}
+      </el-button>
       <el-button v-if="canEdit" type="primary" @click="openCreate">{{ t("ds.new") }}</el-button>
     </div>
 
@@ -52,6 +55,7 @@
                        @click="sync(row)">{{ t("ds.sync") }}</el-button>
             <el-button v-if="capability(row, 'metadata')" link
                        @click="showTables(row)">{{ t("ds.tablesButton") }}</el-button>
+            <el-button link @click="openHealth(row)">{{ t("ds.health") }}</el-button>
             <el-button v-if="canEdit" link @click="openEdit(row)">{{ t("ds.edit") }}</el-button>
             <el-button v-if="canEdit" link type="danger" @click="remove(row)">{{ t("ds.delete") }}</el-button>
             <el-button v-if="canEdit && row.kind === 'trino'" link
@@ -114,6 +118,11 @@
                   type="info">{{ t("ds.cap." + cap) }}</el-tag>
         </div>
 
+        <el-form-item v-if="editId" :label="t('ds.autoSync')">
+          <el-input-number v-model="form.autoSync" :min="0" :max="10080"
+                           controls-position="right" style="width: 100%" />
+          <div class="hint">{{ t("ds.autoSyncHint") }}</div>
+        </el-form-item>
         <div v-if="form.kind !== 'file'" class="test-row">
           <el-button :loading="testing" @click="testDraft">
             {{ testing ? t("ds.testing") : t("ds.testConnection") }}
@@ -168,6 +177,18 @@
       </template>
     </el-dialog>
 
+    <quick-sync-dialog v-model="quickOpen" />
+    <el-drawer v-model="healthOpen" :title="t('ds.healthTitle')" size="620px">
+      <p class="runs-sub">{{ healthName }}</p>
+      <el-table :data="healthRows" size="small">
+        <el-table-column prop="action" :label="t('ds.healthAction')" width="100" />
+        <el-table-column prop="status" :label="t('ds.healthStatus')" width="90" />
+        <el-table-column prop="duration_ms" :label="t('ds.healthMs')" width="90" />
+        <el-table-column prop="at" :label="t('ds.healthAt')" width="170" />
+        <el-table-column prop="error" :label="t('ds.healthError')" min-width="160" />
+      </el-table>
+      <el-empty v-if="!healthRows.length" :description="t('ds.healthEmpty')" />
+    </el-drawer>
     <el-drawer v-model="tablesDrawer" :title="`${t('ds.table')} · ${current.name}`" size="520px">
       <el-table :data="tables" size="small">
         <el-table-column prop="schema" label="Schema" width="100" />
@@ -192,12 +213,14 @@ import { t } from "../i18n";
 import EmptyState from "../components/EmptyState.vue";
 import EntityIcon from "../components/EntityIcon.vue";
 import PageHeader from "../components/PageHeader.vue";
+import QuickSyncDialog from "../components/QuickSyncDialog.vue";
 
 const rows = ref([]);
 const tables = ref([]);
 const loading = ref(false);
 const saving = ref(false);
 const dialog = ref(false);
+const quickOpen = ref(false);
 const editId = ref(null);
 const tablesDrawer = ref(false);
 const current = ref({});
@@ -209,7 +232,11 @@ const canEdit = canWrite();
 const route = useRoute();
 const page = ref(1);
 const pageSize = ref(prefs.pageSize);
-const form = reactive({ name: "", kind: "postgres", values: {} });
+const form = reactive({ name: "", kind: "postgres", values: {},
+                        autoSync: 0 });
+const healthOpen = ref(false);
+const healthRows = ref([]);
+const healthName = ref("");
 const testing = ref(false);
 const testResult = ref(null);
 const maintainOpen = ref(false);
@@ -336,6 +363,7 @@ function openEdit(row) {
   form.name = row.name;
   form.kind = row.kind;
   resetValues(currentSpec.value, row.config || {});
+  form.autoSync = row.auto_sync_minutes || 0;
   testResult.value = null;
   dialog.value = true;
 }
@@ -391,7 +419,7 @@ async function save() {
   saving.value = true;
   try {
     const body = { name: form.name.trim(), kind: form.kind,
-                   config: draftConfig() };
+                   config: draftConfig(), auto_sync_minutes: form.autoSync };
     if (editId.value) {
       await api.put(`/datasources/${editId.value}`, body);
     } else {
@@ -492,6 +520,17 @@ async function sync(row) {
   try {
     const r = await api.post(`/datasources/${row.id}/sync`);
     ElMessage.success(`${t("ds.synced")}${r.tables} ${t("ds.tableUnit")}`);
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function openHealth(row) {
+  healthName.value = row.name;
+  healthOpen.value = true;
+  healthRows.value = [];
+  try {
+    healthRows.value = await api.get(`/datasources/${row.id}/health`);
   } catch (e) {
     ElMessage.error(errMsg(e));
   }

@@ -43,6 +43,15 @@
         <el-table-column :label="t('quality.dataset')" min-width="160">
           <template #default="{ row }">{{ datasetName(row.dataset_id) }}</template>
         </el-table-column>
+        <el-table-column :label="t('quality.schedule')" width="150">
+          <template #default="{ row }">
+            <span :class="{ muted: !row.schedule_cron }">
+              {{ row.schedule_cron || "-" }}
+            </span>
+            <el-tag v-if="row.alert_on_fail" size="small" type="warning"
+                    class="alert-tag">{{ t("quality.alertOnFail") }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column :label="t('quality.lastStatus')" width="140">
           <template #default="{ row }">
             <status-dot v-if="row.last_status" :status="row.last_status" />
@@ -62,6 +71,9 @@
         <el-table-column :label="t('quality.actions')" width="240" fixed="right">
           <template #default="{ row }">
             <el-button v-if="canEdit" link @click="run(row)">{{ t("quality.run") }}</el-button>
+            <el-button v-if="canEdit" link @click="openSchedule(row)">
+              {{ t("quality.schedule") }}
+            </el-button>
             <el-button link @click="showResults(row)">{{ t("quality.results") }}</el-button>
             <el-button v-if="canEdit" link type="danger" @click="removeRule(row)">{{ t("quality.delete") }}</el-button>
           </template>
@@ -127,6 +139,13 @@
         <el-form-item v-if="form.kind === 'schema'" :label="t('quality.allowExtra')">
           <el-switch v-model="form.allow_extra" />
         </el-form-item>
+        <el-form-item :label="t('quality.schedule')">
+          <el-input v-model="form.schedule_cron"
+                    :placeholder="t('quality.schedulePlaceholder')" />
+        </el-form-item>
+        <el-form-item :label="t('quality.alertOnFail')">
+          <el-switch v-model="form.alert_on_fail" />
+        </el-form-item>
         <template v-if="form.kind === 'range' || form.kind === 'row_count'">
           <el-form-item :label="t('quality.min')">
             <el-input-number v-model="form.min" />
@@ -139,6 +158,27 @@
       <template #footer>
         <el-button @click="dialog = false">{{ t("quality.cancel") }}</el-button>
         <el-button type="primary" :loading="saving" @click="create">{{ t("quality.save") }}</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="scheduleDialog" :title="t('quality.schedule')"
+               width="460px">
+      <el-form label-width="110px">
+        <el-form-item :label="t('quality.schedule')">
+          <el-input v-model="scheduleForm.schedule_cron"
+                    :placeholder="t('quality.schedulePlaceholder')" />
+        </el-form-item>
+        <el-form-item :label="t('quality.alertOnFail')">
+          <el-switch v-model="scheduleForm.alert_on_fail" />
+        </el-form-item>
+        <el-form-item :label="t('quality.enabled')">
+          <el-switch v-model="scheduleForm.enabled" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="scheduleDialog = false">{{ t("quality.cancel") }}</el-button>
+        <el-button type="primary" :loading="scheduleSaving"
+                   @click="saveSchedule">{{ t("quality.save") }}</el-button>
       </template>
     </el-dialog>
 
@@ -228,10 +268,16 @@ const results = ref([]);
 const loading = ref(false);
 const saving = ref(false);
 const dialog = ref(false);
+const scheduleDialog = ref(false);
+const scheduleSaving = ref(false);
+const scheduleRule = ref(null);
+const scheduleForm = reactive({ schedule_cron: "", alert_on_fail: false,
+                                enabled: true });
 const resultDrawer = ref(false);
 const current = ref({});
 const q = ref("");
 const form = reactive({
+  schedule_cron: "", alert_on_fail: false,
   name: "", dataset_id: null, kind: "not_null", column_name: "",
   min: null, max: null, max_age_hours: 24, pattern: "", values_text: "",
   expected_text: "", allow_null: true, allow_extra: false,
@@ -288,7 +334,7 @@ function openCreate() {
     name: "", dataset_id: datasets.value[0]?.id ?? null, kind: "not_null",
     column_name: "", min: null, max: null, max_age_hours: 24,
     pattern: "", values_text: "", expected_text: "", allow_null: true,
-    allow_extra: false,
+    allow_extra: false, schedule_cron: "", alert_on_fail: false,
   });
   columns.value = [];
   dialog.value = true;
@@ -342,6 +388,8 @@ async function create() {
       kind: form.kind,
       column_name: ["row_count", "schema"].includes(form.kind)
         ? null : form.column_name,
+      schedule_cron: form.schedule_cron || null,
+      alert_on_fail: form.alert_on_fail,
       config,
     });
     dialog.value = false;
@@ -351,6 +399,33 @@ async function create() {
     ElMessage.error(errMsg(e));
   } finally {
     saving.value = false;
+  }
+}
+
+function openSchedule(row) {
+  scheduleRule.value = row;
+  scheduleForm.schedule_cron = row.schedule_cron || "";
+  scheduleForm.alert_on_fail = !!row.alert_on_fail;
+  scheduleForm.enabled = row.enabled !== false;
+  scheduleDialog.value = true;
+}
+
+async function saveSchedule() {
+  if (!scheduleRule.value) return;
+  scheduleSaving.value = true;
+  try {
+    await api.put(`/quality/rules/${scheduleRule.value.id}`, {
+      schedule_cron: scheduleForm.schedule_cron || null,
+      alert_on_fail: scheduleForm.alert_on_fail,
+      enabled: scheduleForm.enabled,
+    });
+    scheduleDialog.value = false;
+    await load();
+    ElMessage.success(t("quality.updated"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    scheduleSaving.value = false;
   }
 }
 

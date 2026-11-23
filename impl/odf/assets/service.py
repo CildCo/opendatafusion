@@ -16,6 +16,8 @@ def _next_version(session, asset_id):
 def create_asset(session, project_id, type, name, content, owner, key=None,
                  enabled=True):
     key = key or "%s_%s" % (type, secrets.token_hex(4))
+    from odf.services.quota import check_asset
+    check_asset(session, project_id)
     a = Asset(project_id=project_id, type=type, key=key, name=name,
               owner=owner, enabled=enabled)
     session.add(a)

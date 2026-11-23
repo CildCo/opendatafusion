@@ -57,8 +57,14 @@ def _sink_table(tmp_path):
 
 def test_sqlsink_append_and_composite_upsert(tmp_path, monkeypatch):
     engine = _sink_table(tmp_path)
-    monkeypatch.setattr("odf.connectors.sql.engine_for",
-                        lambda ds: engine)
+    from contextlib import contextmanager
+
+    @contextmanager
+    def fake_engine(ds):
+        yield engine
+
+    monkeypatch.setattr("odf.services.connections.engine_for",
+                        fake_engine)
 
     SQLSink(None, {"sink_table": "t", "pk": ["a", "b"],
                    "mode": "append"}).write(

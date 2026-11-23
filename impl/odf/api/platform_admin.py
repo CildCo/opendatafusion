@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import (APIRouter, Depends, File, Form, HTTPException,
+                     UploadFile)
+import json
+
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -33,6 +37,65 @@ def save(body: dict, s: Session = Depends(get_session),
 def platform_overview(s: Session = Depends(get_session),
                       claims: dict = Depends(require_platform_admin)):
     return overview(s)
+
+
+@router.get("/platform/runtime")
+def runtime(s: Session = Depends(get_session),
+            claims: dict = Depends(require_platform_admin)):
+    from sqlalchemy import func
+    from odf import __version__
+    from odf.models import Asset, Job, Project, User
+    from odf.settings import get_settings
+    settings = get_settings()
+    running = (s.query(Job).filter(Job.status == "running").count())
+    workers = {row[0] for row in s.query(Job.locked_by).filter(
+        Job.status == "running", Job.locked_by.isnot(None)).all()}
+    return {"version": __version__, "license": "Apache-2.0",
+            "database": s.bind.dialect.name,
+            "scheduler": "single leader (advisory lock)",
+            "queue": {
+                "queued": s.query(Job).filter(Job.status == "queued").count(),
+                "running": running, "workers": len(workers)},
+            "platform": {
+                "projects": s.query(func.count(Project.id)).scalar() or 0,
+                "users": s.query(func.count(User.id)).scalar() or 0,
+                "assets": s.query(func.count(Asset.id)).scalar() or 0},
+            "capacity": {"query_max_rows": settings.query_max_rows,
+                         "file_mb": settings.file_max_mb}}
+
+
+@router.get("/platform/backup/export")
+def backup_export(s: Session = Depends(get_session),
+                  claims: dict = Depends(require_platform_admin)):
+    from odf.services.audit import write_audit
+    from odf.services.backup import export_bytes
+    payload = export_bytes(s)
+    write_audit(s, claims["sub"], "backup_export", "platform",
+                {"bytes": len(payload)})
+    return Response(content=payload, media_type="application/json",
+                    headers={"Content-Disposition":
+                             "attachment; filename=odf-backup.json"})
+
+
+@router.post("/platform/backup/restore")
+async def backup_restore(file: UploadFile = File(...),
+                         confirm: str = Form(...),
+                         s: Session = Depends(get_session),
+                         claims: dict = Depends(require_platform_admin)):
+    from odf.services.audit import write_audit
+    from odf.services.backup import restore
+    if confirm != "RESTORE":
+        raise HTTPException(400, "confirmation must be RESTORE")
+    raw = await file.read()
+    if len(raw) > 200 * 1024 * 1024:
+        raise HTTPException(400, "backup is too large")
+    try:
+        counts = restore(s, raw, claims.get("sub", ""))
+    except (ValueError, json.JSONDecodeError) as error:
+        raise HTTPException(400, str(error))
+    write_audit(s, claims["sub"], "backup_restore", "platform",
+                {"tables": len(counts)})
+    return {"restored": counts}
 
 
 class TestOidcIn(BaseModel):

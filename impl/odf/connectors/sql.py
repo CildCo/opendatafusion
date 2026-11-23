@@ -74,29 +74,30 @@ class SQLSource(Source):
         self.ds, self.dag = ds, dag
 
     def read(self, cursor, limit):
-        engine = engine_for(self.ds)
-        st = table_for(self.dag["source_table"], engine)
-        col = self.dag.get("cursor_column")
-        pk = self.dag["pk"]
-        q = select(st)
-        cur = parse_cursor(cursor)
-        if col and cur:
-            c_val = _coerce(st.c[col], cur[0])
-            p_val = _coerce(st.c[pk], cur[1]) if len(cur) > 1 else None
-            if p_val is None:
-                q = q.where(st.c[col] > c_val)
-            else:
-                q = q.where(or_(st.c[col] > c_val,
-                                and_(st.c[col] == c_val, st.c[pk] > p_val)))
-        if col:
-            q = q.order_by(st.c[col], st.c[pk])
-        q = q.limit(limit)
-        with engine.connect() as c:
-            rows = [dict(r) for r in c.execute(q).mappings().all()]
-        new_cursor = cursor
-        if col and rows:
-            new_cursor = format_cursor(rows[-1][col], rows[-1][pk])
-        return rows, new_cursor
+        from odf.services.connections import engine_for
+        with engine_for(self.ds) as engine:
+            st = table_for(self.dag["source_table"], engine)
+            col = self.dag.get("cursor_column")
+            pk = self.dag["pk"]
+            q = select(st)
+            cur = parse_cursor(cursor)
+            if col and cur:
+                c_val = _coerce(st.c[col], cur[0])
+                p_val = _coerce(st.c[pk], cur[1]) if len(cur) > 1 else None
+                if p_val is None:
+                    q = q.where(st.c[col] > c_val)
+                else:
+                    q = q.where(or_(st.c[col] > c_val,
+                                    and_(st.c[col] == c_val, st.c[pk] > p_val)))
+            if col:
+                q = q.order_by(st.c[col], st.c[pk])
+            q = q.limit(limit)
+            with engine.connect() as c:
+                rows = [dict(r) for r in c.execute(q).mappings().all()]
+            new_cursor = cursor
+            if col and rows:
+                new_cursor = format_cursor(rows[-1][col], rows[-1][pk])
+            return rows, new_cursor
 
 
 class SQLSink(Sink):
@@ -104,45 +105,46 @@ class SQLSink(Sink):
         self.ds, self.dag = ds, dag
 
     def write(self, rows):
-        engine = engine_for(self.ds)
-        tt = table_for(self.dag["sink_table"], engine)
-        pk = self.dag.get("pk") or ["id"]
-        if not isinstance(pk, list):
-            pk = [pk]
-        mode = self.dag.get("mode") or "upsert"
-        if mode not in ("upsert", "append"):
-            raise ValueError("unsupported sink mode: %s" % mode)
-        dialect = engine.dialect.name
-        insert = insert_for(dialect)
-        groups = {}
-        for row in rows:
-            vals = {k: v for k, v in row.items() if k in tt.c}
-            groups.setdefault(tuple(sorted(vals)), []).append(vals)
-        with engine.begin() as c:
-            for key, payload in groups.items():
-                if not key:
-                    for _ in payload:
-                        c.execute(insert(tt))
-                    continue
-                stmt = insert(tt)
-                if mode == "append":
+        from odf.services.connections import engine_for
+        with engine_for(self.ds) as engine:
+            tt = table_for(self.dag["sink_table"], engine)
+            pk = self.dag.get("pk") or ["id"]
+            if not isinstance(pk, list):
+                pk = [pk]
+            mode = self.dag.get("mode") or "upsert"
+            if mode not in ("upsert", "append"):
+                raise ValueError("unsupported sink mode: %s" % mode)
+            dialect = engine.dialect.name
+            insert = insert_for(dialect)
+            groups = {}
+            for row in rows:
+                vals = {k: v for k, v in row.items() if k in tt.c}
+                groups.setdefault(tuple(sorted(vals)), []).append(vals)
+            with engine.begin() as c:
+                for key, payload in groups.items():
+                    if not key:
+                        for _ in payload:
+                            c.execute(insert(tt))
+                        continue
+                    stmt = insert(tt)
+                    if mode == "append":
+                        c.execute(stmt, payload)
+                        continue
+                    if dialect in ("mysql", "mariadb"):
+                        update = {k: getattr(stmt.inserted, k)
+                                  for k in key if k not in pk}
+                        if update:
+                            stmt = stmt.on_duplicate_key_update(**update)
+                        else:
+                            stmt = stmt.on_duplicate_key_update({
+                                pk[0]: getattr(stmt.inserted, pk[0])})
+                    else:
+                        update = {k: stmt.excluded[k]
+                                  for k in key if k not in pk}
+                        if update:
+                            stmt = stmt.on_conflict_do_update(
+                                index_elements=pk, set_=update)
+                        else:
+                            stmt = stmt.on_conflict_do_nothing(index_elements=pk)
                     c.execute(stmt, payload)
-                    continue
-                if dialect in ("mysql", "mariadb"):
-                    update = {k: getattr(stmt.inserted, k)
-                              for k in key if k not in pk}
-                    if update:
-                        stmt = stmt.on_duplicate_key_update(**update)
-                    else:
-                        stmt = stmt.on_duplicate_key_update({
-                            pk[0]: getattr(stmt.inserted, pk[0])})
-                else:
-                    update = {k: stmt.excluded[k]
-                              for k in key if k not in pk}
-                    if update:
-                        stmt = stmt.on_conflict_do_update(
-                            index_elements=pk, set_=update)
-                    else:
-                        stmt = stmt.on_conflict_do_nothing(index_elements=pk)
-                c.execute(stmt, payload)
-        return len(rows)
+            return len(rows)

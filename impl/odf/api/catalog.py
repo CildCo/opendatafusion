@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from odf.db import get_session
-from odf.services.auth import claims_role, require_user
+from odf.services.auth import claims_role, require_editor, require_user
 from odf.services.catalog import (create_tag, dataset_detail, dataset_history,
                                   dataset_profile, dataset_sample, impact,
                                   lineage, list_datasets, list_tags,
@@ -48,6 +48,26 @@ def sample(dataset_id: int, limit: int = 20,
     except ValueError as e:
         code = 404 if str(e) == "dataset not found" else 400
         raise HTTPException(code, str(e))
+
+
+@router.post("/catalog/datasets/{dataset_id}/pii-scan")
+def pii_scan(dataset_id: int, apply: bool = False,
+             s: Session = Depends(get_session),
+             claims: dict = Depends(require_editor)):
+    from odf.services.audit import write_audit
+    from odf.services.pii import apply as apply_policies
+    from odf.services.pii import scan
+    try:
+        result = (apply_policies(s, claims["project_id"], dataset_id,
+                                 claims["sub"])
+                  if apply else scan(s, claims["project_id"], dataset_id))
+    except ValueError as e:
+        raise HTTPException(404 if str(e) == "dataset not found" else 400,
+                            str(e))
+    write_audit(s, claims["sub"], "scan_pii", str(dataset_id),
+                {"findings": len(result["findings"]),
+                 "applied": result.get("applied", 0)})
+    return result
 
 
 @router.get("/catalog/datasets/{dataset_id}/profile")

@@ -49,6 +49,16 @@ FIELDS = {
                    "type": "password", "required": True, "secret": True},
     "region": {"key": "region", "label": "Region", "type": "text",
                "required": False, "default": "us-east-1"},
+    "mode": {"key": "mode", "label": "Object scope", "type": "select",
+             "required": False, "default": "object"},
+    "ssh_host": {"key": "ssh_host", "label": "SSH host", "type": "text",
+                 "required": False},
+    "ssh_port": {"key": "ssh_port", "label": "SSH port", "type": "number",
+                 "required": False},
+    "ssh_user": {"key": "ssh_user", "label": "SSH user", "type": "text",
+                 "required": False},
+    "ssh_password": {"key": "ssh_password", "label": "SSH password",
+                     "type": "password", "required": False, "secret": True},
     "auth": {"key": "auth", "label": "Authentication", "type": "select",
              "required": False, "default": "NOSASL"},
     "auth_source": {"key": "auth_source", "label": "Auth source",
@@ -139,7 +149,7 @@ SPECS = [
                 field("database"), field("username"), field("password"),
                 field("sslmode", options=SSLMODES)]},
     {"kind": "hive", "label": "Hive / Spark Thrift", "group": "analytics",
-     "capabilities": _caps(source=False),
+     "capabilities": _caps(),
      "fields": [field("host"), field("port", default=10000),
                 field("database"), field("username"), field("password"),
                 field("auth", options=["NOSASL", "NONE", "LDAP"])]},
@@ -161,7 +171,8 @@ SPECS = [
     {"kind": "s3", "label": "S3 / MinIO object", "group": "file",
      "capabilities": _caps(sink=False),
      "fields": [field("endpoint"), field("bucket"), field("key"),
-                field("access_key"), field("secret_key"), field("region")]},
+                field("access_key"), field("secret_key"), field("region"),
+                field("mode", options=["object", "prefix"])]},
     {"kind": "file", "label": "Local file", "group": "file",
      "capabilities": _caps(sink=False),
      "fields": [field("path")]},
@@ -176,6 +187,15 @@ SPECS = [
      "capabilities": _caps(query=False, sink=True),
      "fields": [field("url")]},
 ]
+
+SSH_KINDS = {"postgres", "mysql", "mariadb", "oracle", "mssql", "tidb",
+             "doris", "starrocks", "oceanbase", "opengauss", "kingbase",
+             "gaussdb"}
+SSH_FIELDS = [field("ssh_host"), field("ssh_port", default=22),
+              field("ssh_user"), field("ssh_password")]
+for _row in SPECS:
+    if _row["kind"] in SSH_KINDS:
+        _row["fields"] = _row["fields"] + SSH_FIELDS
 
 SPEC_BY_KIND = {row["kind"]: row for row in SPECS}
 GROUPS = [
@@ -229,10 +249,11 @@ def build_dsn(kind, values):
     if kind == "kafka":
         return "kafka://" + str(values.get("bootstrap", "")).strip()
     if kind == "s3":
-        query = "endpoint=%s&access_key=%s&secret_key=%s&region=%s" % (
-            _q(values.get("endpoint", "")), _q(values["access_key"]),
-            _q(values.get("secret_key", "")),
-            _q(values.get("region") or "us-east-1"))
+        query = ("endpoint=%s&access_key=%s&secret_key=%s&region=%s&mode=%s"
+                 % (_q(values.get("endpoint", "")), _q(values["access_key"]),
+                    _q(values.get("secret_key", "")),
+                    _q(values.get("region") or "us-east-1"),
+                    _q(values.get("mode") or "object")))
         return "s3://%s/%s?%s" % (_q(values["bucket"]),
                                   _q(values["key"], safe="/"), query)
     if kind == "dm":
@@ -301,9 +322,17 @@ def build_dsn(kind, values):
               "kingbase": "postgresql+psycopg",
               "gaussdb": "postgresql+psycopg"}[kind]
     database = _q(values.get("database", ""))
-    query = ""
-    if kind in ("postgres", "opengauss", "kingbase", "gaussdb") and             values.get("sslmode"):
-        query = "?sslmode=" + _q(values["sslmode"])
+    parts = []
+    if kind in ("postgres", "opengauss", "kingbase", "gaussdb") and \
+            values.get("sslmode"):
+        parts.append("sslmode=" + _q(values["sslmode"]))
+    if values.get("ssh_host"):
+        parts.append("ssh_host=" + _q(values["ssh_host"]))
+        parts.append("ssh_port=%d" % int(values.get("ssh_port") or 22))
+        parts.append("ssh_user=" + _q(values.get("ssh_user", "")))
+        if values.get("ssh_password"):
+            parts.append("ssh_password=" + _q(values["ssh_password"]))
+    query = ("?" + "&".join(parts)) if parts else ""
     return "%s://%s:%s@%s:%s/%s%s" % (
         driver, _q(values["username"]), _q(values.get("password", "")),
         values["host"], values.get("port") or _default_port(kind),
@@ -330,7 +359,8 @@ def parse_dsn(kind, dsn):
                 "key": unquote(parsed.path.lstrip("/")),
                 "access_key": (query.get("access_key") or [""])[0],
                 "secret_key": (query.get("secret_key") or [""])[0],
-                "region": (query.get("region") or ["us-east-1"])[0]}
+                "region": (query.get("region") or ["us-east-1"])[0],
+                "mode": (query.get("mode") or ["object"])[0]}
     if kind == "dm":
         parsed = urlparse(dsn)
         return {"host": parsed.hostname or "", "port": parsed.port or 5236,
@@ -390,6 +420,11 @@ def parse_dsn(kind, dsn):
               "password": url.password or ""}
     if kind in ("postgres", "opengauss", "kingbase", "gaussdb"):
         values["sslmode"] = (url.query.get("sslmode") or "")
+    if url.query.get("ssh_host"):
+        values["ssh_host"] = url.query.get("ssh_host")
+        values["ssh_port"] = int(url.query.get("ssh_port") or 22)
+        values["ssh_user"] = url.query.get("ssh_user") or ""
+        values["ssh_password"] = url.query.get("ssh_password") or ""
     return values
 
 

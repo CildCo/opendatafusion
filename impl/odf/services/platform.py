@@ -49,7 +49,8 @@ DEFAULTS = {
 }
 
 SECRET_PATHS = (("identity", "oidc", "client_secret"),
-                ("identity", "ldap", "bind_password"))
+                ("identity", "ldap", "bind_password"),
+                ("audit", "siem_token"))
 
 
 def _merge(base, patch):
@@ -202,6 +203,11 @@ def overview(session):
     since = datetime.now(timezone.utc) - timedelta(hours=24)
     jobs = session.query(Job)
     assets = session.query(Asset)
+    from odf.models import AuditLog
+    mcp_rows = (session.query(AuditLog)
+                .filter(AuditLog.actor == "mcp",
+                        AuditLog.at >= since)
+                .order_by(AuditLog.id.desc()).limit(6).all())
     return {
         "users": {
             "total": session.query(User).count(),
@@ -233,5 +239,12 @@ def overview(session):
         "alerts": {
             "open": session.query(Alert).filter(
                 Alert.status == "open").count(),
+        },
+        "mcp": {
+            "calls_24h": (session.query(AuditLog).filter(
+                AuditLog.actor == "mcp", AuditLog.at >= since).count()),
+            "recent": [{"action": row.action, "target": row.target,
+                        "at": row.at.isoformat() if row.at else None}
+                       for row in mcp_rows],
         },
     }

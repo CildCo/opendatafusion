@@ -142,16 +142,14 @@ def _sync_hive(session, ds) -> int:
 
 def _sync_s3(session, ds) -> int:
     from odf.connectors import s3
-    dsn = get_dsn(ds)
-    columns = s3.describe(dsn)
-    table = s3.table_name(s3.options(dsn))
+    found = s3.describe(get_dsn(ds))
     before = _existing_columns(session, ds.id)
-    tables = {("file", table): columns}
+    tables = {("file", item["table"]): item["columns"] for item in found}
     _upsert(session, ds, tables)
     _detect_drift(session, ds, before,
                   {k: {c["name"]: c["type"] for c in v}
                    for k, v in tables.items()})
-    return 1
+    return len(found)
 
 
 def _sync_mongo(session, ds) -> int:

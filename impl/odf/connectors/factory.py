@@ -4,6 +4,8 @@ from odf.connectors.file import FileSource
 from odf.connectors.http import HTTPSink, HTTPSource
 from odf.connectors.kafka import KafkaSink, KafkaSource
 from odf.connectors.s3 import S3Source
+from odf.connectors.hive import HiveSource
+from odf.connectors.dm import DmSource
 from odf.connectors.sql import SQLSink, SQLSource
 from odf.connectors.trino import TrinoSource
 
@@ -29,6 +31,10 @@ def source_for(ds, dag):
         return KafkaSource(ds, dag)
     if ds.kind == "s3":
         return S3Source(ds, dag)
+    if ds.kind == "hive":
+        return HiveSource(ds, dag)
+    if ds.kind == "dm":
+        return DmSource(ds, dag)
     raise ValueError("unsupported source kind: %s" % ds.kind)
 
 

@@ -171,8 +171,8 @@ def test_s3_source_delegates_to_the_file_reader(monkeypatch, tmp_path):
     path = tmp_path / "orders.csv"
     path.write_text("id,name\n1,a\n2,b\n", encoding="utf-8")
     calls = []
-    monkeypatch.setattr("odf.connectors.s3.temp_file",
-                        lambda dsn: (calls.append(dsn) or (path, str(tmp_path))))
+    monkeypatch.setattr("odf.connectors.s3.temp_files",
+                        lambda dsn: (calls.append(dsn) or ([path], str(tmp_path))))
     monkeypatch.setattr("odf.filesource._allowed_roots",
                         lambda: [tmp_path.resolve()])
     from odf.connectors.s3 import S3Source

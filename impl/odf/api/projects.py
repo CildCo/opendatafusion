@@ -95,6 +95,14 @@ def _scope(s, claims, project_id):
         raise HTTPException(404, "project not found")
 
 
+@router.get("/projects/{project_id}/usage")
+def project_usage(project_id: int, s: Session = Depends(get_session),
+                  claims: dict = Depends(require_project_admin)):
+    _scope(s, claims, project_id)
+    from odf.services.quota import usage
+    return usage(s, project_id)
+
+
 @router.get("/projects/{project_id}/members")
 def members(project_id: int, s: Session = Depends(get_session),
             claims: dict = Depends(require_project_admin)):

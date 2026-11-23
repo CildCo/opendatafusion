@@ -315,96 +315,34 @@ def metric_catalog(session, project_id, q=None):
 
 
 def metric_lineage(session, project_id, metric_id):
-    from odf.models import Asset, Datasource, LineageEdge
+    from odf.models import Asset, Datasource
+    from odf.services.asset_lineage import asset_lineage, _table_ref, \
+        _version_content
     metric = session.get(Asset, metric_id)
     if not metric or metric.project_id != project_id \
             or metric.type != "metric":
         return None
-    content = {}
-    if metric.published_version_id:
-        version = session.get(AssetVersion, metric.published_version_id)
-        if version:
-            content = version.content_json or {}
-    if not content and metric.draft_version_id:
-        version = session.get(AssetVersion, metric.draft_version_id)
-        if version:
-            content = version.content_json or {}
+    content = _version_content(session, metric)
     dataset = session.get(Asset, content.get("dataset_id")) \
         if isinstance(content.get("dataset_id"), int) else None
-    dataset_content = {}
-    if dataset and dataset.project_id == project_id:
-        if dataset.published_version_id:
-            version = session.get(AssetVersion, dataset.published_version_id)
-            if version:
-                dataset_content = version.content_json or {}
-        if not dataset_content and dataset.draft_version_id:
-            version = session.get(AssetVersion, dataset.draft_version_id)
-            if version:
-                dataset_content = version.content_json or {}
-    query = dataset_content.get("query") or {}
-    datasource_id = query.get("datasource_id")
-    table = query.get("table") or ""
+    if dataset and dataset.project_id != project_id:
+        dataset = None
+    dataset_content = _version_content(session, dataset) if dataset else {}
+    table_ref, table = _table_ref(dataset_content)
+    datasource_id = (dataset_content.get("query") or {}).get("datasource_id")
     datasource = session.get(Datasource, datasource_id) \
         if isinstance(datasource_id, int) else None
-    ref = "%d:%s" % (datasource_id, table) if datasource_id and table else ""
+    if table_ref:
+        table = table_ref.split(":", 1)[1]
 
-    edges, nodes, seen = [], [], set()
-
-    def add_node(node_id, kind, name):
-        if node_id in seen:
-            return
-        seen.add(node_id)
-        nodes.append({"id": node_id, "type": kind, "name": name})
-
-    queue = [(ref, 0)]
-    visited = {ref}
-    while ref and queue:
-        current, depth = queue.pop(0)
-        if depth >= 5:
-            continue
-        rows = (session.query(LineageEdge)
-                .filter(LineageEdge.project_id == project_id,
-                        LineageEdge.to_ref == current,
-                        LineageEdge.from_column.is_(None)).all())
-        for row in rows:
-            edges.append({"from": row.from_ref, "to": row.to_ref,
-                          "from_type": row.from_type,
-                          "to_type": row.to_type})
-            add_node(row.from_ref, row.from_type or "table", row.from_ref)
-            if row.from_ref not in visited:
-                visited.add(row.from_ref)
-                queue.append((row.from_ref, depth + 1))
-
-    if ref:
-        add_node(ref, "table", table)
-    if dataset and dataset.project_id == project_id:
-        dataset_ref = "dataset:%d" % dataset.id
-        add_node(dataset_ref, "dataset", dataset.name)
-        if ref:
-            edges.append({"from": ref, "to": dataset_ref,
-                          "from_type": "table", "to_type": "dataset"})
-        metric_ref = "metric:%d" % metric.id
-        add_node(metric_ref, "metric", metric.name)
-        edges.append({"from": dataset_ref, "to": metric_ref,
-                      "from_type": "dataset", "to_type": "metric"})
-
-    column_edges = []
-    if ref:
-        rows = (session.query(LineageEdge)
-                .filter(LineageEdge.project_id == project_id,
-                        LineageEdge.to_ref.in_(visited),
-                        LineageEdge.from_column.isnot(None)).all())
-        for row in rows:
-            column_edges.append({
-                "from": row.from_ref, "from_column": row.from_column,
-                "to": row.to_ref, "to_column": row.to_column})
-
-    return {"metric_id": metric.id, "metric_name": metric.name,
-            "dataset_id": dataset.id if dataset else None,
-            "dataset_name": dataset.name if dataset else None,
-            "datasource_name": datasource.name if datasource else None,
-            "table": table, "nodes": nodes, "edges": edges,
-            "column_edges": column_edges}
+    out = asset_lineage(session, project_id, metric_id)
+    out.update({
+        "metric_id": metric.id, "metric_name": metric.name,
+        "dataset_id": dataset.id if dataset else None,
+        "dataset_name": dataset.name if dataset else None,
+        "datasource_name": datasource.name if datasource else None,
+        "table": table or ""})
+    return out
 
 
 def _flatten(value, prefix="", out=None):

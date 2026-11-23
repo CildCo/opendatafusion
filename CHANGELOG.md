@@ -4,6 +4,32 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] - 2026-11-23
+
+### Added
+
+- Datasource health history and optional automatic metadata synchronisation,
+  with a health drawer and an auto-sync interval on each datasource.
+- A quick-sync dialog that creates a ready-to-run pipeline from a source table
+  and a target table.
+- Project quotas enforced on assets and jobs, with a usage drawer in the
+  administration console.
+- Sensitive-column scanning that proposes masking policies and can apply them
+  in one step.
+- Scheduled quality rules with an alert-on-failure option, and schema-drift
+  acceptance from the alert list.
+- Full backup export and restore, audit retention, SIEM forwarding, runtime
+  and high-availability information, and MCP activity in the platform
+  overview.
+- SSH jump-host support for SQL connectors through a shared connection helper.
+- Asset lineage for datasets, metrics, APIs and dashboards, shown as an
+  upstream graph with column-level edges in the studio editors.
+
+### Changed
+
+- All SQL engine creation now goes through one connection service so SSH
+  tunnelling, timeouts and driver options behave the same everywhere.
+
 ## [1.4.0] - 2026-11-23
 
 ### Added

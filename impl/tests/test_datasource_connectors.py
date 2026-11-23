@@ -219,7 +219,9 @@ def test_s3_probe_and_metadata(seeded, monkeypatch):
     monkeypatch.setattr("odf.connectors.s3.ping", lambda dsn: True)
     monkeypatch.setattr("odf.connectors.s3.table_name", lambda opts: "orders")
     monkeypatch.setattr("odf.connectors.s3.describe", lambda dsn: [
-        {"name": "id", "type": "BIGINT"}, {"name": "name", "type": "VARCHAR"}])
+        {"key": "folder/orders.parquet", "table": "orders", "columns": [
+            {"name": "id", "type": "BIGINT"},
+            {"name": "name", "type": "VARCHAR"}]}])
     c = TestClient(app)
     created = c.post("/api/v1/datasources", headers=headers(), json={
         "name": "lake", "kind": "s3",

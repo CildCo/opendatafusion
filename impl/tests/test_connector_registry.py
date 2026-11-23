@@ -162,8 +162,7 @@ def test_hive_roundtrip_and_capabilities():
     assert back["database"] == "default" and back["password"] == "pw"
     assert back["auth"] == "NOSASL"
     caps = capabilities("hive")
-    assert caps["metadata"] and caps["query"]
-    assert caps["source"] is False
+    assert caps["metadata"] and caps["query"] and caps["source"]
 
 
 def test_dm_roundtrip_and_capabilities():
@@ -174,3 +173,16 @@ def test_dm_roundtrip_and_capabilities():
     assert back["schema"] == "APP" and back["password"] == "pw"
     caps = capabilities("dm")
     assert caps["metadata"] and caps["query"]
+
+
+def test_postgres_ssh_tunnel_fields_roundtrip():
+    values = {"host": "db.internal", "port": 5432, "database": "app",
+              "username": "odf", "password": "pw",
+              "ssh_host": "bastion", "ssh_port": 2222,
+              "ssh_user": "jump", "ssh_password": "ssh-secret"}
+    dsn = build_dsn("postgres", values)
+    assert "ssh_host=bastion" in dsn
+    back = parse_dsn("postgres", dsn)
+    assert back["ssh_host"] == "bastion"
+    assert back["ssh_port"] == 2222
+    assert back["ssh_password"] == "ssh-secret"

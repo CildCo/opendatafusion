@@ -15,6 +15,11 @@ def _aware(dt):
 
 
 def enqueue(session, flow_id: int, run_at: datetime | None = None) -> Job:
+    from odf.models import Flow
+    from odf.services.quota import check_job
+    flow = session.get(Flow, flow_id)
+    if flow:
+        check_job(session, flow.project_id)
     existing = (session.query(Job)
                 .filter(Job.flow_id == flow_id,
                         Job.status.in_(("queued", "running")))
@@ -127,6 +132,11 @@ def requeue_stale(session, timeout_s: int = 300) -> int:
 
 
 def enqueue_asset(session, asset_id, asset_type="pipeline", payload=None):
+    from odf.models import Asset
+    from odf.services.quota import check_job
+    asset = session.get(Asset, asset_id)
+    if asset:
+        check_job(session, asset.project_id)
     existing = (session.query(Job)
                 .filter(Job.asset_id == asset_id, Job.asset_type == asset_type,
                         Job.status.in_(("queued", "running"))).first())
@@ -277,6 +287,85 @@ def scheduler_tick(session, now=None):
         deliver_due(session)
     except Exception:
         pass
+    _auto_sync_datasources(session, now)
+    _scheduled_quality(session, now)
+    try:
+        from odf.services.audit_ops import maintenance
+        maintenance(session, now)
+    except Exception:
+        pass
+
+
+def _auto_sync_datasources(session, now):
+    from odf.connectors.registry import supports
+    from odf.services.datasource_health import due_syncs, record
+    from odf.services.metadata import sync_datasource
+    from time import monotonic
+    try:
+        due = due_syncs(session, now)
+    except Exception:
+        return
+    for ds in due:
+        if not supports(ds.kind, "metadata"):
+            continue
+        ds.last_sync_at = now
+        ds.last_sync_status = "running"
+        session.commit()
+        started = monotonic()
+        try:
+            sync_datasource(session, ds.id)
+            ds = session.get(type(ds), ds.id)
+            ds.last_sync_status = "ok"
+            session.commit()
+            record(session, ds.id, "auto_sync", True, "",
+                   (monotonic() - started) * 1000)
+        except Exception as error:
+            session.rollback()
+            ds = session.get(type(ds), ds.id)
+            if ds:
+                ds.last_sync_status = "failed"
+                session.commit()
+                record(session, ds.id, "auto_sync", False, str(error),
+                       (monotonic() - started) * 1000)
+
+
+def _scheduled_quality(session, now):
+    from odf.models import QualityRule
+    from odf.services.alerts import raise_alert
+    from odf.services.quality import run_rule
+    from odf.services.scheduler import cron_to_trigger
+    rules = (session.query(QualityRule)
+             .filter(QualityRule.enabled.is_(True),
+                     QualityRule.schedule_cron.isnot(None)).all())
+    for rule in rules:
+        try:
+            trigger = cron_to_trigger(rule.schedule_cron)
+        except Exception:
+            continue
+        last = rule.last_run_at
+        if last is not None:
+            if last.tzinfo is None:
+                last = last.replace(tzinfo=now.tzinfo)
+            nxt = trigger.get_next_fire_time(None, last)
+            if nxt is not None and nxt > now:
+                continue
+        rule.last_run_at = now
+        session.commit()
+        try:
+            result = run_rule(session, rule.id)
+        except Exception as error:
+            result = None
+            session.rollback()
+            if rule.alert_on_fail:
+                raise_alert(session, rule.project_id, "warning",
+                            "quality check error: %s" % rule.name,
+                            {"rule_id": rule.id, "error": str(error)[:300]})
+            continue
+        if result is not None and result.status != "pass" and rule.alert_on_fail:
+            raise_alert(session, rule.project_id, "warning",
+                        "quality check failed: %s" % rule.name,
+                        {"rule_id": rule.id, "status": result.status,
+                         "detail": result.detail_json})
 
 
 def scheduler_loop(poll_s: int = 5) -> None:

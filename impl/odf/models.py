@@ -60,7 +60,25 @@ class Datasource(Base):
     name: Mapped[str] = mapped_column(String(128))
     kind: Mapped[str] = mapped_column(String(32))
     dsn_encrypted: Mapped[str] = mapped_column(Text)
+    auto_sync_minutes: Mapped[int] = mapped_column(Integer, default=0)
+    last_sync_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    last_sync_status: Mapped[str | None] = mapped_column(
+        String(16), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class DatasourceHealth(Base):
+    __tablename__ = "datasource_health"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    datasource_id: Mapped[int] = mapped_column(
+        ForeignKey("datasource.id"), index=True)
+    action: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(16))
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now,
+                                         index=True)
 
 
 class Dataset(Base):
@@ -186,6 +204,10 @@ class QualityRule(Base):
     column_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     config_json: Mapped[dict] = mapped_column(JSON, default=dict)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    schedule_cron: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    alert_on_fail: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class QualityResult(Base):
@@ -252,6 +274,7 @@ class ColumnPolicy(Base):
     classification: Mapped[str] = mapped_column(String(32), default="pii")
     mask_type: Mapped[str] = mapped_column(String(32), default="redact")
     exempt_roles_json: Mapped[list] = mapped_column(JSON, default=list)
+    source: Mapped[str] = mapped_column(String(16), default="manual")
     created_by: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  default=now)
@@ -602,3 +625,4 @@ class JobDependency(Base):
     upstream_id: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  default=now)
+
