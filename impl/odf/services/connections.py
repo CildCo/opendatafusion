@@ -33,8 +33,9 @@ def engine_for_dsn(dsn, kind=""):
                       query=query)
     else:
         url = url.set(query=query)
-    engine = create_engine(str(url),
-                           connect_args=connect_args_for(kind, str(url)))
+    rendered = url.render_as_string(hide_password=False)
+    engine = create_engine(rendered,
+                           connect_args=connect_args_for(kind, rendered))
     try:
         yield engine
     finally:

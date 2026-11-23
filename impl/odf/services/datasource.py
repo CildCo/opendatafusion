@@ -257,8 +257,8 @@ def update_datasource(session, project_id: int, datasource_id: int,
 
 def delete_datasource(session, project_id: int, datasource_id: int,
                       force: bool = False) -> dict:
-    from odf.models import (Column, Dataset, DatasetTag, QualityResult,
-                            QualityRule, StandardMapping)
+    from odf.models import (Column, Dataset, DatasetTag, DatasourceHealth,
+                            QualityResult, QualityRule, StandardMapping)
 
     ds = session.get(Datasource, datasource_id)
     if not ds or ds.project_id != project_id:
@@ -294,6 +294,8 @@ def delete_datasource(session, project_id: int, datasource_id: int,
             synchronize_session=False)
         session.query(Dataset).filter(Dataset.id.in_(ids)).delete(
             synchronize_session=False)
+    session.query(DatasourceHealth).filter_by(
+        datasource_id=ds.id).delete(synchronize_session=False)
     session.delete(ds)
     session.commit()
     return blockers

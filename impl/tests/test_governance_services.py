@@ -57,6 +57,21 @@ def test_datasource_health_records_history():
     assert rows[0]["error"] == "boom"
 
 
+def test_delete_datasource_removes_health_history():
+    from odf.models import DatasourceHealth
+    from odf.services.datasource import delete_datasource
+    from odf.services.datasource_health import record
+    s = _session()
+    ds = Datasource(project_id=1, name="ds", kind="sqlite",
+                    dsn_encrypted="x")
+    s.add(ds)
+    s.commit()
+    record(s, ds.id, "test", True, "", 5)
+    delete_datasource(s, 1, ds.id, force=True)
+    assert (s.query(DatasourceHealth)
+            .filter_by(datasource_id=ds.id).count()) == 0
+
+
 def test_pii_scan_finds_and_masks_columns(monkeypatch):
     from odf.models import ColumnPolicy
     from odf.services import pii
