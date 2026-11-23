@@ -4,6 +4,13 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.8.1] - 2026-11-24
+
+### Fixed
+
+- Metric and SQL-dataset validation now return curated expression and column
+  errors instead of raw exception text.
+
 ## [1.8.0] - 2026-11-24
 
 ### Added

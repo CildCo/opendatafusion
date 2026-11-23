@@ -12,12 +12,32 @@ EXPR_TOKEN = re.compile(r"[A-Za-z_]\w*|\d+(?:\.\d+)?|[()+\-*/,]|\S")
 EXPR_AGG = {"sum", "count", "avg", "min", "max"}
 
 
+class ExpressionError(ValueError):
+    def __init__(self, code, detail=""):
+        self.code = code
+        self.detail = str(detail or "")[:64]
+        super().__init__(code)
+
+
+def expression_message(error):
+    messages = {
+        "required": "expression is required",
+        "characters": "expression contains unsupported characters",
+        "function": "unsupported function: %s",
+        "column": "unknown column: %s",
+        "token": "unsupported token: %s",
+        "aggregate": "expression needs an aggregate function",
+    }
+    template = messages.get(error.code, "invalid expression")
+    return template % error.detail if "%s" in template else template
+
+
 def compile_expression(expr, columns):
     from odf.apistudio.compiler import quote_ident
     if not isinstance(expr, str) or not expr.strip() or len(expr) > 1000:
-        raise ValueError("expression is required")
+        raise ExpressionError("required")
     if any(ch in expr for ch in ("'", '"', ";", "--", "/*", "*/")):
-        raise ValueError("expression contains unsupported characters")
+        raise ExpressionError("characters")
     tokens = EXPR_TOKEN.findall(expr)
     out, used_agg = [], False
     for index, token in enumerate(tokens):
@@ -26,20 +46,20 @@ def compile_expression(expr, columns):
             nxt = tokens[index + 1] if index + 1 < len(tokens) else ""
             if nxt == "(":
                 if low not in EXPR_FUNCS:
-                    raise ValueError("unsupported function: %s" % token)
+                    raise ExpressionError("function", token)
                 if low in EXPR_AGG:
                     used_agg = True
                 out.append(low.upper())
             elif token in columns:
                 out.append(quote_ident(token))
             else:
-                raise ValueError("unknown column: %s" % token)
+                raise ExpressionError("column", token)
         elif token in "()+-*/, " or re.fullmatch(r"\d+(?:\.\d+)?", token):
             out.append(token)
         else:
-            raise ValueError("unsupported token: %s" % token)
+            raise ExpressionError("token", token)
     if not used_agg:
-        raise ValueError("expression needs an aggregate function")
+        raise ExpressionError("aggregate")
     return "".join(out)
 
 
@@ -87,8 +107,9 @@ def validate_dataset(session, content, project_id):
         try:
             content["columns"] = derive_sql_columns(session, content,
                                                     project_id)
-        except ValueError as exc:
-            return [_err("sql", str(exc)[:300])]
+        except ValueError:
+            return [_err("sql",
+                         "could not derive columns from the SQL dataset")]
         if not content["columns"]:
             return [_err("sql", "SQL dataset returned no columns")]
         return []
@@ -161,8 +182,8 @@ def validate_metric(session, content, project_id):
     if expr is not None:
         try:
             compile_expression(expr, names)
-        except ValueError as exc:
-            errs.append(_err("measure.expr", str(exc)))
+        except ExpressionError as exc:
+            errs.append(_err("measure.expr", expression_message(exc)))
         ds_id = (ds_content.get("query") or {}).get("datasource_id")
         from odf.models import Datasource
         from odf.services.masking import datasource_has_policies
