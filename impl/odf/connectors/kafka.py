@@ -16,7 +16,7 @@ def ping(dsn, timeout=5):
         request_timeout_ms=max(1000, timeout * 1000),
         api_version_auto_timeout_ms=max(1000, timeout * 1000))
     try:
-        client.list_topics(timeout=max(1, timeout))
+        client.list_topics()
         return True
     finally:
         client.close()

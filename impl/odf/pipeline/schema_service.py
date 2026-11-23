@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from odf.apistudio.catalog import table_column_info
+from odf.connectors.registry import supports
 from odf.models import Asset, AssetVersion, Datasource
 from odf.pipeline.nodes import engine as _engine  # noqa: F401
 from odf.pipeline.nodes import sink as _sink  # noqa: F401
@@ -27,8 +28,11 @@ def content_schemas(session, content, project_id=0):
             if project_id and ds.project_id != project_id:
                 raise ValueError("datasource for node %s is outside the project"
                                  % nid)
-            info = table_column_info(session, ds, config.get("table"))
-            schema = [Column(c["name"], c["type"]) for c in info]
+            if supports(ds.kind, "metadata"):
+                info = table_column_info(session, ds, config.get("table"))
+                schema = [Column(c["name"], c["type"]) for c in info]
+            else:
+                schema = []
         else:
             edges = input_edges(content, nid)
             inputs = [schemas[e["from"]] for e in edges
@@ -43,13 +47,15 @@ def content_schemas(session, content, project_id=0):
                 if project_id and ds.project_id != project_id:
                     raise ValueError(
                         "datasource for node %s is outside the project" % nid)
-                target = {c["name"] for c in table_column_info(
-                    session, ds, config.get("table"))}
                 schema = inputs[0].schema if inputs else []
-                missing = [c.name for c in schema if c.name not in target]
-                if missing:
-                    raise ValueError("node %s sink missing target columns: %s"
-                                     % (nid, ", ".join(missing)))
+                if supports(ds.kind, "metadata"):
+                    target = {c["name"] for c in table_column_info(
+                        session, ds, config.get("table"))}
+                    missing = [c.name for c in schema if c.name not in target]
+                    if missing:
+                        raise ValueError(
+                            "node %s sink missing target columns: %s"
+                            % (nid, ", ".join(missing)))
             else:
                 try:
                     schema = get_node(node["type"])().schema(inputs, config)

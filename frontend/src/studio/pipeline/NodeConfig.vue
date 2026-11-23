@@ -14,19 +14,21 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="t('nconf.table')">
-          <el-select v-model="cfg.table" filterable style="width: 100%"
+          <el-input v-if="isKafka" v-model="cfg.table" placeholder="topic"
+                    @input="$emit('update')" />
+          <el-select v-else v-model="cfg.table" filterable style="width: 100%"
                      @change="onTable">
             <el-option v-for="t in tables" :key="t.table"
                        :value="t.table" :label="`${t.schema}.${t.table}`" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('nconf.primaryKey')">
+        <el-form-item v-if="!isKafka" :label="t('nconf.primaryKey')">
           <el-select v-model="cfg.pk" filterable allow-create style="width: 100%">
             <el-option v-for="c in columns" :key="c.name" :value="c.name"
                        :label="c.name" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('nconf.cursorColumn')">
+        <el-form-item v-if="!isKafka" :label="t('nconf.cursorColumn')">
           <el-select v-model="cfg.cursor_column" clearable filterable
                      allow-create style="width: 100%">
             <el-option v-for="c in columns" :key="c.name" :value="c.name"
@@ -251,19 +253,21 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="t('nconf.table')">
-          <el-select v-model="cfg.table" filterable style="width: 100%"
+          <el-input v-if="isKafka" v-model="cfg.table" placeholder="topic"
+                    @input="$emit('update')" />
+          <el-select v-else v-model="cfg.table" filterable style="width: 100%"
                      @change="onTable">
             <el-option v-for="t in tables" :key="t.table"
                        :value="t.table" :label="`${t.schema}.${t.table}`" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('nconf.mode')">
+        <el-form-item v-if="!isKafka" :label="t('nconf.mode')">
           <el-select v-model="cfg.mode" style="width: 100%">
             <el-option value="upsert" label="upsert" />
             <el-option value="append" label="append" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('nconf.primaryKey')">
+        <el-form-item v-if="!isKafka" :label="t('nconf.primaryKey')">
           <el-select v-model="cfg.pk" multiple filterable allow-create
                      style="width: 100%">
             <el-option v-for="c in columns" :key="c.name" :value="c.name"
@@ -301,6 +305,11 @@ const availableSources = computed(() =>
   props.datasources.filter((d) => !d.capabilities || d.capabilities.source));
 const availableSinks = computed(() =>
   props.datasources.filter((d) => !d.capabilities || d.capabilities.sink));
+const isKafka = computed(() => {
+  const found = props.datasources.find(
+    (d) => d.id === cfg.value.datasource_id);
+  return found ? found.kind === "kafka" : false;
+});
 const tables = ref([]);
 const columns = ref([]);
 const cfg = ref({});

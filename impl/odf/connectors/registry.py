@@ -51,6 +51,8 @@ FIELDS = {
                "required": False, "default": "us-east-1"},
     "auth": {"key": "auth", "label": "Authentication", "type": "select",
              "required": False, "default": "NOSASL"},
+    "auth_source": {"key": "auth_source", "label": "Auth source",
+                    "type": "text", "required": False},
 }
 
 
@@ -129,7 +131,8 @@ SPECS = [
      "capabilities": _caps(query=False, source=False),
      "fields": [field("host"), field("port", default=27017),
                 field("database"), field("username", required=False),
-                field("password")]},
+                field("password"),
+                field("auth_source", required=False)],},
     {"kind": "gaussdb", "label": "GaussDB / openGauss", "group": "database",
      "capabilities": _caps(),
      "fields": [field("host"), field("port", default=5432),
@@ -251,9 +254,12 @@ def build_dsn(kind, values):
         if values.get("username"):
             auth = "%s:%s@" % (_q(values["username"]),
                                _q(values.get("password", "")))
-        return "mongodb://%s%s:%s/%s" % (
+        query = ""
+        if values.get("auth_source"):
+            query = "?authSource=" + _q(values["auth_source"])
+        return "mongodb://%s%s:%s/%s%s" % (
             auth, values["host"], values.get("port") or 27017,
-            _q(values.get("database", "")))
+            _q(values.get("database", "")), query)
     if kind == "sqlite":
         path = str(values.get("path", "")).strip()
         if path.startswith("sqlite:"):
@@ -341,10 +347,13 @@ def parse_dsn(kind, dsn):
                 "auth": (query.get("auth") or ["NOSASL"])[0]}
     if kind == "mongodb":
         parsed = urlparse(dsn)
+        query = parse_qs(parsed.query)
         return {"host": parsed.hostname or "", "port": parsed.port or 27017,
                 "database": unquote((parsed.path or "").lstrip("/")),
                 "username": unquote(parsed.username or ""),
-                "password": unquote(parsed.password or "")}
+                "password": unquote(parsed.password or ""),
+                "auth_source": (query.get("authSource")
+                                or [""])[0]}
     if kind == "sqlite":
         prefix = "sqlite:///"
         return {"path": dsn[len(prefix):] if dsn.startswith(prefix) else dsn}
