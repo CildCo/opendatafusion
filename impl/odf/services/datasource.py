@@ -158,6 +158,10 @@ def check_connection(dsn: str, timeout: int = 5,
             from odf.connectors import s3
             s3.ping(dsn)
             return {"ok": True, "error": None}
+        if kind == "hive":
+            from odf.connectors import hive
+            hive.ping(dsn)
+            return {"ok": True, "error": None}
         args = connect_args_for(kind, dsn, timeout)
         e = create_engine(dsn, connect_args=args)
         try:

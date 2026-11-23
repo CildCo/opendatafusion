@@ -5,7 +5,7 @@ renders, and how to build or parse its DSN.  The API, metadata sync, query
 paths and the console all read this registry so a type can never advertise a
 capability it does not implement.
 """
-from urllib.parse import quote, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 from sqlalchemy.engine import make_url
 
@@ -49,6 +49,8 @@ FIELDS = {
                    "type": "password", "required": True, "secret": True},
     "region": {"key": "region", "label": "Region", "type": "text",
                "required": False, "default": "us-east-1"},
+    "auth": {"key": "auth", "label": "Authentication", "type": "select",
+             "required": False, "default": "NOSASL"},
 }
 
 
@@ -128,6 +130,11 @@ SPECS = [
      "fields": [field("host"), field("port", default=5432),
                 field("database"), field("username"), field("password"),
                 field("sslmode", options=SSLMODES)]},
+    {"kind": "hive", "label": "Hive / Spark Thrift", "group": "analytics",
+     "capabilities": _caps(source=False),
+     "fields": [field("host"), field("port", default=10000),
+                field("database"), field("username"), field("password"),
+                field("auth", options=["NOSASL", "NONE", "LDAP"])]},
     {"kind": "duckdb", "label": "DuckDB", "group": "analytics",
      "capabilities": _caps(),
      "fields": [field("path", placeholder="duckdb:///data/analytics.db")]},
@@ -220,6 +227,15 @@ def build_dsn(kind, values):
             _q(values.get("region") or "us-east-1"))
         return "s3://%s/%s?%s" % (_q(values["bucket"]),
                                   _q(values["key"], safe="/"), query)
+    if kind == "hive":
+        auth = ""
+        if values.get("username"):
+            auth = "%s:%s@" % (_q(values["username"]),
+                               _q(values.get("password", "")))
+        query = "?auth=" + _q(values.get("auth") or "NOSASL")
+        return "hive://%s%s:%s/%s%s" % (
+            auth, values["host"], values.get("port") or 10000,
+            _q(values.get("database", "")), query)
     if kind == "mongodb":
         auth = ""
         if values.get("username"):
@@ -291,7 +307,6 @@ def parse_dsn(kind, dsn):
         return {"bootstrap": dsn[len("kafka://"):]
                 if dsn.startswith("kafka://") else dsn}
     if kind == "s3":
-        from urllib.parse import parse_qs
         parsed = urlparse(dsn)
         query = parse_qs(parsed.query)
         return {"endpoint": (query.get("endpoint") or [""])[0],
@@ -300,6 +315,14 @@ def parse_dsn(kind, dsn):
                 "access_key": (query.get("access_key") or [""])[0],
                 "secret_key": (query.get("secret_key") or [""])[0],
                 "region": (query.get("region") or ["us-east-1"])[0]}
+    if kind == "hive":
+        parsed = urlparse(dsn)
+        query = parse_qs(parsed.query)
+        return {"host": parsed.hostname or "", "port": parsed.port or 10000,
+                "database": unquote((parsed.path or "").lstrip("/")) or "default",
+                "username": unquote(parsed.username or ""),
+                "password": unquote(parsed.password or ""),
+                "auth": (query.get("auth") or ["NOSASL"])[0]}
     if kind == "mongodb":
         parsed = urlparse(dsn)
         return {"host": parsed.hostname or "", "port": parsed.port or 27017,
@@ -376,4 +399,4 @@ def _default_port(kind):
             "trino": 8080, "tidb": 4000, "doris": 9030,
             "starrocks": 9030, "oceanbase": 2881,
             "opengauss": 5432, "kingbase": 5432,
-            "gaussdb": 5432, "mongodb": 27017}.get(kind)
+            "gaussdb": 5432, "mongodb": 27017, "hive": 10000}.get(kind)
