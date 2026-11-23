@@ -131,8 +131,12 @@ function itemsFrom(list) {
     out.push({ type: "app", label: row.name, sub: "",
                route: `/apps/${row.id}/run` });
   }
+  const seenJobs = new Set();
   for (const row of list.jobs || []) {
-    out.push({ type: "job", label: row.name || row.target_name || "",
+    const name = row.name || row.target_name || "";
+    if (!name || seenJobs.has(name)) continue;
+    seenJobs.add(name);
+    out.push({ type: "job", label: name,
                sub: row.status || "", route: "/ops" });
   }
   return out;
