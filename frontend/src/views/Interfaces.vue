@@ -74,8 +74,10 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="t('iface.sql')" prop="sql_text">
-          <el-input v-model="form.sql_text" type="textarea" :rows="7"
-                    class="sql" placeholder="select * from t where day = ${day}" />
+          <sql-editor v-model="form.sql_text" class="sql" />
+          <p class="sql-hint">
+            select * from t where day = ${day}
+          </p>
         </el-form-item>
         <el-form-item :label="t('iface.params')">
           <div class="param-box">
@@ -174,7 +176,16 @@
         </el-form-item>
       </el-form>
       <el-button type="primary" :loading="execLoading" @click="doExecute">{{ t("iface.execute") }}</el-button>
-      <pre class="result">{{ result }}</pre>
+      <div v-if="execResult" class="exec-result">
+        <result-table :rows="execResult.results || []" :height="260"
+                      :empty-text="t('interface.resultTitle')" />
+        <details class="raw">
+          <summary>{{ t("interface.rawJson") }}</summary>
+          <json-view :value="execResult" />
+        </details>
+      </div>
+      <el-alert v-if="execError" :title="execError" type="error"
+                :closable="false" style="margin-top: 10px" />
     </el-dialog>
   </div>
 </template>
@@ -183,13 +194,17 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
+import { useRoute } from "vue-router";
 import { api, canWrite, errMsg, getProject } from "../api";
 import { loadPrefs, savePrefs } from "../prefs";
 import { fmtDate, t } from "../i18n";
 import EmptyState from "../components/EmptyState.vue";
 import EntityIcon from "../components/EntityIcon.vue";
 import PageHeader from "../components/PageHeader.vue";
+import JsonView from "../components/JsonView.vue";
+import ResultTable from "../components/ResultTable.vue";
 import StatusDot from "../components/StatusDot.vue";
+import SqlEditor from "../studio/api/SqlEditor.vue";
 
 const fmt = fmtDate;
 
@@ -206,11 +221,13 @@ const stats = ref({ days: [], total: { calls: 0, rows: 0 } });
 const execParams = ref([]);
 const execValues = reactive({});
 const execLoading = ref(false);
-const result = ref("");
+const execResult = ref(null);
+const execError = ref("");
 const prefs = loadPrefs("interfaces", { q: "", status: null, pageSize: 10 });
 const q = ref(prefs.q);
 const statusFilter = ref(prefs.status);
 const canEdit = canWrite();
+const route = useRoute();
 const formRef = ref(null);
 const formRules = computed(() => ({
   name: [{ required: true, message: t("iface.requiredFields"),
@@ -352,7 +369,8 @@ async function execute(row) {
     execParams.value = d.params || [];
     for (const k of Object.keys(execValues)) delete execValues[k];
     for (const p of execParams.value) execValues[p.name] = "";
-    result.value = "";
+    execResult.value = null;
+    execError.value = "";
     detail.value = d;
     execDialog.value = true;
   } catch (e) {
@@ -372,7 +390,8 @@ async function doExecute() {
       payload[p.name] = p.type === "number" ? Number(v) : v;
     }
     const r = await api.post(`/interfaces/${detail.value.id}/execute`, payload);
-    result.value = JSON.stringify(r, null, 2);
+    execResult.value = r;
+    execError.value = "";
     try {
       history.value = await api.get(
         `/interfaces/${detail.value.id}/history`);
@@ -382,7 +401,7 @@ async function doExecute() {
       /* history is advisory */
     }
   } catch (e) {
-    result.value = errMsg(e);
+    execError.value = errMsg(e);
   } finally {
     execLoading.value = false;
   }
@@ -397,10 +416,23 @@ async function copy(text) {
   }
 }
 
-onMounted(load);
+onMounted(async () => {
+  await load();
+  if (!route.query.new || !canEdit) return;
+  openCreate();
+  if (route.query.ds) form.datasource_id = Number(route.query.ds);
+  if (route.query.table) {
+    form.sql_text = `select * from ${route.query.table} limit 100`;
+  }
+});
 </script>
 
 <style scoped>
+.sql { display: block; border: 1px solid #e2e8f0; min-height: 160px; }
+.sql-hint { color: #94a3b8; font-size: 11px; margin: 4px 0 0; }
+.exec-result { margin-top: 12px; }
+.raw { margin-top: 8px; }
+.raw summary { cursor: pointer; color: #94a3b8; font-size: 12px; }
 .entity-cell {
   display: inline-flex;
   align-items: center;

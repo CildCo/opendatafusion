@@ -50,7 +50,7 @@
         <el-descriptions-item :label="t('audit.at')">{{ fmtDate(current.at) }}</el-descriptions-item>
       </el-descriptions>
       <h4>{{ t("audit.detail") }}</h4>
-      <pre class="detail">{{ JSON.stringify(current.detail, null, 2) }}</pre>
+      <json-view :value="current.detail || {}" />
     </el-drawer>
   </div>
 </template>
@@ -62,6 +62,7 @@ import { api, errMsg, getToken } from "../api";
 import { fmtDate, t } from "../i18n";
 import { loadPrefs, savePrefs } from "../prefs";
 import EmptyState from "../components/EmptyState.vue";
+import JsonView from "../components/JsonView.vue";
 import PageHeader from "../components/PageHeader.vue";
 
 const rows = ref([]);

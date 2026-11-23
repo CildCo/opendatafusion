@@ -107,7 +107,7 @@
         </el-descriptions-item>
       </el-descriptions>
       <h4>{{ t("alerts.detail") }}</h4>
-      <pre class="detail">{{ JSON.stringify(current.detail, null, 2) }}</pre>
+      <json-view :value="current.detail" />
     </el-drawer>
 
     <el-dialog v-model="ruleDialog" :title="t('alerts.newRule')"
@@ -116,14 +116,7 @@
         <el-form-item :label="t('alerts.ruleName')" required>
           <el-input v-model="ruleForm.name" />
         </el-form-item>
-        <el-form-item :label="t('alerts.ruleKind')" required>
-          <el-input v-model="ruleForm.kind" placeholder="mute" />
-          <div class="rule-hint">{{ t("alerts.ruleHint") }}</div>
-        </el-form-item>
-        <el-form-item :label="t('alerts.ruleConfig')">
-          <el-input v-model="ruleForm.config" type="textarea" :rows="4"
-                    placeholder="{}" />
-        </el-form-item>
+        <rule-builder v-model="ruleValue" />
       </el-form>
       <template #footer>
         <el-button @click="ruleDialog = false">{{ t("alerts.cancel") }}</el-button>
@@ -142,6 +135,8 @@ import { api, canWrite, errMsg } from "../api";
 import { t } from "../i18n";
 import EmptyState from "../components/EmptyState.vue";
 import PageHeader from "../components/PageHeader.vue";
+import JsonView from "../components/JsonView.vue";
+import RuleBuilder from "../components/RuleBuilder.vue";
 import StatusDot from "../components/StatusDot.vue";
 
 const rows = ref([]);
@@ -153,7 +148,8 @@ const severity = ref("");
 const drawer = ref(false);
 const current = ref({});
 const ruleDialog = ref(false);
-const ruleForm = reactive({ name: "", kind: "flow_health", config: "{}" });
+const ruleForm = reactive({ name: "" });
+const ruleValue = reactive({ kind: "mute", config: {} });
 
 const filtered = computed(() =>
   rows.value.filter((r) => !severity.value || r.severity === severity.value)
@@ -208,26 +204,20 @@ onMounted(load);
 
 function openRule() {
   ruleForm.name = "";
-  ruleForm.kind = "flow_health";
-  ruleForm.config = "{}";
+  ruleValue.kind = "mute";
+  ruleValue.config = {};
   ruleDialog.value = true;
 }
 
 async function createRule() {
-  if (!ruleForm.name.trim() || !ruleForm.kind.trim()) {
+  if (!ruleForm.name.trim()) {
     ElMessage.warning(t("alerts.nameRequired"));
-    return;
-  }
-  let config = {};
-  try {
-    config = ruleForm.config.trim() ? JSON.parse(ruleForm.config) : {};
-  } catch (e) {
-    ElMessage.error(t("alerts.ruleConfig") + ": " + errMsg(e));
     return;
   }
   try {
     await api.post("/alerts/rules", {
-      name: ruleForm.name.trim(), kind: ruleForm.kind.trim(), config,
+      name: ruleForm.name.trim(), kind: ruleValue.kind,
+      config: ruleValue.config,
     });
     ruleDialog.value = false;
     await load();

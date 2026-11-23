@@ -14,6 +14,9 @@
       <el-button v-if="isLakehouse" @click="openProperties">
         {{ t("cat.tableProperties") }}
       </el-button>
+      <el-button v-if="canCreate" @click="createInterface">
+        {{ t("catd.createInterface") }}
+      </el-button>
       <el-button @click="tagDialog = true">{{ t("cat.tag") }}</el-button>
       <el-button :loading="loading" @click="load">{{ t("cat.refresh") }}</el-button>
     </div>
@@ -108,8 +111,20 @@
             </div>
             <el-table :data="sample.rows" size="small" border height="420">
               <el-table-column v-for="c in sample.columns" :key="c"
-                               :prop="c" :label="c" min-width="140"
-                               show-overflow-tooltip />
+                               :label="c" min-width="140">
+                <template #default="{ row }">
+                  <el-popover v-if="isJsonValue(row[c])" placement="left"
+                              :width="340" trigger="click">
+                    <template #reference>
+                      <el-button link>{{ t("interface.rawJson") }}</el-button>
+                    </template>
+                    <json-view :value="row[c]" />
+                  </el-popover>
+                  <span v-else-if="row[c] === null || row[c] === undefined"
+                        class="muted">-</span>
+                  <span v-else class="cell-text">{{ row[c] }}</span>
+                </template>
+              </el-table-column>
             </el-table>
           </template>
           <el-empty v-else :description="t('catd.noSample')" :image-size="70" />
@@ -264,15 +279,8 @@
 
     <el-dialog v-model="propsOpen" :title="t('cat.propsTitle')" width="600px">
       <p class="muted" style="margin-top: 0">{{ t("cat.propsHint") }}</p>
-      <div v-for="(row, i) in props.rows" :key="i" class="prop-row">
-        <el-input v-model="row.key" placeholder="gc.enabled" size="small" />
-        <el-input v-model="row.value" placeholder="true" size="small" />
-        <el-button link type="danger" size="small"
-                   @click="props.rows.splice(i, 1)">{{ t("cat.delete") }}</el-button>
-      </div>
-      <el-button link @click="props.rows.push({ key: '', value: '' })">
-        + {{ t("cat.addProperty") }}
-      </el-button>
+      <property-editor v-model="props.values"
+                       :suggestions="propertySuggestions" />
       <template #footer>
         <el-button @click="propsOpen = false">{{ t("cat.cancel") }}</el-button>
         <el-button type="primary" :loading="props.saving"
@@ -284,12 +292,14 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { Right } from "@element-plus/icons-vue";
-import { api, errMsg, getProject } from "../api";
+import { api, canWrite, errMsg, getProject } from "../api";
 import { fmtDate, t } from "../i18n";
 import GraphCanvas from "../components/GraphCanvas.vue";
+import JsonView from "../components/JsonView.vue";
+import PropertyEditor from "../components/PropertyEditor.vue";
 
 function tr(key, vars = {}) {
   return Object.entries(vars).reduce(
@@ -297,6 +307,8 @@ function tr(key, vars = {}) {
 }
 
 const route = useRoute();
+const router = useRouter();
+const canCreate = canWrite();
 const datasetId = computed(() => Number(route.params.id));
 const detail = ref({});
 const notFound = ref(false);
@@ -334,7 +346,17 @@ const tagDialog = ref(false);
 const newTag = ref("");
 const allTags = ref([]);
 const propsOpen = ref(false);
-const props = reactive({ saving: false, rows: [{ key: "", value: "" }] });
+const props = reactive({ saving: false, values: {} });
+
+const propertySuggestions = [
+  { key: "gc.enabled", value: "true" },
+  { key: "write.metadata.delete-after-commit.enabled", value: "true" },
+  { key: "write.metadata.previous-versions-max", value: "100" },
+  { key: "write.target-file-size-bytes", value: "134217728" },
+  { key: "write.distribution-mode", value: "hash" },
+  { key: "write.parquet.compression-codec", value: "zstd" },
+  { key: "format-version", value: "2" },
+];
 
 const stats = computed(() => detail.value.stats || {
   column_count: 0, rule_count: 0, last_quality: null, last_activity_at: null,
@@ -344,6 +366,19 @@ const loaded = { preview: false, quality: false, impact: false,
                  history: false, profile: false };
 
 const fmt = fmtDate;
+
+function createInterface() {
+  const table = detail.value.schema
+    ? `${detail.value.schema}.${detail.value.table}`
+    : detail.value.table;
+  router.push({ path: "/interfaces",
+                query: { new: "1", ds: detail.value.datasource_id,
+                         table } });
+}
+
+function isJsonValue(value) {
+  return value !== null && typeof value === "object";
+}
 
 function brief(detailJson) {
   const text = JSON.stringify(detailJson || {});
@@ -480,14 +515,13 @@ async function detachTag(name) {
 }
 
 function openProperties() {
-  props.rows = [{ key: "gc.enabled", value: "true" }];
+  props.values = { "gc.enabled": "true" };
   propsOpen.value = true;
 }
 
 async function saveProperties() {
   const properties = Object.fromEntries(
-    props.rows.filter((r) => r.key.trim())
-      .map((r) => [r.key.trim(), r.value]));
+    Object.entries(props.values).filter(([key]) => key.trim()));
   if (!Object.keys(properties).length) {
     ElMessage.warning(t("cat.propertiesRequired"));
     return;

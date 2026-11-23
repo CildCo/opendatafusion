@@ -162,6 +162,7 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
+import { useRoute } from "vue-router";
 import { api, canWrite, errMsg } from "../api";
 import { loadPrefs, savePrefs } from "../prefs";
 import { t } from "../i18n";
@@ -184,6 +185,7 @@ const prefs = loadPrefs("datasources", { q: "", kind: "", pageSize: 10 });
 const q = ref(prefs.q);
 const kind = ref(prefs.kind);
 const canEdit = canWrite();
+const route = useRoute();
 const createRef = ref(null);
 const createRules = computed(() => ({
   name: [{ required: true, message: t("ds.nameRequired"), trigger: "blur" }],
@@ -392,6 +394,7 @@ async function showTables(row) {
   }
 }
 onMounted(load);
+onMounted(() => { if (route.query.new && canEdit) openCreate(); });
 </script>
 
 <style scoped>

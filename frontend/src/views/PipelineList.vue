@@ -52,7 +52,7 @@
 
 <script setup>
 import { onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, canWrite, errMsg } from "../api";
 import { t } from "../i18n";
@@ -66,6 +66,7 @@ const selected = ref([]);
 const canEdit = canWrite();
 const loading = ref(false);
 const router = useRouter();
+const route = useRoute();
 
 async function load() {
   loading.value = true;
@@ -137,6 +138,7 @@ function open(row) {
 }
 
 onMounted(load);
+onMounted(() => { if (route.query.new && canEdit) create(); });
 </script>
 
 <style scoped>

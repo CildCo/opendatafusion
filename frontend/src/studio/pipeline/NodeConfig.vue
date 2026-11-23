@@ -222,8 +222,8 @@
     <template v-else-if="node.data.kind === 'flink_sql'">
       <el-form label-width="70px" size="small">
         <el-form-item label="SQL">
-          <el-input v-model="cfg.statement" type="textarea" :rows="8"
-                    @change="$emit('update')" />
+          <sql-editor v-model="cfg.statement" class="node-sql"
+                      @update:model-value="$emit('update')" />
         </el-form-item>
         <el-form-item :label="t('nconf.mode')">
           <el-select v-model="cfg.attached" style="width: 100%"
@@ -384,6 +384,12 @@ function onTable(name) {
 </script>
 
 <style scoped>
+.node-sql {
+  display: block;
+  width: 100%;
+  min-height: 180px;
+  border: 1px solid #e2e8f0;
+}
 .config { padding: 12px; }
 .row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
 </style>
