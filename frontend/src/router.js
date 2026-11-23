@@ -1,6 +1,14 @@
 import { createRouter, createWebHashHistory } from "vue-router";
-import { getToken } from "./api";
+import { getPlatformAdmin, getToken } from "./api";
 import Layout from "./views/Layout.vue";
+
+const AdminLayout = () => import("./views/admin/AdminLayout.vue");
+const AdminOverview = () => import("./views/admin/AdminOverview.vue");
+const AdminProjects = () => import("./views/admin/AdminProjects.vue");
+const AdminIdentity = () => import("./views/admin/AdminIdentity.vue");
+const AdminAppearance = () => import("./views/admin/AdminAppearance.vue");
+const AdminPlatform = () => import("./views/admin/AdminPlatform.vue");
+const AdminOperations = () => import("./views/admin/AdminOperations.vue");
 
 const Login = () => import("./views/Login.vue");
 const PublicShare = () => import("./views/PublicShare.vue");
@@ -85,8 +93,23 @@ const routes = [
       { path: "quality", component: Quality, meta: { title: "数据质量" } },
       { path: "alerts", component: Alerts, meta: { title: "告警" } },
       { path: "changes", component: Changes, meta: { title: "变更" } },
-      { path: "users", component: Users, meta: { title: "用户" } },
-      { path: "audit", component: Audit, meta: { title: "审计" } },
+      { path: "users", redirect: "/admin/users" },
+      { path: "audit", redirect: "/admin/audit" },
+    ],
+  },
+  {
+    path: "/admin",
+    component: AdminLayout,
+    children: [
+      { path: "", redirect: "/admin/overview" },
+      { path: "overview", component: AdminOverview },
+      { path: "users", component: Users },
+      { path: "projects", component: AdminProjects },
+      { path: "identity", component: AdminIdentity },
+      { path: "appearance", component: AdminAppearance },
+      { path: "platform", component: AdminPlatform },
+      { path: "operations", component: AdminOperations },
+      { path: "audit", component: Audit },
     ],
   },
 ];
@@ -100,6 +123,7 @@ router.beforeEach((to) => {
   if (to.path.startsWith("/share/") || to.path === "/oidc") return true;
   if (to.path !== "/login" && !getToken()) return "/login";
   if (to.path === "/login" && getToken()) return "/dashboard";
+  if (to.path.startsWith("/admin") && !getPlatformAdmin()) return "/dashboard";
   return true;
 });
 

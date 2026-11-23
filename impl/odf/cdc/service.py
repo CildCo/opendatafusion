@@ -131,14 +131,21 @@ def create_source(session, project_id: int, name: str, config: dict,
                 .filter_by(project_id=project_id, name=name).first())
     if existing:
         raise ValueError("cdc source already exists")
+    from odf.services.platform import get_doc
+    platform_cdc = get_doc(session, mask=True)["cdc"]
+    config = dict(config or {})
+    if not config.get("topic_prefix") and platform_cdc.get("topic_prefix"):
+        config["topic_prefix"] = platform_cdc["topic_prefix"]
+    if not config.get("kafka_bootstrap")             and platform_cdc.get("kafka_bootstrap"):
+        config["kafka_bootstrap"] = platform_cdc["kafka_bootstrap"]
     connector = connector_name(project_id, name)
-    payload = connector_payload(config or {}, password, connector)
+    payload = connector_payload(config, password, connector)
     response = _client().put("/connectors/%s/config" % connector,
                              json=payload)
     response.raise_for_status()
     source = CdcSource(project_id=project_id, name=name,
                        connector_name=connector, status="pending",
-                       config_json=dict(config or {}),
+                       config_json=config,
                        password_encrypted=encrypt_secret(password or ""),
                        created_by=actor)
     session.add(source)

@@ -1,4 +1,3 @@
-from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -95,6 +94,31 @@ class Settings(BaseSettings):
     k8s_quota_pods: int = 20
 
 
-@lru_cache
+_overrides: dict = {}
+
+
+def apply_overrides(values: dict) -> None:
+    _overrides.update(values)
+
+
+def replace_overrides(values: dict) -> None:
+    _overrides.clear()
+    _overrides.update(values)
+
+
+def clear_overrides() -> None:
+    _overrides.clear()
+
+
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    for key, value in _overrides.items():
+        setattr(settings, key, value)
+    return settings
+
+
+def _cache_clear() -> None:
+    """Compatibility shim; settings are rebuilt on every call."""
+
+
+get_settings.cache_clear = _cache_clear

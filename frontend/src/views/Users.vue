@@ -41,6 +41,14 @@
                        @change="(v) => changeActive(row, v)" />
           </template>
         </el-table-column>
+        <el-table-column :label="t('users.platformAdmin')" width="150">
+          <template #default="{ row }">
+            <el-switch :model-value="row.platform_admin"
+                       :disabled="platformLocked(row)"
+                       :title="platformLockReason(row)"
+                       @change="(v) => changePlatformAdmin(row, v)" />
+          </template>
+        </el-table-column>
       </el-table>
       <el-empty v-if="!loading && !filtered.length"
                 :description="t('users.empty')" />
@@ -131,6 +139,21 @@ const activeAdmins = computed(() =>
 function locked(row) {
   if (row.username === me.value) return true;
   return row.role === "admin" && row.active && activeAdmins.value.length === 1;
+}
+
+const platformAdmins = computed(() =>
+  rows.value.filter((u) => u.platform_admin || u.role === "admin"));
+
+function platformLocked(row) {
+  if (row.username === me.value) return true;
+  return platformAdmins.value.length <= 1 && platformAdmins.value[0]
+    && platformAdmins.value[0].id === row.id;
+}
+
+function platformLockReason(row) {
+  if (row.username === me.value) return t("users.selfPlatformHint");
+  if (platformLocked(row)) return t("users.lastPlatformHint");
+  return "";
 }
 
 function lockReason(row) {
@@ -259,6 +282,18 @@ async function changeRole(row, role) {
     ElMessage.success(t("users.updated"));
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));
+  }
+}
+
+async function changePlatformAdmin(row, value) {
+  try {
+    await api.put(
+      `/users/${row.id}/platform-admin?platform_admin=${value ? "true" : "false"}`);
+    await load();
+    ElMessage.success(t("users.updated"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+    await load();
   }
 }
 

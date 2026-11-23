@@ -2,10 +2,10 @@
   <div class="login-page">
     <section class="intro">
       <div class="intro-brand">
-        <span class="mark">OD</span>
-        <span>OpenDataFusion</span>
+        <span class="mark">{{ initials }}</span>
+        <span>{{ brand.name }}</span>
       </div>
-      <h1>OpenData<br>Fusion.</h1>
+      <h1>{{ brandTop }}<br>{{ brandBottom }}.</h1>
       <p class="statement">
         {{ locale === "en" ? "From sources to pipelines, models, interfaces and apps," : "从数据源到管道、模型、接口和应用，" }}<br>
         {{ locale === "en" ? "one workspace for the whole data journey." : "一个工作区完成数据流动的全过程。" }}
@@ -35,6 +35,8 @@
           <el-button link style="float:right" @click="toggleLocale">{{ locale === "en" ? "中文" : "English" }}</el-button>
           <h2>{{ locale === "en" ? "Sign in" : "登录工作区" }}</h2>
           <p>{{ t("login.subtitle") }}</p>
+          <el-alert v-if="announcement" :title="announcement" type="info"
+                    :closable="false" style="margin-top: 10px" />
         </header>
 
         <el-form label-position="top" @submit.prevent="submit">
@@ -75,12 +77,20 @@
 </template>
 
 <script setup>
-import { locale, t, toggleLocale } from "../i18n";
-import { onMounted, ref } from "vue";
+import { locale, setLocale, t, toggleLocale } from "../i18n";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { Lock, User, Key } from "@element-plus/icons-vue";
 import { api, errMsg } from "../api";
 
+const brand = ref({ name: "OpenDataFusion", color: "#1d4ed8" });
+const announcement = ref("");
+const initials = computed(() =>
+  (brand.value.name || "OD").slice(0, 2).toUpperCase());
+const brandTop = computed(() => (brand.value.name || "OpenDataFusion")
+  .split(" ")[0]);
+const brandBottom = computed(() => (brand.value.name || "OpenDataFusion")
+  .split(" ").slice(1).join(" ") || "Fusion");
 const username = ref("admin");
 const password = ref("");
 const projectId = ref(1);
@@ -113,6 +123,25 @@ function oidcLogin() {
 }
 
 onMounted(async () => {
+  try {
+    const publicInfo = await (await fetch("/api/v1/platform/public")).json();
+    if (publicInfo.brand) {
+      brand.value = publicInfo.brand;
+      announcement.value = publicInfo.announcement || "";
+      if (publicInfo.brand.color) {
+        document.documentElement.style.setProperty(
+          "--odf-primary", publicInfo.brand.color);
+        document.documentElement.style.setProperty(
+          "--el-color-primary", publicInfo.brand.color);
+      }
+      const stored = localStorage.getItem("odf_locale");
+      if (!stored && publicInfo.default_locale) {
+        setLocale(publicInfo.default_locale);
+      }
+    }
+  } catch {
+    /* keep defaults */
+  }
   try {
     const r = await fetch("/api/v1/auth/oidc/enabled");
     oidcEnabled.value = Boolean((await r.json()).enabled);

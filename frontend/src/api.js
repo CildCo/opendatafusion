@@ -4,6 +4,7 @@ import { localizeError } from "./errors";
 const TOKEN_KEY = "odf_token";
 const ROLE_KEY = "odf_role";
 const PROJECT_KEY = "odf_project";
+const PLATFORM_KEY = "odf_platform_admin";
 
 const LOCALE_KEY = "odf_locale";
 
@@ -16,6 +17,10 @@ function acceptLanguage() {
   return lang === "en" ? "en-US,en;q=0.9" : "zh-CN,zh;q=0.9";
 }
 export const getRole = () => localStorage.getItem(ROLE_KEY);
+export const getPlatformAdmin = () =>
+  localStorage.getItem(PLATFORM_KEY) === "1";
+export const setPlatformAdmin = (value) =>
+  localStorage.setItem(PLATFORM_KEY, value ? "1" : "0");
 export const canWrite = () =>
   ["editor", "approver", "admin"].includes(getRole());
 export const canApprove = () =>
@@ -27,6 +32,7 @@ export const clearSession = () => {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(ROLE_KEY);
   localStorage.removeItem(PROJECT_KEY);
+  localStorage.removeItem(PLATFORM_KEY);
 };
 
 async function request(path, opts = {}) {
@@ -124,6 +130,7 @@ export const api = {
     setToken(data.token);
     const me = await request("/auth/me");
     localStorage.setItem(ROLE_KEY, me.role || "viewer");
+    setPlatformAdmin(me.platform_admin);
     setProject(project_id);
     return me;
   },

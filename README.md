@@ -106,6 +106,7 @@ Chinese from the header switch.
 | **Catalog & lineage** | Table and column search, tags, column-level lineage, downstream impact analysis and health events. |
 | **Governance** | Column classification and masking, row policies, data standards, freshness/regex/enum/schema quality rules and audit-backed policy changes. |
 | **Operations** | Ops center, queue summary, job retry, alert acknowledgement, dependency-aware scheduling, Prometheus metrics, request IDs, JSON logs, backup/restore and HA guidance. |
+| **Administration** | A separate platform console for users and platform roles, projects and quotas, sign-in policy, OIDC/LDAP, branding and announcements, feature flags, engine and CDC defaults, backups and platform audit. |
 | **Open API & MCP** | Management API, signed public gateway, streamable HTTP MCP server, stdio MCP entry point and approval-token-protected write tools. |
 
 ## Architecture

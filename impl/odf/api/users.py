@@ -7,10 +7,10 @@ from sqlalchemy.orm import Session
 from odf.db import get_session
 from odf.models import User
 from odf.services.audit import write_audit
-from odf.services.auth import require_admin
+from odf.services.auth import require_admin, require_platform_admin
 from odf.services.passwords import validate_password
 from odf.services.users import (create_user, hash_password, list_users,
-                                set_active, set_role)
+                                set_active, set_platform_admin, set_role)
 
 router = APIRouter()
 
@@ -27,7 +27,7 @@ class ResetIn(BaseModel):
 
 def _out(u):
     return {"id": u.id, "username": u.username, "role": u.role,
-            "active": u.active}
+            "active": u.active, "platform_admin": bool(u.platform_admin)}
 
 
 @router.get("/users")
@@ -47,6 +47,21 @@ def create(body: UserIn, s: Session = Depends(get_session),
     write_audit(s, claims["sub"], "create_user", str(u.id),
                 {"username": u.username, "role": u.role})
     return _out(u)
+
+
+@router.put("/users/{user_id}/platform-admin")
+def platform_role(user_id: int, platform_admin: bool,
+                  s: Session = Depends(get_session),
+                  claims: dict = Depends(require_platform_admin)):
+    try:
+        out = _out(set_platform_admin(
+            s, user_id, platform_admin, actor_id=int(claims["sub"])))
+    except ValueError as e:
+        raise HTTPException(
+            404 if str(e) == "user not found" else 400, str(e))
+    write_audit(s, claims["sub"], "set_platform_admin", str(user_id),
+                {"platform_admin": platform_admin})
+    return out
 
 
 @router.post("/users/{user_id}/reset-password")
