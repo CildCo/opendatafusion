@@ -212,3 +212,33 @@ def test_kafka_probe_and_pipeline_only_metadata(seeded, monkeypatch):
     sync = c.post("/api/v1/datasources/%d/sync" % ds_id, headers=headers())
     assert sync.status_code == 400
     assert "pipeline connector" in sync.json()["detail"]
+
+
+def test_s3_probe_and_metadata(seeded, monkeypatch):
+    import json as _json
+    monkeypatch.setattr("odf.connectors.s3.ping", lambda dsn: True)
+    monkeypatch.setattr("odf.connectors.s3.table_name", lambda opts: "orders")
+    monkeypatch.setattr("odf.connectors.s3.describe", lambda dsn: [
+        {"name": "id", "type": "BIGINT"}, {"name": "name", "type": "VARCHAR"}])
+    c = TestClient(app)
+    created = c.post("/api/v1/datasources", headers=headers(), json={
+        "name": "lake", "kind": "s3",
+        "config": {"endpoint": "http://minio:9000", "bucket": "warehouse",
+                   "key": "folder/orders.parquet", "access_key": "ak",
+                   "secret_key": "sk", "region": "us-east-1"}})
+    assert created.status_code == 200, created.text
+    assert "sk" not in created.json()["dsn"]
+    ds_id = created.json()["id"]
+    row = next(x for x in c.get("/api/v1/datasources", headers=headers()).json()
+               if x["id"] == ds_id)
+    assert row["config"]["secret_key"] == ""
+    assert row["config"]["access_key"] == "ak"
+    assert "sk" not in _json.dumps(row)
+    assert c.post("/api/v1/datasources/%d/test" % ds_id,
+                  headers=headers()).json()["ok"] is True
+    sync = c.post("/api/v1/datasources/%d/sync" % ds_id, headers=headers())
+    assert sync.status_code == 200, sync.text
+    tables = c.get("/api/v1/datasources/%d/tables" % ds_id,
+                   headers=headers()).json()
+    assert tables[0]["schema"] == "file"
+    assert {x["name"] for x in tables[0]["columns"]} == {"id", "name"}

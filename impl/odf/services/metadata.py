@@ -116,6 +116,20 @@ def _sync_file(session, ds) -> int:
     return 1
 
 
+def _sync_s3(session, ds) -> int:
+    from odf.connectors import s3
+    dsn = get_dsn(ds)
+    columns = s3.describe(dsn)
+    table = s3.table_name(s3.options(dsn))
+    before = _existing_columns(session, ds.id)
+    tables = {("file", table): columns}
+    _upsert(session, ds, tables)
+    _detect_drift(session, ds, before,
+                  {k: {c["name"]: c["type"] for c in v}
+                   for k, v in tables.items()})
+    return 1
+
+
 def _sync_mongo(session, ds) -> int:
     from odf.connectors import mongo
     found = mongo.collections(get_dsn(ds))
@@ -272,6 +286,8 @@ def sync_datasource(session, datasource_id: int) -> int:
         return _sync_duckdb(session, ds)
     if ds.kind == "mongodb":
         return _sync_mongo(session, ds)
+    if ds.kind == "s3":
+        return _sync_s3(session, ds)
     if ds.kind == "file":
         return _sync_file(session, ds)
     if ds.kind == "clickhouse":

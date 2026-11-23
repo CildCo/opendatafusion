@@ -41,6 +41,9 @@ def execute_query(session, ds, sql, params=None, max_rows=1000,
         if ds.kind == "file":
             from odf import filesource
             return filesource.execute(ds, sql, params or {}, max_rows)
+        if ds.kind == "s3":
+            from odf.connectors import s3
+            return s3.execute(get_dsn(ds), sql, params or {}, max_rows)
         if ds.kind == "clickhouse":
             from odf import clickhouse
             return clickhouse.execute(ds, sql, params or {}, max_rows)

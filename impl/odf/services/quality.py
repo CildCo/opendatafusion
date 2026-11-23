@@ -86,10 +86,11 @@ def _schema_check(actual, expected, allow_extra=False):
                 "expected": expected}
 
 
-def _run_simple(session, datasource, ds, rule):
+def _run_simple(session, datasource, ds, rule, runner=None, schema=None):
     from odf.apistudio.compiler import quote_ident
-    runner = _simple_runner(datasource)
-    schema = "file" if datasource.kind == "file" else ds.schema_name
+    runner = runner or _simple_runner(datasource)
+    schema = schema or ("file" if datasource.kind == "file"
+                        else ds.schema_name)
     table = "%s.%s" % (quote_ident(schema), quote_ident(ds.table_name))
     col = quote_ident(rule.column_name) if rule.column_name else None
     cfg = rule.config_json or {}
@@ -191,6 +192,31 @@ def run_rule(session, rule_id: int, project_id: int | None = None) -> QualityRes
     if not supports(datasource.kind, "query"):
         raise ValueError("%s is a pipeline connector; quality rules are not "
                          "supported" % datasource.kind)
+    if datasource.kind == "s3":
+        import shutil
+        from odf import filesource
+        from odf.connectors import s3
+
+        class _Runner:
+            def __init__(self, path):
+                self.ds = s3.as_file_ds(path)
+
+            def execute(self, _datasource, sql, params, limit):
+                return filesource.execute(self.ds, sql, params, limit)
+
+        path, directory = s3.temp_file(get_dsn(datasource))
+        try:
+            ok, detail = _run_simple(session, datasource, ds, rule,
+                                     runner=_Runner(path), schema="file")
+        finally:
+            shutil.rmtree(directory, ignore_errors=True)
+        result = QualityResult(rule_id=rule.id,
+                               status="pass" if ok else "fail",
+                               detail_json=detail)
+        session.add(result)
+        session.commit()
+        session.refresh(result)
+        return result
     if datasource.kind in ("file", "clickhouse", "trino"):
         ok, detail = _run_simple(session, datasource, ds, rule)
         result = QualityResult(rule_id=rule.id,

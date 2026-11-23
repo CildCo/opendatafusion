@@ -55,7 +55,10 @@ def execute_interface(session, interface_id, params, timeout_s=None,
             "interfaces are disabled for governed datasources")
     sql, binds = render_sql(iface.sql_text, params)
     limit = max_rows or s.query_max_rows
-    if ds.kind in ("file", "clickhouse"):
+    if ds.kind == "s3":
+        from odf.connectors import s3
+        result = s3.execute(get_dsn(ds), sql, binds, limit)["rows"]
+    elif ds.kind in ("file", "clickhouse"):
         from odf import clickhouse, filesource
         runner = filesource if ds.kind == "file" else clickhouse
         result = runner.execute(ds, sql, binds, limit)["rows"]

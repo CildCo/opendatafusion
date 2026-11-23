@@ -37,6 +37,18 @@ FIELDS = {
     "bootstrap": {"key": "bootstrap", "label": "Bootstrap servers",
                   "type": "text", "required": True,
                   "placeholder": "kafka:9092"},
+    "endpoint": {"key": "endpoint", "label": "Endpoint", "type": "url",
+                 "required": True, "placeholder": "http://minio:9000"},
+    "bucket": {"key": "bucket", "label": "Bucket", "type": "text",
+               "required": True},
+    "key": {"key": "key", "label": "Object key", "type": "text",
+            "required": True, "placeholder": "folder/orders.parquet"},
+    "access_key": {"key": "access_key", "label": "Access key",
+                   "type": "text", "required": True},
+    "secret_key": {"key": "secret_key", "label": "Secret key",
+                   "type": "password", "required": True, "secret": True},
+    "region": {"key": "region", "label": "Region", "type": "text",
+               "required": False, "default": "us-east-1"},
 }
 
 
@@ -131,6 +143,10 @@ SPECS = [
                 field("catalog"), field("schema"), field("username"),
                 field("password"),
                 field("secure", options=["false", "true"])]},
+    {"kind": "s3", "label": "S3 / MinIO object", "group": "file",
+     "capabilities": _caps(sink=False),
+     "fields": [field("endpoint"), field("bucket"), field("key"),
+                field("access_key"), field("secret_key"), field("region")]},
     {"kind": "file", "label": "Local file", "group": "file",
      "capabilities": _caps(sink=False),
      "fields": [field("path")]},
@@ -197,6 +213,13 @@ def build_dsn(kind, values):
         return str(values.get("url", "")).strip()
     if kind == "kafka":
         return "kafka://" + str(values.get("bootstrap", "")).strip()
+    if kind == "s3":
+        query = "endpoint=%s&access_key=%s&secret_key=%s&region=%s" % (
+            _q(values.get("endpoint", "")), _q(values["access_key"]),
+            _q(values.get("secret_key", "")),
+            _q(values.get("region") or "us-east-1"))
+        return "s3://%s/%s?%s" % (_q(values["bucket"]),
+                                  _q(values["key"], safe="/"), query)
     if kind == "mongodb":
         auth = ""
         if values.get("username"):
@@ -267,6 +290,16 @@ def parse_dsn(kind, dsn):
     if kind == "kafka":
         return {"bootstrap": dsn[len("kafka://"):]
                 if dsn.startswith("kafka://") else dsn}
+    if kind == "s3":
+        from urllib.parse import parse_qs
+        parsed = urlparse(dsn)
+        query = parse_qs(parsed.query)
+        return {"endpoint": (query.get("endpoint") or [""])[0],
+                "bucket": unquote(parsed.netloc),
+                "key": unquote(parsed.path.lstrip("/")),
+                "access_key": (query.get("access_key") or [""])[0],
+                "secret_key": (query.get("secret_key") or [""])[0],
+                "region": (query.get("region") or ["us-east-1"])[0]}
     if kind == "mongodb":
         parsed = urlparse(dsn)
         return {"host": parsed.hostname or "", "port": parsed.port or 27017,
@@ -333,8 +366,8 @@ def _normalize_driver(kind, dsn):
     return dsn
 
 
-def _q(value):
-    return quote(str(value if value is not None else ""), safe="")
+def _q(value, safe=""):
+    return quote(str(value if value is not None else ""), safe=safe)
 
 
 def _default_port(kind):
