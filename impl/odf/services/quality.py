@@ -9,6 +9,11 @@ from odf.models import Dataset, Datasource, QualityResult, QualityRule
 from odf.services.datasource import connect_args_for, get_dsn
 
 
+def datasource_database(datasource):
+    from odf.connectors import hive
+    return hive.options(get_dsn(datasource))["database"]
+
+
 def _dataset_project(session, dataset_id: int):
     return (session.query(Datasource.project_id)
             .join(Dataset, Dataset.datasource_id == Datasource.id)
@@ -192,6 +197,27 @@ def run_rule(session, rule_id: int, project_id: int | None = None) -> QualityRes
     if not supports(datasource.kind, "query"):
         raise ValueError("%s is a pipeline connector; quality rules are not "
                          "supported" % datasource.kind)
+    if datasource.kind == "hive":
+        from odf.connectors import hive
+
+        class _HiveRunner:
+            def __init__(self, dsn):
+                self.dsn = dsn
+
+            def execute(self, _datasource, sql, params, limit):
+                return hive.query(self.dsn, sql, limit)
+
+        ok, detail = _run_simple(
+            session, datasource, ds, rule,
+            runner=_HiveRunner(get_dsn(datasource)),
+            schema=datasource_database(datasource))
+        result = QualityResult(rule_id=rule.id,
+                               status="pass" if ok else "fail",
+                               detail_json=detail)
+        session.add(result)
+        session.commit()
+        session.refresh(result)
+        return result
     if datasource.kind == "s3":
         import shutil
         from odf import filesource

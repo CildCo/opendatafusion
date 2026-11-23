@@ -181,3 +181,53 @@ def test_s3_source_delegates_to_the_file_reader(monkeypatch, tmp_path):
     rows, _ = source.read(None, 10)
     assert [row["id"] for row in rows] == [1, 2]
     assert calls
+
+
+def test_hive_query_and_tables(monkeypatch):
+    import pyhive.hive as pyhive_hive
+
+    class Cursor:
+        def __init__(self):
+            self.rows = []
+
+        def execute(self, sql):
+            self.sql = sql
+            if sql == "SHOW TABLES":
+                self.rows = [("default", "events", False)]
+                self.description = None
+            elif sql.startswith("DESCRIBE"):
+                self.rows = [("id", "bigint", None), ("name", "string", None),
+                             ("# Partition Information", None, None)]
+                self.description = None
+            else:
+                self.rows = [(1, "a")]
+                self.description = [("id",), ("name",)]
+
+        def fetchall(self):
+            return self.rows
+
+        def fetchmany(self, n):
+            return self.rows[:n]
+
+        def close(self):
+            pass
+
+    class Conn:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def cursor(self):
+            return Cursor()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(pyhive_hive, "Connection", Conn)
+    from odf.connectors import hive
+    dsn = "hive://odf:pw@hive:10000/default?auth=NOSASL"
+    assert hive.ping(dsn) is True
+    result = hive.query(dsn, "select id, name from events", 10)
+    assert result["rows"] == [{"id": 1, "name": "a"}]
+    tables = hive.tables(dsn)
+    assert tables[0]["table"] == "events"
+    assert [c["name"] for c in tables[0]["columns"]] == ["id", "name"]

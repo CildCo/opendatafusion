@@ -44,6 +44,9 @@ def execute_query(session, ds, sql, params=None, max_rows=1000,
         if ds.kind == "s3":
             from odf.connectors import s3
             return s3.execute(get_dsn(ds), sql, params or {}, max_rows)
+        if ds.kind == "hive":
+            from odf.connectors import hive
+            return hive.query(get_dsn(ds), sql, max_rows)
         if ds.kind == "clickhouse":
             from odf import clickhouse
             return clickhouse.execute(ds, sql, params or {}, max_rows)

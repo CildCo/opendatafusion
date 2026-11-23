@@ -55,7 +55,12 @@ def execute_interface(session, interface_id, params, timeout_s=None,
             "interfaces are disabled for governed datasources")
     sql, binds = render_sql(iface.sql_text, params)
     limit = max_rows or s.query_max_rows
-    if ds.kind == "s3":
+    if ds.kind == "hive":
+        from odf.connectors import hive
+        from odf.trino.client import render_params
+        result = hive.query(get_dsn(ds), render_params(sql, binds),
+                            limit)["rows"]
+    elif ds.kind == "s3":
         from odf.connectors import s3
         result = s3.execute(get_dsn(ds), sql, binds, limit)["rows"]
     elif ds.kind in ("file", "clickhouse"):

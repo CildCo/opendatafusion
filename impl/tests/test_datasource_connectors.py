@@ -242,3 +242,26 @@ def test_s3_probe_and_metadata(seeded, monkeypatch):
                    headers=headers()).json()
     assert tables[0]["schema"] == "file"
     assert {x["name"] for x in tables[0]["columns"]} == {"id", "name"}
+
+
+def test_hive_probe_and_metadata(seeded, monkeypatch):
+    monkeypatch.setattr("odf.connectors.hive.ping", lambda dsn: True)
+    monkeypatch.setattr("odf.connectors.hive.tables", lambda dsn: [
+        {"schema": "default", "table": "events", "columns": [
+            {"name": "id", "type": "bigint"},
+            {"name": "name", "type": "string"}]}])
+    c = TestClient(app)
+    created = c.post("/api/v1/datasources", headers=headers(), json={
+        "name": "hive", "kind": "hive",
+        "config": {"host": "hive", "port": 10000, "database": "default",
+                   "username": "odf", "password": "pw", "auth": "NOSASL"}})
+    assert created.status_code == 200, created.text
+    ds_id = created.json()["id"]
+    assert c.post("/api/v1/datasources/%d/test" % ds_id,
+                  headers=headers()).json()["ok"] is True
+    sync = c.post("/api/v1/datasources/%d/sync" % ds_id, headers=headers())
+    assert sync.status_code == 200, sync.text
+    tables = c.get("/api/v1/datasources/%d/tables" % ds_id,
+                   headers=headers()).json()
+    assert tables[0]["schema"] == "default"
+    assert {x["name"] for x in tables[0]["columns"]} == {"id", "name"}

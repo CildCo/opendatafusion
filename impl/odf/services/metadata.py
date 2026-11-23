@@ -116,6 +116,18 @@ def _sync_file(session, ds) -> int:
     return 1
 
 
+def _sync_hive(session, ds) -> int:
+    from odf.connectors import hive
+    found = hive.tables(get_dsn(ds))
+    before = _existing_columns(session, ds.id)
+    tables = {(t["schema"], t["table"]): t["columns"] for t in found}
+    _upsert(session, ds, tables)
+    _detect_drift(session, ds, before,
+                  {k: {c["name"]: c["type"] for c in v}
+                   for k, v in tables.items()})
+    return len(found)
+
+
 def _sync_s3(session, ds) -> int:
     from odf.connectors import s3
     dsn = get_dsn(ds)
@@ -288,6 +300,8 @@ def sync_datasource(session, datasource_id: int) -> int:
         return _sync_mongo(session, ds)
     if ds.kind == "s3":
         return _sync_s3(session, ds)
+    if ds.kind == "hive":
+        return _sync_hive(session, ds)
     if ds.kind == "file":
         return _sync_file(session, ds)
     if ds.kind == "clickhouse":
