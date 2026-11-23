@@ -11,7 +11,7 @@
       </el-select>
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("iface.refresh") }}</el-button>
-      <el-button type="primary" @click="openCreate">{{ t("iface.new") }}</el-button>
+      <el-button v-if="canEdit" type="primary" @click="openCreate">{{ t("iface.new") }}</el-button>
     </div>
 
     <el-card class="card" shadow="never">
@@ -41,36 +41,39 @@
         <el-table-column :label="t('iface.actions')" width="330" fixed="right">
           <template #default="{ row }">
             <el-button link @click="openDetail(row)">{{ t("iface.detail") }}</el-button>
-            <el-button v-if="row.status !== 1" link @click="publish(row)">{{ t("iface.publish") }}</el-button>
-            <el-button v-else link @click="revoke(row)">{{ t("iface.revoke") }}</el-button>
+            <el-button v-if="canEdit && row.status !== 1" link @click="publish(row)">{{ t("iface.publish") }}</el-button>
+            <el-button v-else-if="canEdit" link @click="revoke(row)">{{ t("iface.revoke") }}</el-button>
             <el-button link :disabled="row.status !== 1" @click="execute(row)">{{ t("iface.execute") }}</el-button>
-            <el-button link type="danger" @click="remove(row)">{{ t("iface.delete") }}</el-button>
+            <el-button v-if="canEdit" link type="danger" @click="remove(row)">{{ t("iface.delete") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
       <empty-state v-if="!loading && !filtered.length"
                    :title="t('iface.empty')"
                    :description="t('iface.intro')"
-                   :action-text="t('iface.new')"
+                   :action-text="canEdit ? t('iface.new') : ''"
                    @action="openCreate" />
       <div class="pager">
         <el-pagination v-model:current-page="page" :page-size="pageSize"
-                       :total="filtered.length" layout="total, prev, pager, next" small />
+                       :page-sizes="[10, 20, 50]"
+                       :total="filtered.length"
+                       layout="total, sizes, prev, pager, next" small />
       </div>
     </el-card>
 
     <el-dialog v-model="dialog" :title="t('iface.newTitle')" width="720px">
-      <el-form label-width="90px">
-        <el-form-item :label="t('iface.name')" required>
+      <el-form ref="formRef" :model="form" :rules="formRules"
+               label-width="90px">
+        <el-form-item :label="t('iface.name')" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item :label="t('iface.datasource')" required>
+        <el-form-item :label="t('iface.datasource')" prop="datasource_id">
           <el-select v-model="form.datasource_id" style="width: 100%">
             <el-option v-for="d in datasources" :key="d.id" :value="d.id"
                        :label="`${d.name} (${d.kind})`" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('iface.sql')" required>
+        <el-form-item :label="t('iface.sql')" prop="sql_text">
           <el-input v-model="form.sql_text" type="textarea" :rows="7"
                     class="sql" placeholder="select * from t where day = ${day}" />
         </el-form-item>
@@ -180,7 +183,8 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
-import { api, errMsg, getProject } from "../api";
+import { api, canWrite, errMsg, getProject } from "../api";
+import { loadPrefs, savePrefs } from "../prefs";
 import { fmtDate, t } from "../i18n";
 import EmptyState from "../components/EmptyState.vue";
 import EntityIcon from "../components/EntityIcon.vue";
@@ -203,11 +207,25 @@ const execParams = ref([]);
 const execValues = reactive({});
 const execLoading = ref(false);
 const result = ref("");
-const q = ref("");
-const statusFilter = ref(null);
+const prefs = loadPrefs("interfaces", { q: "", status: null, pageSize: 10 });
+const q = ref(prefs.q);
+const statusFilter = ref(prefs.status);
+const canEdit = canWrite();
+const formRef = ref(null);
+const formRules = computed(() => ({
+  name: [{ required: true, message: t("iface.requiredFields"),
+          trigger: "blur" }],
+  datasource_id: [{ required: true, message: t("iface.requiredFields"),
+                    trigger: "change" }],
+  sql_text: [{ required: true, message: t("iface.requiredFields"),
+               trigger: "blur" }],
+}));
 const page = ref(1);
-const pageSize = 10;
+const pageSize = ref(prefs.pageSize);
 watch([q, statusFilter], () => { page.value = 1; });
+watch([q, statusFilter, pageSize], () => savePrefs("interfaces", {
+  q: q.value, status: statusFilter.value, pageSize: pageSize.value,
+}));
 
 const form = reactive({
   name: "", datasource_id: null, sql_text: "",
@@ -223,7 +241,8 @@ const filtered = computed(() =>
   })
 );
 const paged = computed(() =>
-  filtered.value.slice((page.value - 1) * pageSize, page.value * pageSize)
+  filtered.value.slice((page.value - 1) * pageSize.value,
+    page.value * pageSize.value)
 );
 
 async function load() {
@@ -249,8 +268,9 @@ function addParam() {
   form.params.push({ name: "", type: "string", required: false });
 }
 async function create() {
-  if (!form.name || !form.sql_text || !form.datasource_id) {
-    ElMessage.warning(t("iface.requiredFields"));
+  try {
+    await formRef.value.validate();
+  } catch {
     return;
   }
   saving.value = true;

@@ -11,7 +11,7 @@
       <el-button @click="load" :loading="loading">
         {{ t("dep.refresh") }}
       </el-button>
-      <el-button type="primary" @click="openCreate">
+      <el-button v-if="canEdit" type="primary" @click="openCreate">
         {{ t("dep.new") }}
       </el-button>
     </div>
@@ -37,7 +37,7 @@
         </el-table-column>
         <el-table-column :label="t('dep.actions')" width="100">
           <template #default="{ row }">
-            <el-button link type="danger" @click="remove(row)">
+            <el-button v-if="canEdit" link type="danger" @click="remove(row)">
               {{ t("dep.delete") }}
             </el-button>
           </template>
@@ -45,7 +45,7 @@
       </el-table>
       <empty-state v-if="view === 'table' && !loading && !rows.length"
                    :title="t('dep.empty')" :description="t('dep.intro')"
-                   :action-text="t('dep.new')" @action="openCreate" />
+                   :action-text="canEdit ? t('dep.new') : ''" @action="openCreate" />
       <graph-canvas v-if="view === 'graph'" :nodes="depGraph.nodes"
                     :edges="depGraph.edges" :height="480"
                     :empty-text="t('dep.empty')" />
@@ -96,7 +96,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { api, errMsg } from "../api";
+import { api, canWrite, errMsg } from "../api";
 import GraphCanvas from "../components/GraphCanvas.vue";
 import EmptyState from "../components/EmptyState.vue";
 import EntityIcon from "../components/EntityIcon.vue";
@@ -105,6 +105,7 @@ import { t } from "../i18n";
 
 const rows = ref([]);
 const view = ref("table");
+const canEdit = canWrite();
 
 const depGraph = computed(() => {
   const nodes = new Map();

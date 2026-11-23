@@ -4,11 +4,11 @@
                  :intro="t('pipe.intro')" />
     <div class="toolbar">
       <el-button @click="load" :loading="loading">{{ t("pipe.refresh") }}</el-button>
-      <el-button type="danger" :disabled="!selected.length"
+      <el-button v-if="canEdit" type="danger" :disabled="!selected.length"
                  @click="removeSelected">
         {{ t("pipe.deleteSelected").replace("{n}", selected.length) }}
       </el-button>
-      <el-button type="primary" @click="create">{{ t("pipe.newPipeline") }}</el-button>
+      <el-button v-if="canEdit" type="primary" @click="create">{{ t("pipe.newPipeline") }}</el-button>
     </div>
 
     <el-card class="card" shadow="never">
@@ -35,7 +35,8 @@
         </el-table-column>
         <el-table-column :label="t('pipe.actions')" width="90" fixed="right">
           <template #default="{ row }">
-            <el-button link type="danger" @click.stop="remove(row)">
+            <el-button v-if="canEdit" link type="danger"
+                       @click.stop="remove(row)">
               {{ t("pipe.delete") }}
             </el-button>
           </template>
@@ -43,7 +44,8 @@
       </el-table>
       <empty-state v-if="!loading && !rows.length"
                    :title="t('pipe.empty')" :description="t('pipe.intro')"
-                   :action-text="t('pipe.newPipeline')" @action="create" />
+                   :action-text="canEdit ? t('pipe.newPipeline') : ''"
+                   @action="create" />
     </el-card>
   </div>
 </template>
@@ -52,7 +54,7 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { api, errMsg } from "../api";
+import { api, canWrite, errMsg } from "../api";
 import { t } from "../i18n";
 import EmptyState from "../components/EmptyState.vue";
 import EntityIcon from "../components/EntityIcon.vue";
@@ -61,6 +63,7 @@ import StatusDot from "../components/StatusDot.vue";
 
 const rows = ref([]);
 const selected = ref([]);
+const canEdit = canWrite();
 const loading = ref(false);
 const router = useRouter();
 

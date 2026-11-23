@@ -11,7 +11,7 @@
       </el-select>
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("flows.refresh") }}</el-button>
-      <el-button type="primary" @click="openCreate">{{ t("flows.newFlow") }}</el-button>
+      <el-button v-if="canEdit" type="primary" @click="openCreate">{{ t("flows.newFlow") }}</el-button>
     </div>
 
     <el-card class="card" shadow="never">
@@ -37,23 +37,27 @@
         </el-table-column>
         <el-table-column :label="t('flows.actions')" width="300" fixed="right">
           <template #default="{ row }">
-            <el-button link @click.stop="toggle(row)">
+            <el-button v-if="canEdit" link @click.stop="toggle(row)">
               {{ row.status === 1 ? t("flows.disabled") : t("flows.enabled") }}
             </el-button>
-            <el-button link :disabled="row.status !== 1" @click.stop="run(row)">{{ t("flows.run") }}</el-button>
+            <el-button v-if="canEdit" link :disabled="row.status !== 1"
+                       @click.stop="run(row)">{{ t("flows.run") }}</el-button>
             <el-button link @click.stop="openDetail(row)">{{ t("flows.details") }}</el-button>
-            <el-button link type="danger" @click.stop="remove(row)">{{ t("flows.delete") }}</el-button>
+            <el-button v-if="canEdit" link type="danger"
+                       @click.stop="remove(row)">{{ t("flows.delete") }}</el-button>
           </template>
         </el-table-column>
       </el-table>
       <empty-state v-if="!loading && !filtered.length"
                    :title="t('flows.empty')"
                    :description="t('flows.intro')"
-                   :action-text="t('flows.newFlow')"
+                   :action-text="canEdit ? t('flows.newFlow') : ''"
                    @action="openCreate" />
       <div class="pager">
         <el-pagination v-model:current-page="page" :page-size="pageSize"
-                       :total="filtered.length" layout="total, prev, pager, next" small />
+                       :page-sizes="[10, 20, 50]"
+                       :total="filtered.length"
+                       layout="total, sizes, prev, pager, next" small />
       </div>
     </el-card>
 
@@ -316,7 +320,8 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue"
 import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search, Right } from "@element-plus/icons-vue";
-import { api, errMsg, getProject } from "../api";
+import { api, canWrite, errMsg, getProject } from "../api";
+import { loadPrefs, savePrefs } from "../prefs";
 import { fmtDate, t } from "../i18n";
 import EmptyState from "../components/EmptyState.vue";
 import EntityIcon from "../components/EntityIcon.vue";
@@ -329,6 +334,7 @@ function tr(key, vars = {}) {
 }
 
 const rows = ref([]);
+const canEdit = canWrite();
 const route = useRoute();
 const datasources = ref([]);
 const sourceTables = ref([]);
@@ -344,11 +350,15 @@ const drawer = ref(false);
 const tab = ref("overview");
 const current = ref({});
 const dag = ref({});
-const q = ref("");
-const statusFilter = ref(null);
+const prefs = loadPrefs("flows", { q: "", status: null, pageSize: 10 });
+const q = ref(prefs.q);
+const statusFilter = ref(prefs.status);
 const page = ref(1);
-const pageSize = 10;
+const pageSize = ref(prefs.pageSize);
 watch([q, statusFilter], () => { page.value = 1; });
+watch([q, statusFilter, pageSize], () => savePrefs("flows", {
+  q: q.value, status: statusFilter.value, pageSize: pageSize.value,
+}));
 const runOpen = ref(false);
 const runRow = ref({});
 const downstream = reactive({ edges: [], column_edges: [], tables: [] });
@@ -371,7 +381,8 @@ const filtered = computed(() =>
   })
 );
 const paged = computed(() =>
-  filtered.value.slice((page.value - 1) * pageSize, page.value * pageSize)
+  filtered.value.slice((page.value - 1) * pageSize.value,
+    page.value * pageSize.value)
 );
 
 function runType(s) {

@@ -6,7 +6,7 @@
                 style="width: 260px" />
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("api.refresh") }}</el-button>
-      <el-button type="primary" @click="create">{{ t("api.new") }}</el-button>
+      <el-button v-if="canEdit" type="primary" @click="create">{{ t("api.new") }}</el-button>
     </div>
     <el-card shadow="never">
       <el-table :data="filtered" size="small" v-loading="loading">
@@ -36,7 +36,7 @@
             <el-button link @click="$router.push(`/apis/${row.id}`)">
               {{ t("api.edit") }}
             </el-button>
-            <el-button link type="danger" @click="remove(row)">
+            <el-button v-if="canEdit" link type="danger" @click="remove(row)">
               {{ t("api.delete") }}
             </el-button>
           </template>
@@ -44,7 +44,7 @@
       </el-table>
       <empty-state v-if="!loading && !filtered.length"
                    :title="t('api.empty')" :description="t('api.intro')"
-                   :action-text="t('api.new')" @action="create" />
+                   :action-text="canEdit ? t('api.new') : ''" @action="create" />
     </el-card>
   </div>
 </template>
@@ -53,7 +53,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { api, errMsg } from "../api";
+import { api, canWrite, errMsg } from "../api";
 import { t } from "../i18n";
 import EmptyState from "../components/EmptyState.vue";
 import EntityIcon from "../components/EntityIcon.vue";
@@ -62,6 +62,7 @@ import StatusDot from "../components/StatusDot.vue";
 
 const router = useRouter();
 const rows = ref([]);
+const canEdit = canWrite();
 const q = ref("");
 const loading = ref(false);
 const filtered = computed(() => rows.value.filter(
