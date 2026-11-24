@@ -298,7 +298,7 @@ export default {
     "api.actions": "Actions",
     "api.edit": "Edit",
     "api.delete": "Delete",
-    "api.empty": "No interfaces yet",
+    "api.empty": "No APIs yet",
     "api.intro": "Low-code APIs: compose datasets and metrics into published endpoints; callers sign requests with AK/SK.",
     "api.deleteConfirm": "Delete interface {name}? Its version history and share links will also be removed.",
     "api.deleteTitle": "Confirm deletion",

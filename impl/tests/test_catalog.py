@@ -2,10 +2,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from odf.db import Base
-from odf.models import Column, Dataset, Datasource
+from odf.models import Column, Dataset, Datasource, LineageEdge
 from odf.services.catalog import (create_tag, dataset_detail, lineage,
                                   list_datasets, tag_dataset)
-from odf.services.flow import create_flow
 
 
 def _session():
@@ -24,9 +23,10 @@ def test_catalog_and_lineage():
     s.add(Dataset(id=2, datasource_id=2, schema_name="main", table_name="b"))
     s.add(Column(id=1, dataset_id=1, name="id", data_type="INTEGER"))
     s.commit()
-    create_flow(s, 1, "copy", "0 */5 * * * ?", {
-        "source_ds_id": 1, "sink_ds_id": 2,
-        "source_table": "a", "sink_table": "b", "pk": "id"})
+    s.add(LineageEdge(project_id=1, from_type="table", from_id="1:a",
+                      from_ref="1:a", to_type="table", to_id="2:b",
+                      to_ref="2:b"))
+    s.commit()
     view = lineage(s, 1)
     assert view["edges"][0]["from"] == "1:a"
     assert view["edges"][0]["to"] == "2:b"

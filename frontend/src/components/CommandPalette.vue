@@ -62,21 +62,17 @@ const TYPE_LABEL = {
   dataset: "search.group.dataset",
   metric: "search.group.metric",
   pipeline: "search.group.pipeline",
-  flow: "search.group.flow",
-  interface: "search.group.interface",
   api: "search.group.api",
   dashboard: "search.group.dashboard",
   app: "search.group.app",
   job: "search.group.job",
 };
-const ORDER = ["table", "dataset", "metric", "pipeline", "flow", "interface",
-               "api", "dashboard", "app", "job"];
+const ORDER = ["table", "dataset", "metric", "pipeline", "api",
+               "dashboard", "app", "job"];
 
 const ACTIONS = [
   { type: "source", key: "action.newSource", path: "/datasources" },
   { type: "pipeline", key: "action.newPipeline", path: "/pipelines" },
-  { type: "flow", key: "action.newFlow", path: "/flows" },
-  { type: "interface", key: "action.newInterface", path: "/interfaces" },
   { type: "dashboard", key: "action.newDashboard", path: "/dashboards" },
   { type: "app", key: "action.newApp", path: "/apps" },
 ];
@@ -87,7 +83,7 @@ function close() {
 
 async function loadLists() {
   if (lists.value) return lists.value;
-  const names = ["datasets", "metrics", "interfaces", "flows", "pipelines",
+  const names = ["datasets", "metrics", "pipelines",
                  "dashboards", "apps", "apis"];
   const results = await Promise.allSettled(
     names.map((name) => api.get(`/${name}?page_size=200`)));
@@ -119,14 +115,6 @@ function itemsFrom(list) {
   for (const row of list.pipelines || []) {
     out.push({ type: "pipeline", label: row.name, sub: row.cron || "",
                route: `/pipelines/${row.id}` });
-  }
-  for (const row of list.flows || []) {
-    out.push({ type: "flow", label: row.name, sub: row.cron || "",
-               route: `/flows/${row.id}` });
-  }
-  for (const row of list.interfaces || []) {
-    out.push({ type: "interface", label: row.name, sub: row.key || "",
-               route: "/interfaces" });
   }
   for (const row of list.apis || []) {
     out.push({ type: "api", label: row.name, sub: row.key || "",

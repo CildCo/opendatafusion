@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import text
 
-from odf.models import Flow, Job
+from odf.models import Job
 
 
 def _now():
@@ -14,30 +14,10 @@ def _aware(dt):
     return dt if dt and dt.tzinfo else (dt.replace(tzinfo=timezone.utc) if dt else None)
 
 
-def enqueue(session, flow_id: int, run_at: datetime | None = None) -> Job:
-    from odf.models import Flow
-    from odf.services.quota import check_job
-    flow = session.get(Flow, flow_id)
-    if flow:
-        check_job(session, flow.project_id)
-    existing = (session.query(Job)
-                .filter(Job.flow_id == flow_id,
-                        Job.status.in_(("queued", "running")))
-                .first())
-    if existing:
-        return existing
-    job = Job(flow_id=flow_id, status="queued",
-              run_at=run_at or _now(), attempts=0)
-    session.add(job)
-    session.commit()
-    session.refresh(job)
-    return job
-
-
-def enqueue_skipped(session, reason: str, flow_id: int | None = None,
+def enqueue_skipped(session, reason: str,
                     asset_id: int | None = None,
                     asset_type: str | None = None) -> Job:
-    job = Job(flow_id=flow_id, asset_id=asset_id, asset_type=asset_type,
+    job = Job(asset_id=asset_id, asset_type=asset_type,
               status="skipped", run_at=_now(), attempts=0,
               payload_json={}, last_error=(reason or "")[:500],
               finished_at=_now())
@@ -77,10 +57,7 @@ def heartbeat(session, job_id: int, worker_id: str) -> None:
 
 
 def _job_project(session, job):
-    from odf.models import Asset, Flow
-    if job.flow_id:
-        flow = session.get(Flow, job.flow_id)
-        return flow.project_id if flow else None
+    from odf.models import Asset
     if job.asset_id:
         asset = session.get(Asset, job.asset_id)
         return asset.project_id if asset else None
@@ -136,18 +113,14 @@ def complete(session, job_id: int, success: bool,
     inc("jobs_total", status=job.status)
     if not success and job.status == "failed":
         project_id = None
-        if job.flow_id:
-            f = session.get(Flow, job.flow_id)
-            project_id = f.project_id if f else None
-        elif job.asset_id:
+        if job.asset_id:
             from odf.models import Asset
             a = session.get(Asset, job.asset_id)
             project_id = a.project_id if a else None
         if project_id is not None:
             from odf.webhooks.service import emit_safe
             emit_safe(session, project_id, "job.failed",
-                      {"job_id": job.id, "flow_id": job.flow_id,
-                       "asset_id": job.asset_id})
+                      {"job_id": job.id, "asset_id": job.asset_id})
             from odf.services.notifications import notify
             notify(session, project_id, "job",
                    "任务失败 #%d" % job.id,
@@ -249,10 +222,7 @@ def process_job(session, job, worker_id):
         run_report(session, payload.get("schedule_id"), worker_id)
         complete(session, job.id, True)
         return
-    from odf.workers.etl import run_flow
-    run = run_flow(session, job.flow_id, worker_id)
-    complete(session, job.id, run.status == 2,
-             None if run.status == 2 else "flow run failed")
+    raise ValueError("unsupported job type: %s" % (job.asset_type or ""))
 
 
 def tick(session, worker_id):
@@ -281,35 +251,11 @@ def worker_loop(worker_id: str, poll_s: int = 2) -> None:
             time.sleep(poll_s)
 
 
-def flow_tick(session, now=None):
-    from odf.services.scheduler import cron_to_trigger
-    now = now or _now()
-    for f in session.query(Flow).filter_by(status=1).all():
-        if not f.cron:
-            continue
-        last = (session.query(Job).filter_by(flow_id=f.id)
-                .order_by(Job.id.desc()).first())
-        trigger = cron_to_trigger(f.cron)
-        if last:
-            next_at = trigger.get_next_fire_time(None, _aware(last.created_at))
-            if next_at and _aware(next_at) > now:
-                continue
-        from odf.services.dependencies import dependencies_satisfied
-        state = dependencies_satisfied(session, f.project_id, "flow", f.id,
-                                       now=now)
-        if not state["satisfied"]:
-            enqueue_skipped(session, "waiting for upstream: " + ", ".join(
-                item["name"] for item in state["blocked"]), flow_id=f.id)
-            continue
-        enqueue(session, f.id)
-
-
 def scheduler_tick(session, now=None):
     from odf.models import Asset
     from odf.webhooks.service import deliver_due
     from odf.services.scheduler import cron_to_trigger
     now = now or _now()
-    flow_tick(session, now)
     for a in (session.query(Asset)
               .filter(Asset.type == "pipeline", Asset.enabled == True,  # noqa: E712
                       Asset.published_version_id.isnot(None)).all()):

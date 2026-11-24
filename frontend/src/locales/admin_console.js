@@ -138,7 +138,7 @@ export default {
     "adm.ovProjects": "Projects",
     "adm.ovActive": "active",
     "adm.ovAssets": "Assets",
-    "adm.ovAssetsHint": "datasets, metrics, dashboards, apps, interfaces",
+    "adm.ovAssetsHint": "datasets, metrics, dashboards, apps, APIs",
     "adm.ovQueue": "Queued jobs",
     "adm.ovFailed": "failed in 24h",
     "adm.ovAlerts": "Open alerts",

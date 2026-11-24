@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 from odf.assets.service import create_asset
 from odf.db import Base
-from odf.models import AuditLog, Datasource, Flow, Interface, Project
+from odf.models import AuditLog, Datasource, Project
 from odf.services.approval import issue_token
 from odf.services.changes import apply, propose
 from odf.services.crypto import encrypt_secret
@@ -33,47 +33,6 @@ def s(tmp_path):
         yield session
 
 
-def test_pause_flow_change(s):
-    f = Flow(project_id=1, name="copy", cron="0 */5 * * * ?", status=1)
-    s.add(f)
-    s.commit()
-    c = propose(s, 1, "actor", "pause_flow", f.id)
-    apply(s, c.id, issue_token(f.id, "pause_flow"))
-    s.refresh(f)
-    assert f.status == 0
-
-
-def test_publish_interface_change(s):
-    i = Interface(project_id=1, datasource_id=1, interface_key="k",
-                  name="i", sql_text="select 1", params_json=[],
-                  output_json=[], status=0)
-    s.add(i)
-    s.commit()
-    c = propose(s, 1, "actor", "publish_interface", i.id)
-    apply(s, c.id, issue_token(i.id, "publish_interface"))
-    s.refresh(i)
-    assert i.status == 1
-
-
-def test_wrong_token_rejected(s):
-    f = Flow(project_id=1, name="copy", cron="0 */5 * * * ?", status=1)
-    s.add(f)
-    s.commit()
-    c = propose(s, 1, "actor", "pause_flow", f.id)
-    with pytest.raises(PermissionError):
-        apply(s, c.id, issue_token(f.id, "resume_flow"))
-
-
-def test_rollback_flow_change(s):
-    f = Flow(project_id=1, name="copy", cron="0 */5 * * * ?", status=1)
-    s.add(f)
-    s.commit()
-    c = propose(s, 1, "actor", "rollback_flow", f.id, {"version": 3})
-    apply(s, c.id, issue_token(f.id, "rollback_flow"))
-    s.refresh(f)
-    assert f.current_version == 3
-
-
 def test_pipeline_publish_change_requires_token_and_is_audited(s):
     a = create_asset(s, 1, "pipeline", "p", PIPE, "actor")
     c = propose(s, 1, "actor", "publish_pipeline", a.id)
@@ -84,3 +43,15 @@ def test_pipeline_publish_change_requires_token_and_is_audited(s):
     assert a.published_version_id is not None
     assert s.query(AuditLog).filter_by(
         action="publish_pipeline", target=str(a.id)).count() == 1
+
+
+def test_api_publish_change(s):
+    a = create_asset(s, 1, "api", "a", {
+        "mode": "sql", "query": {"datasource_id": 1},
+        "sql": "select id from t", "params": [],
+        "auth": {"type": "aksk"}}, "actor")
+    c = propose(s, 1, "actor", "publish_api", a.id)
+    apply(s, c.id, issue_token(a.id, "publish_api"))
+    s.refresh(a)
+    assert a.published_version_id is not None
+    assert a.enabled is True

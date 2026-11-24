@@ -9,8 +9,7 @@ from sqlalchemy import create_engine, text
 TOOLS = {}
 WRITE_TOOLS = set()
 APPROVER_TOOLS = {"publish_pipeline", "rollback_pipeline", "publish_api",
-                  "revoke_api", "rollback_flow", "publish_interface",
-                  "revoke_interface", "submit_app_form"}
+                  "revoke_api", "submit_app_form"}
 CURRENT_PROJECT = ContextVar("mcp_project", default=None)
 _HIDDEN_ARGS = {"approval_token"}
 
@@ -71,7 +70,6 @@ def _audit(name, kwargs, ok, error=None):
             else:
                 safe[k] = str(v)[:300]
         target = str(kwargs.get("asset_id") or kwargs.get("run_id")
-                     or kwargs.get("flow_id") or kwargs.get("interface_id")
                      or kwargs.get("change_id") or kwargs.get("project_id")
                      or "platform")
         detail = {"args": safe, "ok": ok}
@@ -145,18 +143,14 @@ def assert_read_only(sql: str) -> None:
 def platform_snapshot():
     """Counts and recent state for assets, jobs, alerts and datasources."""
     from odf.db import SessionLocal
-    from odf.models import (Alert, Asset, Datasource, Flow, Interface, Job)
+    from odf.models import Alert, Asset, Datasource, Job
     with SessionLocal() as s:
         project = _project()
         asset_q = s.query(Asset)
-        flow_q = s.query(Flow)
         ds_q = s.query(Datasource)
-        if_q = s.query(Interface)
         if project is not None:
             asset_q = asset_q.filter_by(project_id=project)
-            flow_q = flow_q.filter_by(project_id=project)
             ds_q = ds_q.filter_by(project_id=project)
-            if_q = if_q.filter_by(project_id=project)
         assets = asset_q.all()
         counts = {}
         for a in assets:
@@ -164,9 +158,7 @@ def platform_snapshot():
         job_q = s.query(Job)
         if project is not None:
             asset_ids = [a.id for a in assets]
-            flow_ids = [f.id for f in flow_q.all()]
-            job_q = job_q.filter(
-                (Job.asset_id.in_(asset_ids)) | (Job.flow_id.in_(flow_ids)))
+            job_q = job_q.filter(Job.asset_id.in_(asset_ids))
         jobs = job_q.order_by(Job.id.desc()).limit(10).all()
         alert_q = s.query(Alert).filter_by(status="open")
         if project is not None:
@@ -183,12 +175,8 @@ def platform_snapshot():
                      for j in jobs],
             "open_alerts": [{"id": a.id, "severity": a.severity,
                              "title": a.title} for a in alerts],
-            "flows": [{"id": f.id, "name": f.name, "status": f.status}
-                      for f in flow_q.all()],
             "datasources": [{"id": d.id, "name": d.name, "kind": d.kind}
                             for d in ds_q.all()],
-            "interfaces": [{"id": i.id, "name": i.name, "status": i.status}
-                           for i in if_q.all()],
         }
 
 
@@ -371,7 +359,7 @@ def submit_app_form(asset_id: int, component_id: str, values: dict,
 
 @tool("ops_summary")
 def ops_summary(project_id: int | None = None):
-    """Return project job, alert and flow-health counts."""
+    """Return project job and alert counts."""
     from odf.db import SessionLocal
     from odf.ops.service import summary
     with SessionLocal() as s:
@@ -419,7 +407,7 @@ def ack_alert(alert_id: int, project_id: int | None = None):
 def list_runs(asset_id: int = 0, limit: int = 50):
     """List recent pipeline jobs, optionally for one asset."""
     from odf.db import SessionLocal
-    from odf.models import Asset, Flow, Job
+    from odf.models import Asset, Job
     with SessionLocal() as s:
         q = s.query(Job)
         project = _project()
@@ -429,10 +417,7 @@ def list_runs(asset_id: int = 0, limit: int = 50):
         elif project is not None:
             asset_ids = [a.id for a in s.query(Asset)
                          .filter_by(project_id=project).all()]
-            flow_ids = [f.id for f in s.query(Flow)
-                        .filter_by(project_id=project).all()]
-            q = q.filter((Job.asset_id.in_(asset_ids))
-                         | (Job.flow_id.in_(flow_ids)))
+            q = q.filter(Job.asset_id.in_(asset_ids))
         rows = q.order_by(Job.id.desc()).limit(max(1, min(limit, 200))).all()
         return [{"id": j.id, "asset_id": j.asset_id,
                  "asset_type": j.asset_type, "status": j.status,
@@ -443,20 +428,15 @@ def list_runs(asset_id: int = 0, limit: int = 50):
 
 @tool("diagnose_run")
 def diagnose_run(run_id: int):
-    """Diagnose a failed job or connector flow run with node evidence."""
+    """Diagnose a failed job with node evidence."""
     from odf.db import SessionLocal
-    from odf.models import Flow, FlowRun, Job, PipelineNodeRun
+    from odf.models import Job, PipelineNodeRun
     with SessionLocal() as s:
         project = _project()
         job = s.get(Job, run_id)
         if job:
             if job.asset_id:
                 _check_asset(s, job.asset_id)
-            elif job.flow_id:
-                flow = s.get(Flow, job.flow_id)
-                if not flow or (project is not None
-                                and flow.project_id != project):
-                    raise PermissionError("run not found")
             elif project is not None:
                 raise PermissionError("run not found")
             nodes = (s.query(PipelineNodeRun)
@@ -487,21 +467,7 @@ def diagnose_run(run_id: int):
                                "ms": n.ms, "error": n.error}
                               for n in nodes],
                     "hints": hints, "evidence": evidence}
-        run = s.get(FlowRun, run_id)
-        if not run:
-            raise ValueError("run not found")
-        flow = s.get(Flow, run.flow_id)
-        if not flow or (project is not None and flow.project_id != project):
-            raise PermissionError("run not found")
-        h = flow_health.__wrapped__(run.flow_id)
-        return {"kind": "flow_run",
-                "flow_run": {"id": run.id, "flow_id": run.flow_id,
-                             "status": run.status, "err_num": run.err_num,
-                             "cursor_value": run.cursor_value},
-                "health": h,
-                "hints": ["flow run 状态 %s，错误行 %s" %
-                          (run.status, run.err_num)],
-                "evidence": [h]}
+        raise ValueError("run not found")
 
 
 @tool("create_pipeline_draft", write=True)
@@ -654,17 +620,6 @@ def revoke_api(asset_id: int, approval_token: str):
         return {"asset_id": asset_id, "enabled": False}
 
 
-@tool("list_flows")
-def list_flows(project_id: int = 0):
-    from odf.db import SessionLocal
-    from odf.models import Flow
-    pid = _ops_project(project_id or None)
-    with SessionLocal() as s:
-        q = s.query(Flow).filter_by(project_id=pid)
-        return [{"id": f.id, "name": f.name, "cron": f.cron,
-                 "status": f.status} for f in q.all()]
-
-
 @tool("list_datasources")
 def list_datasources(project_id: int = 0):
     from odf.db import SessionLocal
@@ -675,86 +630,6 @@ def list_datasources(project_id: int = 0):
         q = s.query(Datasource).filter_by(project_id=pid)
         return [{"id": d.id, "name": d.name, "kind": d.kind,
                  "dsn": mask_dsn(get_dsn(d))} for d in q.all()]
-
-
-@tool("flow_health")
-def flow_health(flow_id: int, period_s: int = 0):
-    from odf.db import SessionLocal
-    from odf.models import Flow, FlowRun
-    from odf.services.health import compute_health, cron_period_seconds
-    with SessionLocal() as s:
-        flow = s.get(Flow, flow_id)
-        runs = (s.query(FlowRun).filter_by(flow_id=flow_id)
-                .order_by(FlowRun.id.desc()).limit(20).all())
-        period = period_s or cron_period_seconds(flow.cron)
-        return {"flow_id": flow_id, "name": flow.name,
-                **compute_health(runs, datetime.now(timezone.utc), period)}
-
-
-@tool("diagnose_flow")
-def diagnose_flow(flow_id: int):
-    h = flow_health.__wrapped__(flow_id)
-    hints = []
-    if h.get("empty_rounds", 0) >= 3:
-        hints.append("连续空转：检查源库游标与过滤条件")
-    if h.get("status") == "critical":
-        hints.append("滞后超阈值：检查调度、worker、源库连通性")
-    return {"health": h, "hints": hints}
-
-
-@tool("pause_flow", write=True)
-def pause_flow(flow_id: int, approval_token: str):
-    from odf.services.approval import verify_token
-    if not verify_token(flow_id, "pause", approval_token):
-        raise PermissionError("approval required")
-    from odf.db import SessionLocal
-    from odf.models import Flow
-    with SessionLocal() as s:
-        f = s.get(Flow, flow_id)
-        f.status = 0
-        s.commit()
-        return {"flow_id": flow_id, "status": f.status}
-
-
-@tool("resume_flow", write=True)
-def resume_flow(flow_id: int, approval_token: str):
-    from odf.services.approval import verify_token
-    if not verify_token(flow_id, "resume", approval_token):
-        raise PermissionError("approval required")
-    from odf.db import SessionLocal
-    from odf.models import Flow
-    with SessionLocal() as s:
-        f = s.get(Flow, flow_id)
-        f.status = 1
-        s.commit()
-        return {"flow_id": flow_id, "status": f.status}
-
-
-@tool("get_flow")
-def get_flow(flow_id: int):
-    from odf.db import SessionLocal
-    from odf.models import Flow, FlowVersion
-    with SessionLocal() as s:
-        f = s.get(Flow, flow_id)
-        if not f:
-            return None
-        v = (s.query(FlowVersion)
-             .filter_by(flow_id=f.id, version=f.current_version).first())
-        return {"id": f.id, "name": f.name, "cron": f.cron,
-                "status": f.status, "version": f.current_version,
-                "dag": v.dag_json if v else None}
-
-
-@tool("get_interface")
-def get_interface(interface_id: int):
-    from odf.db import SessionLocal
-    from odf.models import Interface
-    with SessionLocal() as s:
-        i = s.get(Interface, interface_id)
-        if not i:
-            return None
-        return {"id": i.id, "key": i.interface_key, "name": i.name,
-                "sql": i.sql_text, "status": i.status}
 
 
 @tool("search_catalog")
@@ -828,52 +703,6 @@ def apply_change(change_id: int, approval_token: str):
         return {"id": c.id, "status": c.status}
 
 
-@tool("rollback_flow", write=True)
-def rollback_flow(flow_id: int, version: int, approval_token: str):
-    from odf.services.approval import verify_token
-    if not verify_token(flow_id, "rollback", approval_token):
-        raise PermissionError("approval required")
-    from odf.db import SessionLocal
-    from odf.models import Flow
-    with SessionLocal() as s:
-        f = s.get(Flow, flow_id)
-        if not f:
-            raise ValueError("flow not found")
-        f.current_version = version
-        s.commit()
-        return {"flow_id": flow_id, "version": version}
-
-
-@tool("publish_interface", write=True)
-def publish_interface(interface_id: int, approval_token: str):
-    from odf.services.approval import verify_token
-    if not verify_token(interface_id, "publish", approval_token):
-        raise PermissionError("approval required")
-    from odf.db import SessionLocal
-    from odf.models import Interface
-    with SessionLocal() as s:
-        i = s.get(Interface, interface_id)
-        if not i:
-            raise ValueError("interface not found")
-        i.status = 1
-        s.commit()
-        return {"interface_id": interface_id, "status": 1}
-
-
-@tool("revoke_interface", write=True)
-def revoke_interface(interface_id: int, approval_token: str):
-    from odf.services.approval import verify_token
-    if not verify_token(interface_id, "revoke", approval_token):
-        raise PermissionError("approval required")
-    from odf.db import SessionLocal
-    from odf.models import Interface
-    with SessionLocal() as s:
-        i = s.get(Interface, interface_id)
-        if not i:
-            raise ValueError("interface not found")
-        i.status = 0
-        s.commit()
-        return {"interface_id": interface_id, "status": 0}
 @tool("query_sql")
 def query_sql(datasource_id: int, sql: str):
     assert_read_only(sql)

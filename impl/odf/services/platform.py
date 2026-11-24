@@ -237,7 +237,6 @@ def overview(session):
             "dashboards": assets.filter(Asset.type == "dashboard").count(),
             "apps": assets.filter(Asset.type == "app").count(),
             "apis": assets.filter(Asset.type == "api").count(),
-            "interfaces": assets.filter(Asset.type == "interface").count(),
         },
         "jobs": {
             "queued": jobs.filter(Job.status == "queued").count(),

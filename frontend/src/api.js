@@ -122,8 +122,6 @@ export const api = {
   },
   tablesOf: (dsId) => request(`/datasources/${dsId}/tables`),
   datasetDetail: (id) => request(`/catalog/datasets/${id}`),
-  flowRuns: (id) => request(`/flows/${id}/runs`),
-  flowVersions: (id) => request(`/flows/${id}/versions`),
   switchProject: async (project_id) => {
     const r = await request("/auth/switch-project", {
       method: "POST",

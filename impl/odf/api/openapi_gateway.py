@@ -8,12 +8,11 @@ from fastapi import APIRouter, HTTPException, Request
 from odf.api.metrics import inc
 from odf.apistudio.service import ApiError, run_content
 from odf.db import SessionLocal
-from odf.models import AkSk, Asset, AssetVersion, Interface, Project
+from odf.models import AkSk, Asset, AssetVersion, Project
 from odf.services.aksk import verify
 from odf.services.audit import write_audit
 from odf.services.crypto import decrypt_secret
 from odf.services.grants import can_access
-from odf.services.interface import execute_interface
 from odf.services.ratelimit import check_rate, client_allowed, record_stat
 from odf.settings import get_settings
 
@@ -47,26 +46,6 @@ def parse_params(body):
     if not isinstance(data, dict):
         raise HTTPException(400, "JSON body must be an object")
     return data
-
-
-def resolve_access(session, ak, project_key, interface_key):
-    project = session.query(Project).filter_by(code=project_key).first()
-    if not project:
-        raise HTTPException(403, "project not found")
-    cred = session.query(AkSk).filter_by(ak=ak, enabled=True).first()
-    if not cred:
-        raise HTTPException(401, "missing access key")
-    if cred.project_id != project.id:
-        raise HTTPException(
-            403, "interface permission denied")
-    iface = (session.query(Interface)
-             .filter_by(interface_key=interface_key, status=1).first())
-    if not iface:
-        raise HTTPException(404, "interface not found")
-    if iface.project_id != project.id:
-        raise HTTPException(
-            403, "interface permission denied")
-    return cred, iface
 
 
 @router.post("/openapi/{interface_key}")
@@ -145,27 +124,4 @@ async def call_interface(interface_key: str, request: Request):
                         detail={"rows": result["row_count"]})
             return {"total": result["row_count"], "results": result["rows"]}
 
-        cred, iface = resolve_access(s, ak, project_key, interface_key)
-        host = request.client.host if request.client else ""
-        try:
-            ipaddress.ip_address(host)
-        except ValueError:
-            host = "127.0.0.1"
-        if not client_allowed(host, cred.ip_allowlist or []):
-            raise HTTPException(403, "client IP is not allowed")
-        ok = verify(ak, decrypt_secret(cred.sk_encrypted), request.method, body,
-                    request.headers.get("Content-Type", ""),
-                    request.headers.get("Date", "0"), request.url.path,
-                    auth, int(time.time() * 1000))
-        if not ok:
-            raise HTTPException(401, "signature mismatch or expired")
-        limit = min([c for c in (cred.rate_limit_per_min,
-                                  get_settings().api_rate_default)
-                     if c and c > 0] or [0])
-        if not check_rate(s, "iface:%s:%s" % (iface.id, ak), limit):
-            raise HTTPException(429, "rate limit exceeded")
-        params = parse_params(body)
-        rows, total = execute_interface(s, iface.id, params)
-        write_audit(s, actor=ak, action="openapi_call",
-                    target=interface_key, detail={"rows": total})
-        return {"total": total, "results": rows}
+        raise HTTPException(404, "interface not found")

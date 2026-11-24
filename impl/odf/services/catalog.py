@@ -4,8 +4,7 @@ import time
 from sqlalchemy import func
 
 from odf.models import (AuditLog, Column, Dataset, DatasetTag, Datasource,
-                        Flow, FlowVersion, LineageEdge, QualityResult,
-                        QualityRule, Tag)
+                        LineageEdge, QualityResult, QualityRule, Tag)
 from odf.services.audit import write_audit
 from odf.services.masking import apply_masks
 from odf.services.query import execute_query
@@ -265,28 +264,8 @@ def impact(session, project_id: int, ref: str, depth: int = 5):
             "column_edges": column_edges}
 
 
-def _label(datasource_id, table: str | None) -> str | None:
-    if datasource_id is None or not table:
-        return None
-    return "%s:%s" % (datasource_id, table)
-
-
 def lineage(session, project_id: int):
     edges, seen = [], set()
-    for f in session.query(Flow).filter_by(project_id=project_id).all():
-        v = (session.query(FlowVersion)
-             .filter_by(flow_id=f.id, version=f.current_version).first())
-        if not v:
-            continue
-        dag = v.dag_json or {}
-        src = _label(dag.get("source_ds_id"), dag.get("source_table"))
-        dst = _label(dag.get("sink_ds_id"), dag.get("sink_table"))
-        if src and dst:
-            key = (src, dst)
-            if key not in seen:
-                seen.add(key)
-                edges.append({"from": src, "to": dst,
-                              "flow_id": f.id, "flow": f.name})
     for row in (session.query(LineageEdge)
                 .filter_by(project_id=project_id, from_column=None).all()):
         key = (row.from_ref, row.to_ref)

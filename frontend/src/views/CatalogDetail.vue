@@ -19,7 +19,7 @@
       </el-button>
       <el-button @click="governanceOpen = true">{{ t("gov.button") }}</el-button>
       <el-button v-if="canCreate" @click="createInterface">
-        {{ t("catd.createInterface") }}
+        {{ t("catd.createApi") }}
       </el-button>
       <el-button @click="tagDialog = true">{{ t("cat.tag") }}</el-button>
       <el-button :loading="loading" @click="load">{{ t("cat.refresh") }}</el-button>
@@ -215,7 +215,7 @@
             <el-table-column prop="name" :label="t('quality.name')" />
             <el-table-column prop="kind" :label="t('quality.kind')" width="150" />
             <el-table-column prop="column" :label="t('quality.column')" width="160" />
-            <el-table-column :label="t('iface.status')" width="110">
+            <el-table-column :label="t('quality.enabled')" width="110">
               <template #default="{ row }">
                 <el-tag size="small" :type="row.enabled ? 'success' : 'info'">
                   {{ row.enabled ? t("catd.enabled") : t("catd.disabled") }}
@@ -402,12 +402,9 @@ const loaded = { preview: false, quality: false, impact: false,
 const fmt = fmtDate;
 
 function createInterface() {
-  const table = detail.value.schema
-    ? `${detail.value.schema}.${detail.value.table}`
-    : detail.value.table;
-  router.push({ path: "/interfaces",
+  router.push({ path: "/apis",
                 query: { new: "1", ds: detail.value.datasource_id,
-                         table } });
+                         table: detail.value.table } });
 }
 
 function isJsonValue(value) {

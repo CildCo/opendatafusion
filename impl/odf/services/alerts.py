@@ -78,16 +78,6 @@ def _forward_webhook(session, alert):
         pass
 
 
-def evaluate_health(session, project_id: int, flow_id: int,
-                    flow_name: str, health: dict) -> Alert | None:
-    if health.get("status") in (None, "ok", "unknown"):
-        return None
-    severity = "critical" if health["status"] == "critical" else "warning"
-    title = "flow %s: %s" % (flow_name, health["status"])
-    return raise_alert(session, project_id, severity, title,
-                       {"flow_id": flow_id, **health})
-
-
 def list_alerts(session, project_id: int, status: str | None = None):
     q = session.query(Alert).filter_by(project_id=project_id)
     if status:

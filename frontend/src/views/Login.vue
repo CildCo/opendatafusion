@@ -7,7 +7,7 @@
       </div>
       <h1>{{ brandTop }}<br>{{ brandBottom }}.</h1>
       <p class="statement">
-        {{ locale === "en" ? "From sources to pipelines, models, interfaces and apps," : "从数据源到管道、模型、接口和应用，" }}<br>
+        {{ locale === "en" ? "From sources to pipelines, models, APIs and apps," : "从数据源到管道、模型、API 和应用，" }}<br>
         {{ locale === "en" ? "one workspace for the whole data journey." : "一个工作区完成数据流动的全过程。" }}
       </p>
       <div class="facts">

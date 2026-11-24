@@ -69,7 +69,7 @@ async def run(args):
 def main():
     p = argparse.ArgumentParser(prog="loadtest")
     p.add_argument("--base", default="http://127.0.0.1:18080")
-    p.add_argument("--path", default="/api/v1/health/snapshot")
+    p.add_argument("--path", default="/api/v1/dashboard")
     p.add_argument("--token", default="")
     p.add_argument("--username", default="")
     p.add_argument("--password", default="")

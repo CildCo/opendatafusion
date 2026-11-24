@@ -2,22 +2,19 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from odf.models import Asset, Flow, FlowRun, Job, JobDependency
+from odf.models import Asset, Job, JobDependency
 
-TYPES = ("flow", "pipeline")
+TYPES = ("pipeline",)
 DEFAULT_WINDOW_HOURS = 24
 
 
 def _object(session, project_id, kind, object_id):
-    if kind == "flow":
-        row = session.get(Flow, object_id)
-        return row if row and row.project_id == project_id else None
-    if kind == "pipeline":
-        row = session.get(Asset, object_id)
-        if not row or row.project_id != project_id or row.type != "pipeline":
-            return None
-        return row
-    return None
+    if kind != "pipeline":
+        return None
+    row = session.get(Asset, object_id)
+    if not row or row.project_id != project_id or row.type != "pipeline":
+        return None
+    return row
 
 
 def _name(session, project_id, kind, object_id):
@@ -104,13 +101,6 @@ def delete_dependency(session, project_id, dependency_id):
 
 
 def _last_success(session, project_id, kind, object_id):
-    if kind == "flow":
-        row = (session.query(FlowRun)
-               .filter(FlowRun.flow_id == object_id,
-                       FlowRun.status == 2)
-               .order_by(FlowRun.finished_at.desc().nulls_last(),
-                         FlowRun.id.desc()).first())
-        return row.finished_at or row.started_at if row else None
     row = (session.query(Job)
            .filter(Job.asset_type == "pipeline", Job.asset_id == object_id,
                    Job.status == "success")
@@ -170,13 +160,7 @@ def recent_blocked(session, project_id=None, hours=24, limit=50):
         if created and created < cutoff:
             continue
         kind, object_id, name = None, None, None
-        if job.flow_id:
-            flow = session.get(Flow, job.flow_id)
-            if flow:
-                kind, object_id, name = "flow", flow.id, flow.name
-                if project_id is not None and flow.project_id != project_id:
-                    continue
-        elif job.asset_id:
+        if job.asset_id:
             asset = session.get(Asset, job.asset_id)
             if asset:
                 kind, object_id, name = "pipeline", asset.id, asset.name

@@ -14,9 +14,6 @@
       <el-button @click="load" :loading="loading">
         {{ t("changes.refresh") }}
       </el-button>
-      <el-button type="primary" @click="openCreate">
-        {{ t("changes.create") }}
-      </el-button>
     </div>
 
     <el-card class="card" shadow="never">
@@ -69,87 +66,23 @@
                 :description="t('changes.empty')" />
     </el-card>
 
-    <el-dialog v-model="dialog" :title="t('changes.dialogTitle')"
-               width="560px">
-      <el-form label-width="90px">
-        <el-form-item :label="t('changes.action')" required>
-          <el-select v-model="form.action" style="width: 100%" @change="onAction">
-            <el-option value="run_flow" :label="t('changes.actionRunFlow')" />
-            <el-option value="pause_flow" :label="t('changes.actionPauseFlow')" />
-            <el-option value="resume_flow" :label="t('changes.actionResumeFlow')" />
-            <el-option value="rollback_flow" :label="t('changes.actionRollbackFlow')" />
-            <el-option value="publish_interface" :label="t('changes.actionPublishInterface')" />
-            <el-option value="revoke_interface" :label="t('changes.actionRevokeInterface')" />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="t('changes.target')" required>
-          <el-select v-if="isFlowAction" v-model="form.target" style="width: 100%" filterable>
-            <el-option v-for="f in flows" :key="f.id" :value="f.id"
-                       :label="`${f.name} (#${f.id})`" />
-          </el-select>
-          <el-select v-else v-model="form.target" style="width: 100%" filterable>
-            <el-option v-for="i in interfaces" :key="i.id" :value="i.id"
-                       :label="`${i.name} (#${i.id})`" />
-          </el-select>
-        </el-form-item>
-        <el-form-item v-if="form.action === 'rollback_flow'"
-                      :label="t('changes.version')">
-          <el-select v-model="form.version" style="width: 100%">
-            <el-option v-for="v in versions" :key="v.version" :value="v.version"
-                       :label="tr('changes.versionLabel', { version: v.version })" />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="t('changes.note')">
-          <el-input v-model="form.note" type="textarea" :rows="2" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialog = false">{{ t("changes.cancel") }}</el-button>
-        <el-button type="primary" :loading="saving" @click="create">
-          {{ t("changes.submit") }}
-        </el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from "vue";
+import { onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { api, errMsg, getProject } from "../api";
+import { api, errMsg } from "../api";
 import { fmtDate, t } from "../i18n";
 import PageHeader from "../components/PageHeader.vue";
 
-function tr(key, vars = {}) {
-  return Object.entries(vars).reduce(
-    (s, [k, v]) => s.split(`{${k}}`).join(v ?? ""), t(key));
-}
-
 const rows = ref([]);
-const flows = ref([]);
-const interfaces = ref([]);
-const versions = ref([]);
 const loading = ref(false);
-const saving = ref(false);
-const dialog = ref(false);
 const status = ref("");
 const tokens = reactive({});
-const form = reactive({
-  action: "pause_flow", target: null, version: null, note: "",
-});
-
-const isFlowAction = computed(() =>
-  ["run_flow", "pause_flow", "resume_flow", "rollback_flow"].includes(form.action)
-);
 
 function actionLabel(a) {
   return {
-    run_flow: t("changes.actionRunFlow"),
-    pause_flow: t("changes.actionPauseFlow"),
-    resume_flow: t("changes.actionResumeFlow"),
-    rollback_flow: t("changes.actionRollbackFlow"),
-    publish_interface: t("changes.actionPublishInterface"),
-    revoke_interface: t("changes.actionRevokeInterface"),
     publish_metric: t("changes.actionPublishMetric"),
     rollback_metric: t("changes.actionRollbackMetric"),
     publish_dataset: t("changes.actionPublishDataset"),
@@ -171,53 +104,10 @@ async function load() {
   try {
     const q = status.value ? `?status=${status.value}` : "";
     rows.value = await api.get("/changes" + q);
-    flows.value = await api.get("/flows");
-    interfaces.value = await api.get("/interfaces");
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
     loading.value = false;
-  }
-}
-
-function openCreate() {
-  Object.assign(form, { action: "pause_flow", target: null, version: null, note: "" });
-  versions.value = [];
-  dialog.value = true;
-  onAction();
-}
-
-async function onAction() {
-  form.target = isFlowAction.value ? flows.value[0]?.id ?? null
-                                   : interfaces.value[0]?.id ?? null;
-  versions.value = [];
-  if (form.action === "rollback_flow" && form.target) {
-    versions.value = await api.flowVersions(form.target);
-    form.version = versions.value[0]?.version ?? null;
-  }
-}
-
-async function create() {
-  if (!form.target) {
-    ElMessage.warning(t("changes.selectTarget"));
-    return;
-  }
-  saving.value = true;
-  try {
-    await api.post("/changes", {
-      project_id: getProject() || 1,
-      action: form.action,
-      target: form.target,
-      payload: form.action === "rollback_flow"
-        ? { version: form.version } : { note: form.note },
-    });
-    dialog.value = false;
-    await load();
-    ElMessage.success(t("changes.submitted"));
-  } catch (e) {
-    ElMessage.error(errMsg(e));
-  } finally {
-    saving.value = false;
   }
 }
 

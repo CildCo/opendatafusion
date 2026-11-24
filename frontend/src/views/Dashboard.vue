@@ -66,11 +66,11 @@
               <span class="mono">{{ timeOnly(row.started_at) }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="flow" :label="label('作业')" min-width="180">
+          <el-table-column prop="target" :label="label('作业')" min-width="180">
             <template #default="{ row }">
               <div class="name-cell">
                 <span class="status-dot" :class="runClass(row.status)"></span>
-                <span>{{ row.flow }}</span>
+                <span>{{ row.target }}</span>
               </div>
             </template>
           </el-table-column>
@@ -191,19 +191,19 @@ const stats = ref([
   { key: "running_runs", label: "运行中", value: 0, note: "当前作业" },
   { key: "failed_24h", label: "今日失败", value: 0, note: "最近 24 小时" },
   { key: "open_alerts", label: "未处理告警", value: 0, note: "需要关注" },
-  { key: "runs_24h", label: "24h 运行", value: 0, note: "全部流程" },
+  { key: "runs_24h", label: "24h 运行", value: 0, note: "全部管道" },
   { key: "datasources", label: "数据源", value: 0, note: "已连接" },
-  { key: "flows", label: "流程", value: 0, note: "已定义" },
-  { key: "interfaces", label: "接口", value: 0, note: "已发布" },
+  { key: "pipelines", label: "管道", value: 0, note: "已定义" },
+  { key: "apis", label: "API", value: 0, note: "已发布" },
   { key: "quality_rules", label: "质量规则", value: 0, note: "已启用" },
 ]);
 
 const WORD_EN = {
   "运行中": "Running", "今日失败": "Failed today", "未处理告警": "Open alerts",
-  "24h 运行": "Runs (24h)", "数据源": "Data sources", "流程": "Flows",
+  "24h 运行": "Runs (24h)", "数据源": "Data sources", "管道": "Pipelines",
   "接口": "Interfaces", "质量规则": "Quality rules", "当前作业": "Current jobs",
   "最近 24 小时": "Last 24 hours", "需要关注": "Needs attention",
-  "全部流程": "All flows", "已连接": "Connected", "已定义": "Defined",
+  "全部管道": "All pipelines", "已连接": "Connected", "已定义": "Defined",
   "已发布": "Published", "已启用": "Enabled", "全部": "All",
   "失败": "Failed", "成功": "Succeeded", "时间": "Time", "作业": "Job",
   "状态": "Status", "输入": "In", "输出": "Out", "错误": "Errors",
@@ -270,7 +270,6 @@ function alertDetail(a) {
     return d.message || d.error || d.impact;
   }
   const parts = [];
-  if (d.flow_id !== undefined) parts.push(label("流程") + " #" + d.flow_id);
   if (d.lag_s !== undefined) parts.push(label("滞后") + " " + fmtSec(d.lag_s));
   if (d.cursor_age_s !== undefined) {
     parts.push(label("游标年龄") + " " + fmtSec(d.cursor_age_s));

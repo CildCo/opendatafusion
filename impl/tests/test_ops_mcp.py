@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from odf.db import SessionLocal
 from odf.mcp.server import CURRENT_PROJECT, TOOLS
-from odf.models import Flow, Job, Project
+from odf.models import Asset, Job, Project
 
 
 def test_ops_tools_registered():
@@ -20,15 +20,18 @@ def _fixture():
         s.flush()
         s.query(Job).filter(Job.id.in_([9361, 9362])).delete(
             synchronize_session=False)
-        s.query(Flow).filter(Flow.id.in_([9161, 9162])).delete(
+        s.query(Asset).filter(Asset.id.in_([9261, 9262])).delete(
             synchronize_session=False)
         s.add_all([
-            Flow(id=9161, project_id=905, name="mcp-ops"),
-            Flow(id=9162, project_id=906, name="mcp-other"),
-            Job(id=9361, flow_id=9161, status="failed", attempts=3,
-                last_error="boom", finished_at=datetime.now(timezone.utc)),
-            Job(id=9362, flow_id=9162, status="failed", attempts=3,
-                last_error="other"),
+            Asset(id=9261, project_id=905, type="pipeline",
+                  key="mcp-asset", name="mcp-ops", owner="mcp"),
+            Asset(id=9262, project_id=906, type="pipeline",
+                  key="mcp-asset-2", name="mcp-other", owner="mcp"),
+            Job(id=9361, asset_id=9261, asset_type="pipeline",
+                status="failed", attempts=3, last_error="boom",
+                finished_at=datetime.now(timezone.utc)),
+            Job(id=9362, asset_id=9262, asset_type="pipeline",
+                status="failed", attempts=3, last_error="other"),
         ])
         s.commit()
 

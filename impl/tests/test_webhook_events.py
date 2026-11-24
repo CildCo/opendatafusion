@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 
 from odf.assets.service import create_asset, publish_asset
 from odf.db import Base
-from odf.models import Flow, Job, Project, WebhookDelivery
+from odf.models import Asset, Job, Project, WebhookDelivery
 from odf.services.alerts import raise_alert
 from odf.services.jobs import complete, scheduler_tick
 from odf.webhooks import service
@@ -41,11 +41,11 @@ def test_publish_and_alert_emit(monkeypatch):
 
 def test_failed_job_emits(monkeypatch):
     s = _env(monkeypatch)
-    f = Flow(id=801, project_id=1, name="f", cron="")
-    s.add(f)
+    s.add(Asset(id=801, project_id=1, type="pipeline", key="wf",
+                name="f", owner="admin"))
     s.commit()
-    job = Job(id=802, flow_id=801, status="running", attempts=0,
-              max_attempts=1)
+    job = Job(id=802, asset_id=801, asset_type="pipeline",
+              status="running", attempts=0, max_attempts=1)
     s.add(job)
     s.commit()
     complete(s, 802, False, "boom")
