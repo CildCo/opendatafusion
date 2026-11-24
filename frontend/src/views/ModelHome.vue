@@ -13,6 +13,8 @@
                   : (tab === 'models' ? 'model.searchTransforms' : 'model.search'))" />
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("model.refresh") }}</el-button>
+      <el-button v-if="canEdit && tab === 'models'"
+                 @click="templateOpen = true">{{ t("tpl.button") }}</el-button>
       <el-button v-if="canEdit" type="primary" @click="create">
         {{ t(tab === "datasets" ? "model.newDataset"
              : (tab === "models" ? "model.newTransform" : "model.newMetric")) }}
@@ -160,6 +162,9 @@
         <el-button @click="compareOpen = false">{{ t("model.cancel") }}</el-button>
       </template>
     </el-dialog>
+
+    <template-dialog v-model="templateOpen" mode="model"
+                     @created="onTemplateCreated" />
   </div>
 </template>
 
@@ -171,9 +176,15 @@ import { api, canWrite, errMsg } from "../api";
 import { t } from "../i18n";
 import DiffView from "../components/DiffView.vue";
 import GraphCanvas from "../components/GraphCanvas.vue";
+import TemplateDialog from "../components/TemplateDialog.vue";
 
 const route = useRoute();
 const router = useRouter();
+const templateOpen = ref(false);
+
+function onTemplateCreated(result) {
+  router.push(`/models/${result.id}`);
+}
 const tab = ref(route.path.startsWith("/metrics")
   ? "metrics" : route.path.startsWith("/models") ? "models" : "datasets");
 const canEdit = canWrite();

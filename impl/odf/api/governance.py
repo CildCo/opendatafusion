@@ -51,6 +51,71 @@ class TableGovernanceIn(BaseModel):
     domain_id: int | None = None
 
 
+class ContractPatch(BaseModel):
+    enforce: bool | None = None
+    allow_extra: bool | None = None
+
+
+def contract_list(session, project_id, include_missing=False):
+    from odf.services.contracts import contract_summaries
+    return contract_summaries(session, project_id, include_missing)
+
+
+@router.get("/governance/contracts")
+def contracts(include_missing: bool = False,
+              s: Session = Depends(get_session),
+              claims: dict = Depends(require_user)):
+    return {"items": contract_list(s, claims["project_id"],
+                                   include_missing)}
+
+
+@router.post("/assets/{asset_id}/contract/check")
+def check_contract(asset_id: int, s: Session = Depends(get_session),
+                   claims: dict = Depends(require_editor)):
+    from odf.services.contracts import check_asset
+    try:
+        return check_asset(s, claims["project_id"], asset_id)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+
+
+@router.post("/assets/{asset_id}/contract/generate")
+def generate_contract_route(asset_id: int,
+                            s: Session = Depends(get_session),
+                            claims: dict = Depends(require_editor)):
+    from odf.services.contracts import generate_contract
+    try:
+        contract = generate_contract(s, claims["project_id"], asset_id)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    write_audit(s, claims["sub"], "generate_asset_contract",
+                str(asset_id), {"columns": len(contract.get("schema") or [])})
+    return {"contract": contract}
+
+
+@router.patch("/assets/{asset_id}/contract")
+def patch_contract(asset_id: int, body: ContractPatch,
+                   s: Session = Depends(get_session),
+                   claims: dict = Depends(require_editor)):
+    from odf.models import Asset
+    asset = s.get(Asset, asset_id)
+    if not asset or asset.project_id != claims["project_id"]:
+        raise HTTPException(404, "asset not found")
+    contract = dict(asset.contract_json or {})
+    if body.enforce is not None:
+        contract["enforce"] = body.enforce
+    if body.allow_extra is not None:
+        contract["allow_extra"] = body.allow_extra
+    try:
+        out = update_asset_governance(s, claims["project_id"], asset_id,
+                                      contract=contract)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    write_audit(s, claims["sub"], "update_asset_contract", str(asset_id),
+                {"enforce": body.enforce, "allow_extra": body.allow_extra})
+    return out
+
+
 def _domain(row):
     return {"id": row.id, "name": row.name,
             "description": row.description, "owner": row.owner,

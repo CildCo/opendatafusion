@@ -167,7 +167,8 @@ def preview(asset_id: int, body: PreviewIn,
             claims: dict = Depends(require_editor)):
     a = _asset(s, asset_id, claims)
     try:
-        return preview_model(s, a.id, body.content, body.limit)
+        return preview_model(s, a.id, body.content, body.limit,
+                             actor=claims["sub"])
     except ValueError:
         raise HTTPException(400, "could not preview the model; check SQL, "
                                  "references and the datasource")

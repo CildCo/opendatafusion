@@ -56,6 +56,17 @@ def _select_columns(content):
     return out
 
 
+def _declared_columns(session, asset):
+    content = _version_content(session, asset)
+    if asset.type == "model":
+        return [column.get("name") for column in content.get("columns") or []
+                if isinstance(column, dict)
+                and isinstance(column.get("name"), str)]
+    if asset.type in ("dataset", "api"):
+        return [alias for _, alias in _select_columns(content)]
+    return []
+
+
 def asset_lineage(session, project_id, asset_id):
     from odf.models import Asset, LineageEdge
     root = session.get(Asset, asset_id)
@@ -160,6 +171,34 @@ def asset_lineage(session, project_id, asset_id):
                     column_edges.append({
                         "from": parent_id, "from_column": dimension,
                         "to": node_id, "to_column": dimension})
+        elif asset.type == "model":
+            parents = _parent_assets(session, asset, content)
+            declared = {parent.id: set(_declared_columns(session, parent))
+                        for parent in parents}
+            for column in content.get("columns") or []:
+                if not isinstance(column, dict):
+                    continue
+                name = column.get("name")
+                source = str(column.get("source") or "").strip()
+                if not name or not source:
+                    continue
+                parent, source_column = None, source
+                if "." in source:
+                    prefix, source_column = source.split(".", 1)
+                    parent = next(
+                        (item for item in parents
+                         if item.key == prefix or item.name == prefix), None)
+                else:
+                    matched = [item for item in parents
+                               if source_column in declared[item.id]]
+                    if len(matched) == 1:
+                        parent = matched[0]
+                if not parent:
+                    continue
+                column_edges.append({
+                    "from": _asset_node_id(parent),
+                    "from_column": source_column,
+                    "to": node_id, "to_column": name})
 
     if visited_tables:
         rows = (session.query(LineageEdge)

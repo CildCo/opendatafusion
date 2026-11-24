@@ -4,6 +4,43 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [2.3.0] - 2026-11-24
+
+### Added
+
+- Query history: every workbench, federated and model-preview query is
+  recorded with status, duration, rows, error and reopenable SQL.
+- Query performance tab in the operations centre with total, failure, average,
+  P50 and P95 duration, breakdowns by source and datasource, and the ten
+  slowest statements.
+- Workbench execution plans through `EXPLAIN` for SQL, Trino, Hive,
+  ClickHouse and DM datasources.
+- Transform model partitioning for Trino / Iceberg tables, with up to four
+  partition columns.
+- `merge` incremental strategy: rows for the selected keys are replaced, so
+  source updates and deletes reach the target. Above 50,000 keys the model
+  rebuilds the table instead.
+- Model column definitions with source mapping, surfaced as column-level
+  lineage in the lineage drawer and catalog.
+- Data contracts for datasets and models: generate from the live table,
+  check structure and types, optionally reject extra columns, and enforce the
+  contract on model runs.
+- Generate CDC pipelines from a Debezium source: one branch per subscribed
+  table, Debezium envelope unwrapping and upsert sinks.
+- Template gallery for transform models (staging, incremental merge,
+  deduplicated mart) and pipelines (table sync by key).
+
+### Changed
+
+- Model unique keys are limited to eight columns and validated as
+  identifiers.
+- The web console API client supports `PATCH` requests.
+
+### Fixed
+
+- Contract and query-history routes return curated errors and stay
+  project-scoped.
+
 ## [2.2.1] - 2026-11-24
 
 ### Fixed

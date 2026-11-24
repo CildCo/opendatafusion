@@ -13,7 +13,8 @@ from odf.api import (alerts, audit, auth, catalog, changes,
                      mcp, notifications, platform_admin,
                      probe,
                      metadata, openapi_gateway, projects, quality,
-                     saved_queries, standards, users)
+                     query_runs, saved_queries, standards,
+                     templates, users)
 from odf.api.metrics import EXCLUDED, record, router as metrics_router
 import odf.apistudio.api as api_studio
 import odf.appstudio.api as app_api
@@ -46,7 +47,7 @@ for r in (datasources.router, metadata.router, mcp.router, users.router,
           projects.router, catalog.router, quality.router,
           standards.router, alerts.router, changes.router, audit.router,
           notifications.router, saved_queries.router, governance.router,
-          dashboard.router):
+          query_runs.router, templates.router, dashboard.router):
     app.include_router(r, prefix="/api/v1",
                        dependencies=[Depends(require_user)])
 app.include_router(pipeline_api.router, prefix="/api/v1",

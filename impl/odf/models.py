@@ -269,6 +269,31 @@ class SavedQuery(Base):
                                                  default=now)
 
 
+class QueryRun(Base):
+    __tablename__ = "query_run"
+    __table_args__ = (Index("ix_query_run_project_created",
+                            "project_id", "created_at"),
+                      Index("ix_query_run_datasource_created",
+                            "datasource_id", "created_at"))
+    id: Mapped[int] = mapped_column(BigIntPK, primary_key=True,
+                                    autoincrement=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"),
+                                            index=True)
+    datasource_id: Mapped[int | None] = mapped_column(
+        ForeignKey("datasource.id"), nullable=True, index=True)
+    actor: Mapped[str] = mapped_column(String(64), default="")
+    source: Mapped[str] = mapped_column(String(16), default="workbench")
+    status: Mapped[str] = mapped_column(String(8), default="ok")
+    sql_hash: Mapped[str] = mapped_column(String(64), default="")
+    sql_preview: Mapped[str] = mapped_column(Text, default="")
+    sql_text: Mapped[str] = mapped_column(Text, default="")
+    rows: Mapped[int] = mapped_column(Integer, default=0)
+    ms: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now, index=True)
+
+
 class ColumnPolicy(Base):
     __tablename__ = "column_policy"
     __table_args__ = (UniqueConstraint("datasource_id", "schema_name",

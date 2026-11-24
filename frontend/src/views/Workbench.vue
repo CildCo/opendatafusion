@@ -3,6 +3,9 @@
     <div class="head">
       <el-tag size="small" type="info">{{ t("wb.readonly") }}</el-tag>
       <div class="spacer" />
+      <el-button size="small" @click="openPlan"
+                 :disabled="tab !== 'single'">{{ t("wb.explain") }}</el-button>
+      <el-button size="small" @click="openHistory">{{ t("wb.history") }}</el-button>
       <el-button size="small" @click="saveQuery">{{ t("wb.saveQuery") }}</el-button>
       <el-button size="small" @click="openSaved">{{ t("wb.savedQueries") }}</el-button>
       <el-button size="small" @click="loadDatasources">{{ t("wb.refreshSources") }}</el-button>
@@ -99,6 +102,40 @@
         </el-button>
       </div>
     </el-drawer>
+
+    <el-drawer v-model="historyOpen" :title="t('wb.history')" size="540px"
+               @open="loadHistory">
+      <el-empty v-if="!runs.length" :description="t('wb.noHistory')"
+                :image-size="60" />
+      <div v-for="row in runs" :key="row.id" class="hist-row"
+           @click="applyRun(row)">
+        <div class="hist-top">
+          <el-tag size="small" :type="row.status === 'ok' ? 'success' : 'danger'">
+            {{ row.status === "ok" ? t("wb.ok") : t("wb.failed") }}
+          </el-tag>
+          <span class="hist-source">{{ row.source }}</span>
+          <span class="hist-meta">{{ row.ms }} ms · {{ row.rows }} {{ t("wb.rows") }}</span>
+        </div>
+        <div class="hist-sql">{{ row.sql_preview }}</div>
+        <div v-if="row.error" class="hist-error">{{ row.error }}</div>
+        <div class="hist-meta">
+          {{ row.actor }} · {{ row.datasource_name || "-" }} · {{ fmt(row.created_at) }}
+        </div>
+      </div>
+    </el-drawer>
+
+    <el-dialog v-model="planOpen" :title="t('wb.plan')" width="780px">
+      <el-alert v-if="planError" :title="planError" type="error"
+                :closable="false" />
+      <el-table v-else :data="plan.rows" size="small" height="380" border>
+        <el-table-column v-for="c in plan.columns" :key="c" :prop="c"
+                         :label="c" min-width="160" show-overflow-tooltip />
+      </el-table>
+      <template #footer>
+        <span class="hint">{{ plan.ms }} ms</span>
+        <el-button @click="planOpen = false">{{ t("common.close") }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -122,6 +159,62 @@ const result = ref(null);
 const error = ref("");
 const savedOpen = ref(false);
 const saved = ref([]);
+const planOpen = ref(false);
+const plan = ref({ columns: [], rows: [], ms: 0 });
+const planError = ref("");
+const historyOpen = ref(false);
+const runs = ref([]);
+
+function fmt(value) {
+  return value ? new Date(value).toLocaleString() : "-";
+}
+
+async function openPlan() {
+  if (!datasourceId.value) {
+    ElMessage.error(t("wb.chooseSource"));
+    return;
+  }
+  planOpen.value = true;
+  planError.value = "";
+  plan.value = { columns: [], rows: [], ms: 0 };
+  try {
+    plan.value = await api.post("/workbench/explain", {
+      datasource_id: datasourceId.value,
+      sql: singleSql.value,
+    });
+  } catch (e) {
+    planError.value = errMsg(e);
+  }
+}
+
+async function openHistory() {
+  historyOpen.value = true;
+  await loadHistory();
+}
+
+async function loadHistory() {
+  try {
+    runs.value = (await api.get("/query-runs?page_size=50")).items || [];
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function applyRun(row) {
+  if (!row.datasource_id) {
+    ElMessage.error(t("wb.historyNoSource"));
+    return;
+  }
+  try {
+    const detail = await api.get(`/query-runs/${row.id}`);
+    tab.value = "single";
+    datasourceId.value = row.datasource_id;
+    singleSql.value = detail.sql || row.sql_preview;
+    historyOpen.value = false;
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
 
 async function loadDatasources() {
   try {
@@ -297,8 +390,7 @@ onMounted(async () => {
   display: flex; align-items: center; gap: 8px;
   border-bottom: 1px solid #eef2f7; padding: 8px 0;
 }
-.saved-main {
-  flex: 1; display: flex; flex-direction: column; align-items: flex-start;
+.saved-main { flex: 1; display: flex; flex-direction: column; align-items: flex-start;
   gap: 2px; background: none; border: 0; cursor: pointer;
   text-align: left; padding: 0;
 }
@@ -310,4 +402,13 @@ onMounted(async () => {
           border-radius: 8px; padding: 10px; }
 .result-head { display: flex; align-items: center; gap: 10px;
                margin-bottom: 8px; font-size: 12px; color: #475569; }
+.hist-row { border-bottom: 1px solid #eef2f7; padding: 10px 2px; cursor: pointer; }
+.hist-row:hover { background: #f8fafc; }
+.hist-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.hist-source { font-size: 12px; color: #334155; }
+.hist-meta { font-size: 11px; color: #94a3b8; margin-left: auto; }
+.hist-sql { font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 12px; color: #1e293b; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis; }
+.hist-error { font-size: 12px; color: #b91c1c; margin-top: 2px; }
 </style>

@@ -267,3 +267,53 @@ Select a Trino datasource and schema to inspect Iceberg tables.
 - **Maintain** runs file optimization and snapshot expiry with a retention and size threshold.
 - **Schedule** stores a cron maintenance plan; the scheduler queues a job and failures raise an alert.
 - Reading requires a signed-in project user; maintenance and schedules require an editor. See [Lakehouse table management](LAKEHOUSE.md).
+
+## 29. Query history and performance
+
+The workbench records every executed statement.
+
+- **History** lists the latest runs with status, source, duration, rows and
+  user. Select a run to restore its SQL. Federated runs cannot be restored.
+- **Execution plan** runs `EXPLAIN` for the current single-source statement.
+- **Operations centre → Query performance** summarises the last 7 or 30 days:
+  total, failures, average, P50 and P95, counts by source and datasource, and
+  the ten slowest statements.
+
+See [Query workbench and performance](QUERY.md).
+
+## 30. Data contracts
+
+**Governance → Data contracts** lists datasets and transform models with
+their contract.
+
+- **Generate** reads the live table structure into the contract.
+- **Check** compares the live structure with the contract and shows missing,
+  unexpected or mistyped columns.
+- **Enforce** makes a model run fail when its output drifts from the contract.
+- **No extra columns** also rejects columns that the contract does not list.
+
+See [Data contracts](GOVERNANCE.md#data-contracts).
+
+## 31. CDC pipelines
+
+**Change data capture → Create pipeline** builds a pipeline from a Debezium
+source.
+
+- Choose a Kafka datasource, a target datasource and a primary key.
+- One branch per subscribed table reads the Debezium topic and writes the
+  target table.
+- The source node unwraps `payload.after`, so delete events are skipped.
+- Target tables must exist first; validation reports missing tables.
+
+See [Change data capture](STREAMING.md).
+
+## 32. Templates
+
+Model and pipeline lists have a **Templates** button.
+
+- Model templates: standard staging model, incremental merge model,
+  deduplicated mart.
+- Pipeline template: table sync by primary key.
+- Choose a datasource and table; the draft opens in the normal editor.
+
+See [Templates](TEMPLATES.md).

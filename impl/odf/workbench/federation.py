@@ -118,11 +118,19 @@ def run_federated(session, project_id, sources, sql, limit=1000, actor=""):
                     for r in result.fetchmany(max_rows + 1)]
         except Exception as e:
             raise ValueError("federated query failed: %s" % str(e)[:300])
+    except ValueError as error:
+        from odf.services.query_log import record as record_query
+        record_query(session, project_id, None, actor, "federated",
+                     int((time.time() - started) * 1000), 0, error, sql)
+        raise
     finally:
         con.close()
     truncated = len(rows) > max_rows
     rows = rows[:max_rows]
     elapsed = int((time.time() - started) * 1000)
+    from odf.services.query_log import record as record_query
+    record_query(session, project_id, None, actor, "federated", elapsed,
+                 len(rows), None, sql)
     write_audit(session, actor, "federated_query", "workbench",
                 {"sources": [{"alias": s["alias"],
                               "datasource_id": s["datasource_id"],

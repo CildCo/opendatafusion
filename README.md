@@ -198,6 +198,9 @@ development, see [frontend/README.md](frontend/README.md).
 | [Transform models](docs/MODELS.md) | SQL models, refs, materializations, tests and layers |
 | [Lakehouse](docs/LAKEHOUSE.md) | Snapshots, time travel, health and maintenance schedules |
 | [Lineage and catalog export](docs/LINEAGE.md) | OpenLineage events and external catalog sync |
+| [Query workbench and performance](docs/QUERY.md) | Query history, execution plans and P50/P95 analysis |
+| [Change data capture](docs/STREAMING.md) | Debezium sources and generated CDC pipelines |
+| [Templates](docs/TEMPLATES.md) | Model and pipeline starting points |
 | [User guide](docs/USER_GUIDE.md) | Every console page and action (also in [Chinese](docs/USER_GUIDE.zh-CN.md)) |
 
 ## Development

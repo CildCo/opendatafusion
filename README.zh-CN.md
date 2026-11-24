@@ -179,6 +179,9 @@ cp .env.example .env
 | [转换模型](docs/MODELS.md) | SQL 模型、ref、物化、测试与分层 |
 | [湖仓](docs/LAKEHOUSE.md) | 快照、时间旅行、健康与维护计划 |
 | [血缘与目录导出](docs/LINEAGE.md) | OpenLineage 事件与外部目录同步 |
+| [查询与性能](docs/QUERY.md) | 查询历史、执行计划与 P50/P95 分析 |
+| [变更数据捕获](docs/STREAMING.md) | Debezium 源与自动生成的 CDC 管道 |
+| [模板](docs/TEMPLATES.md) | 模型与管道的起步模板 |
 | [控制台使用指南](docs/USER_GUIDE.zh-CN.md) | 每个页面与按钮的操作说明（[英文版](docs/USER_GUIDE.md)） |
 
 ## 开发

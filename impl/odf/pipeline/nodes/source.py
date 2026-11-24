@@ -80,6 +80,18 @@ class SourceExecutor(NodeExecutor):
         src = source_for(ds, dag)
         start = ctx.cursor_override.get(nid, ctx.cursors.get(nid))
         rows, cursor = src.read(start, ctx.batch)
+        if config.get("debezium"):
+            unwrapped = []
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                payload = row.get("payload")
+                if not isinstance(payload, dict):
+                    payload = row
+                after = payload.get("after")
+                if isinstance(after, dict):
+                    unwrapped.append(after)
+            rows = unwrapped
         if ctx.until_cursor and col:
             keep = [r for r in rows
                     if r.get(col) is not None

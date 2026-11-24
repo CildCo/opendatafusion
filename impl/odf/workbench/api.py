@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from odf.db import get_session
 from odf.services.auth import claims_role, require_editor
 from odf.workbench.federation import run_federated
-from odf.workbench.service import run_query
+from odf.workbench.service import explain_query, run_query
 
 router = APIRouter()
 
@@ -26,6 +26,21 @@ class QueryIn(BaseModel):
     datasource_id: int
     sql: str
     limit: int = Field(1000, ge=1, le=10000)
+
+
+class ExplainIn(BaseModel):
+    datasource_id: int
+    sql: str
+
+
+@router.post("/workbench/explain")
+def explain(body: ExplainIn, s: Session = Depends(get_session),
+            claims: dict = Depends(require_editor)):
+    try:
+        return explain_query(s, claims["project_id"], body.datasource_id,
+                             body.sql, claims["sub"])
+    except ValueError as e:
+        raise HTTPException(404 if "not found" in str(e) else 400, str(e))
 
 
 @router.post("/workbench/query")

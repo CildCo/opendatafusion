@@ -151,13 +151,31 @@ def _clean_contract(raw):
         value = raw.get(key)
         if value is not None:
             out[key] = str(value)[:4000]
+    for key in ("enforce", "allow_extra"):
+        if key in raw:
+            out[key] = bool(raw[key])
     for key in ("schema", "quality"):
         value = raw.get(key)
         if value is None:
             continue
         if not isinstance(value, list):
             raise ValueError("%s must be an array" % key)
-        out[key] = value[:200]
+        cleaned = []
+        for item in value[:200]:
+            if key == "schema":
+                if isinstance(item, str):
+                    cleaned.append({"name": item[:128]})
+                elif isinstance(item, dict) and \
+                        isinstance(item.get("name"), str):
+                    cleaned.append({
+                        "name": item["name"][:128],
+                        "type": str(item.get("type") or "")[:64],
+                        "required": bool(item.get("required"))})
+                else:
+                    raise ValueError("schema columns need a name")
+            else:
+                cleaned.append(item)
+        out[key] = cleaned
     import json
     if len(json.dumps(out, default=str)) > 50000:
         raise ValueError("contract is too large")

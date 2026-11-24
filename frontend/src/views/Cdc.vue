@@ -45,10 +45,14 @@
         <el-table-column :label="t('cdc.createdAt')" width="200">
           <template #default="{ row }">{{ fmtDate(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column :label="t('cdc.actions')" width="240" fixed="right">
+        <el-table-column :label="t('cdc.actions')" width="300" fixed="right">
           <template #default="{ row }">
             <el-button link @click.stop="openDetail(row)">
               {{ t("cdc.viewDetail") }}
+            </el-button>
+            <el-button v-if="canEdit" link type="primary"
+                       @click.stop="openPipeline(row)">
+              {{ t("cdc.makePipeline") }}
             </el-button>
             <el-button v-if="canEdit" link @click.stop="toggle(row)">
               {{ row.status === "paused" ? t("cdc.resume") : t("cdc.pause") }}
@@ -113,6 +117,53 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="pipelineOpen" :title="t('cdc.makePipeline')"
+               width="560px">
+      <el-form label-width="110px">
+        <el-form-item :label="t('cdc.source')">
+          <b>{{ pipelineForm.source_name }}</b>
+        </el-form-item>
+        <el-form-item :label="t('cdc.topics')">
+          <span class="mono">{{ pipelineForm.tables || "-" }}</span>
+        </el-form-item>
+        <el-form-item :label="t('cdc.kafkaDatasource')" required>
+          <el-select v-model="pipelineForm.kafka_datasource_id"
+                     style="width: 100%">
+            <el-option v-for="d in kafkaSources" :key="d.id" :value="d.id"
+                       :label="d.name" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="t('cdc.sinkDatasource')" required>
+          <el-select v-model="pipelineForm.sink_datasource_id"
+                     style="width: 100%">
+            <el-option v-for="d in sinkSources" :key="d.id" :value="d.id"
+                       :label="`${d.name} (${d.kind})`" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="t('cdc.sinkTable')">
+          <el-input v-model="pipelineForm.sink_table"
+                    :placeholder="t('cdc.sinkTableHint')" />
+        </el-form-item>
+        <el-form-item label="PK" required>
+          <el-input v-model="pipelineForm.pk" placeholder="id" />
+        </el-form-item>
+        <el-form-item :label="t('cdc.pipelineName')">
+          <el-input v-model="pipelineForm.name" />
+        </el-form-item>
+      </el-form>
+      <el-alert type="info" :closable="false"
+                :title="t('cdc.pipelineHint')" />
+      <template #footer>
+        <el-button @click="pipelineOpen = false">
+          {{ t("cdc.cancel") }}
+        </el-button>
+        <el-button type="primary" :loading="savingPipeline"
+                   @click="createPipeline">
+          {{ t("cdc.createPipeline") }}
+        </el-button>
+      </template>
+    </el-dialog>
+
     <el-drawer v-model="detailOpen" :title="detail.name || t('cdc.detail')"
                size="560px">
       <el-descriptions :column="1" border v-loading="detailLoading">
@@ -173,6 +224,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
+import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, canWrite, errMsg } from "../api";
 import { fmtDate, t } from "../i18n";
@@ -192,6 +244,63 @@ const detail = ref({});
 const detailLoading = ref(false);
 const tablesText = ref("");
 const savingTables = ref(false);
+const pipelineOpen = ref(false);
+const savingPipeline = ref(false);
+const datasources = ref([]);
+const router = useRouter();
+const pipelineForm = reactive({
+  source_id: null, source_name: "", tables: "",
+  kafka_datasource_id: null, sink_datasource_id: null,
+  sink_table: "", pk: "id", name: "",
+});
+const kafkaSources = computed(
+  () => datasources.value.filter((d) => d.kind === "kafka"));
+const sinkSources = computed(
+  () => datasources.value.filter((d) => !d.capabilities || d.capabilities.sink));
+
+async function openPipeline(row) {
+  pipelineForm.source_id = row.id;
+  pipelineForm.source_name = row.name;
+  pipelineForm.tables = (row.config && row.config.table_list) || "";
+  pipelineForm.sink_table = "";
+  pipelineForm.pk = "id";
+  pipelineForm.name = "CDC " + row.name;
+  try {
+    datasources.value = await api.get("/datasources");
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+  pipelineForm.kafka_datasource_id = kafkaSources.value.length === 1
+    ? kafkaSources.value[0].id : null;
+  pipelineForm.sink_datasource_id = null;
+  pipelineOpen.value = true;
+}
+
+async function createPipeline() {
+  if (!pipelineForm.kafka_datasource_id ||
+      !pipelineForm.sink_datasource_id) {
+    ElMessage.error(t("cdc.chooseDatasources"));
+    return;
+  }
+  savingPipeline.value = true;
+  try {
+    const result = await api.post(
+      `/cdc/sources/${pipelineForm.source_id}/pipeline`, {
+        kafka_datasource_id: pipelineForm.kafka_datasource_id,
+        sink_datasource_id: pipelineForm.sink_datasource_id,
+        sink_table: pipelineForm.sink_table,
+        pk: pipelineForm.pk,
+        name: pipelineForm.name,
+      });
+    ElMessage.success(t("cdc.pipelineCreated"));
+    pipelineOpen.value = false;
+    router.push(`/pipelines/${result.id}`);
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    savingPipeline.value = false;
+  }
+}
 
 const blank = () => ({
   engine: "postgres", name: "", host: "cdc-postgres.stream.svc", port: 5432,
