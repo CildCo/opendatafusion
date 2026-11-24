@@ -56,10 +56,10 @@ OpenDataFusion 是一个开源自托管的数据平台，把通常分散在数�
 | | |
 | --- | --- |
 | ![数据目录](docs/images/catalog.png) **数据目录与探查。** 表与字段搜索、标签、脱敏样例、数据探查、质量规则、影响分析与操作历史集中在一个详情页。 | ![管道 Studio](docs/images/pipeline.png) **管道 Studio。** 可视化 DAG，覆盖 source、filter、join、aggregate、quality、sink 等节点；schema 校验、预览、版本化发布与有界回填。 |
-| ![数据集成](docs/images/flows.png) **数据集成。** 带游标的轻量复制任务，包含运行记录、下游影响和版本对比。 | ![指标目录](docs/images/metrics.png) **指标语义层。** 指标目录展示来源数据集、定义、负责人，以及使用它的看板和应用的引用关系。 |
+| ![管道 Studio](docs/images/pipeline.png) **管道 Studio。** 可视化 DAG，支持转换、计算引擎节点、游标、版本化发布、调度与依赖。 | ![指标目录](docs/images/metrics.png) **指标语义层。** 指标目录展示来源数据集、定义、负责人，以及使用它的看板和应用的引用关系。 |
 | ![数据看板](docs/images/dashboards.png) **数据看板。** 12 列栅格上的卡片、图表、表格和文本，支持筛选、版本化发布和限时分享链接。 | ![数据应用](docs/images/apps.png) **数据应用。** 多页内部应用，支持参数、指标卡、表格，以及基于已发布数据集的带审计写表单。 |
 | ![数据质量](docs/images/quality.png) **数据质量。** freshness、空值、唯一性、范围、枚举和 schema 规则，展示通过率与每次运行结果。 | ![运维中心](docs/images/ops.png) **运维中心。** 队列与失败、告警处理、流程健康、依赖跳过、接口调用和审计集中在一个控制台。 |
-| ![数据接口](docs/images/interfaces.png) **受治理的数据接口。** SQL 接口支持参数、发布、执行与调用记录，并提供 AK/SK 签名的网关访问。 | ![SQL 工作台](docs/images/workbench.png) **SQL 工作台。** 只读查询、受控数据源、跨源查询与 CSV 导出。 |
+| ![数据接口](docs/images/interfaces.png) **受治理的数据 API。** 可视化或 SQL API 支持类型化参数、发布、调用记录、授权与 AK/SK 签名网关访问。 | ![SQL 工作台](docs/images/workbench.png) **SQL 工作台。** 只读查询、受控数据源、跨源查询与 CSV 导出。 |
 
 ## 为什么选择 OpenDataFusion
 

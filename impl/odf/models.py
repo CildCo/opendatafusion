@@ -100,61 +100,6 @@ class Column(Base):
     data_type: Mapped[str] = mapped_column(String(64))
 
 
-class Flow(Base):
-    __tablename__ = "flow"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"), index=True)
-    name: Mapped[str] = mapped_column(String(128))
-    cron: Mapped[str] = mapped_column(String(64), default="")
-    status: Mapped[int] = mapped_column(Integer, default=0)
-    current_version: Mapped[int] = mapped_column(Integer, default=1)
-    migrated_asset_id: Mapped[int | None] = mapped_column(Integer,
-                                                          nullable=True)
-
-    def __init__(self, **kw):
-        kw.setdefault("status", 0)
-        kw.setdefault("current_version", 1)
-        super().__init__(**kw)
-
-
-class FlowVersion(Base):
-    __tablename__ = "flow_version"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    flow_id: Mapped[int] = mapped_column(ForeignKey("flow.id"), index=True)
-    version: Mapped[int] = mapped_column(Integer)
-    dag_json: Mapped[dict] = mapped_column(JSON)
-    created_by: Mapped[str] = mapped_column(String(64))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
-
-
-class FlowRun(Base):
-    __tablename__ = "flow_run"
-    id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
-    flow_id: Mapped[int] = mapped_column(ForeignKey("flow.id"), index=True)
-    status: Mapped[int] = mapped_column(Integer, default=0)
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    in_num: Mapped[int] = mapped_column(BigInteger, default=0)
-    out_num: Mapped[int] = mapped_column(BigInteger, default=0)
-    err_num: Mapped[int] = mapped_column(BigInteger, default=0)
-    cursor_value: Mapped[str | None] = mapped_column(String(256), nullable=True)
-
-
-class Interface(Base):
-    __tablename__ = "data_interface"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"), index=True)
-    datasource_id: Mapped[int] = mapped_column(ForeignKey("datasource.id"))
-    interface_key: Mapped[str] = mapped_column(String(64), unique=True)
-    name: Mapped[str] = mapped_column(String(128))
-    sql_text: Mapped[str] = mapped_column(Text)
-    params_json: Mapped[list] = mapped_column(JSON, default=list)
-    output_json: Mapped[list] = mapped_column(JSON, default=list)
-    status: Mapped[int] = mapped_column(Integer, default=0)
-    migrated_asset_id: Mapped[int | None] = mapped_column(Integer,
-                                                          nullable=True)
-
-
 class AkSk(Base):
     __tablename__ = "ak_sk"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -175,16 +120,6 @@ class AuditLog(Base):
     target: Mapped[str] = mapped_column(String(128))
     detail_json: Mapped[dict] = mapped_column(JSON, default=dict)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
-
-
-class HealthEvent(Base):
-    __tablename__ = "health_event"
-    id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
-    flow_id: Mapped[int] = mapped_column(ForeignKey("flow.id"), index=True)
-    kind: Mapped[str] = mapped_column(String(32))
-    severity: Mapped[str] = mapped_column(String(16))
-    evidence_json: Mapped[dict] = mapped_column(JSON, default=dict)
-    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
 class Tag(Base):
@@ -566,8 +501,6 @@ class Job(Base):
     __tablename__ = "job"
     __table_args__ = (Index("ix_job_status_run_at", "status", "run_at"),)
     id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
-    flow_id: Mapped[int | None] = mapped_column(
-        ForeignKey("flow.id"), index=True, nullable=True)
     asset_id: Mapped[int | None] = mapped_column(
         ForeignKey("asset.id"), nullable=True)
     asset_type: Mapped[str | None] = mapped_column(String(32), nullable=True)

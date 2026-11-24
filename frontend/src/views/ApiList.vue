@@ -56,7 +56,7 @@
 
 <script setup>
 import { onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, canWrite, errMsg } from "../api";
 import { t } from "../i18n";
@@ -65,6 +65,7 @@ import EntityIcon from "../components/EntityIcon.vue";
 import PageHeader from "../components/PageHeader.vue";
 import StatusDot from "../components/StatusDot.vue";
 
+const route = useRoute();
 const router = useRouter();
 const rows = ref([]);
 const total = ref(0);
@@ -139,7 +140,10 @@ async function copy(text) {
   }
 }
 
-onMounted(load);
+onMounted(async () => {
+  await load();
+  if (route.query.new && canEdit) create();
+});
 </script>
 
 <style scoped>

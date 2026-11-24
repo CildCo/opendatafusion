@@ -161,55 +161,6 @@
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane :label="t('ops.tabHealth')" name="health">
-          <div class="filters">
-            <el-tag v-for="(v, k) in health.counts" :key="k" size="small"
-                    :type="healthTone(k)">
-              {{ k }} {{ v }}
-            </el-tag>
-            <el-button size="small" @click="loadHealth">{{ t("ops.refresh") }}</el-button>
-          </div>
-          <div class="section-title">{{ t("ops.flowHealth") }}</div>
-          <el-table :data="health.flows || []" size="small"
-                    :empty-text="t('ops.emptyFlows')">
-            <el-table-column prop="name" :label="t('ops.flow')" min-width="180" />
-            <el-table-column :label="t('ops.status')" width="100">
-              <template #default="{ row }">
-                <el-tag size="small" :type="healthTone(row.status)">
-                  {{ row.status }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column :label="t('ops.lag')" width="110">
-              <template #default="{ row }">
-                {{ row.lag_s == null ? "-" : row.lag_s + "s" }}
-              </template>
-            </el-table-column>
-            <el-table-column prop="empty_rounds" :label="t('ops.emptyRounds')" width="90" />
-            <el-table-column :label="t('ops.cursorAge')" width="120">
-              <template #default="{ row }">
-                {{ row.cursor_age_s == null ? "-" : row.cursor_age_s + "s" }}
-              </template>
-            </el-table-column>
-          </el-table>
-          <div class="section-title" style="margin-top: 16px">{{ t("ops.recentHealthEvents") }}</div>
-          <el-table :data="health.events || []" size="small"
-                    :empty-text="t('ops.emptyHealthEvents')">
-            <el-table-column prop="flow_id" :label="t('ops.flow')" width="90" />
-            <el-table-column prop="kind" :label="t('ops.type')" width="130" />
-            <el-table-column :label="t('ops.severity')" width="100">
-              <template #default="{ row }">
-                <el-tag size="small" :type="severityTone(row.severity)">
-                  {{ row.severity }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="at" :label="t('ops.time')" width="180">
-              <template #default="{ row }">{{ fmt(row.at) }}</template>
-            </el-table-column>
-          </el-table>
-        </el-tab-pane>
-
         <el-tab-pane :label="t('ops.tabApi')" name="api">
           <el-table :data="apiStats" size="small" :empty-text="t('ops.emptyApi')">
             <el-table-column prop="api_name" :label="t('ops.api')" min-width="180" />
@@ -308,7 +259,6 @@ function hourly(status) {
 }
 const jobs = ref([]);
 const alerts = ref([]);
-const health = ref({ flows: [], counts: {}, events: [] });
 const timeline = ref([]);
 const apiStats = ref([]);
 const audit = ref([]);
@@ -328,9 +278,7 @@ let timer = null;
 const cards = computed(() => {
   const j = summary.value.jobs || {};
   const a = summary.value.alerts || {};
-  const h = summary.value.health || {};
   const assets = summary.value.assets || {};
-  const unhealthy = (h.critical || 0) + (h.warning || 0);
   return [
     { label: t("ops.cardQueued"), value: j.queued || 0, tone: "blue",
       values: hourly() },
@@ -338,7 +286,6 @@ const cards = computed(() => {
     { label: t("ops.cardFailed"), value: j.failed || 0, tone: "red",
       values: hourly("failed") },
     { label: t("ops.cardOpenAlerts"), value: a.open || 0, tone: "amber" },
-    { label: t("ops.cardUnhealthy"), value: unhealthy, tone: "amber" },
     { label: t("ops.cardAssets"),
       value: Object.values(assets).reduce((x, y) => x + y, 0), tone: "" },
   ];
@@ -356,7 +303,7 @@ function jobTone(s) {
 
 function targetPath(row) {
   const type = row.asset_type || row.target_type || "";
-  return { flow: "/flows", pipeline: "/pipelines", api: "/apis",
+  return { pipeline: "/pipelines", api: "/apis",
            dashboard: "/dashboards", app: "/apps", dataset: "/datasets",
            metric: "/metrics" }[type] || "";
 }
@@ -369,10 +316,6 @@ function openTarget(row) {
 function severityTone(s) {
   return { critical: "danger", warning: "warning", info: "info",
            ok: "success" }[s] || "info";
-}
-function healthTone(s) {
-  return { critical: "danger", warning: "warning", ok: "success" }[s]
-    || "info";
 }
 
 async function loadSummary() {
@@ -394,9 +337,6 @@ async function loadAlerts() {
   if (alertSeverity.value) p.set("severity", alertSeverity.value);
   const q = p.toString() ? "?" + p.toString() : "";
   alerts.value = await api.get("/ops/alerts" + q);
-}
-async function loadHealth() {
-  health.value = await api.get("/ops/health");
 }
 async function loadTimeline() {
   timeline.value = await api.get("/ops/timeline");
@@ -426,7 +366,7 @@ async function load() {
   loading.value = true;
   try {
     await Promise.all([
-      loadSummary(), loadJobs(), loadAlerts(), loadHealth(),
+      loadSummary(), loadJobs(), loadAlerts(),
       loadTimeline(), loadApiStats(), loadAudit(),
       loadDependencyStatus(),
     ]);

@@ -19,8 +19,17 @@ class ChangeIn(BaseModel):
     payload: dict = {}
 
 
+ALLOWED_ACTIONS = {
+    "publish_pipeline", "pause_pipeline", "resume_pipeline",
+    "rollback_pipeline", "publish_api", "rollback_api", "enable_api",
+    "revoke_api", "publish_dataset", "rollback_dataset", "publish_metric",
+    "rollback_metric", "publish_dashboard", "rollback_dashboard",
+    "publish_app", "rollback_app", "app_form_submit",
+}
+
+
 def _target_name(session, action, target):
-    from odf.models import Asset, Flow, Interface
+    from odf.models import Asset
     try:
         object_id = int(target)
     except (TypeError, ValueError):
@@ -28,12 +37,6 @@ def _target_name(session, action, target):
     if action.endswith(("_metric", "_dataset", "_api", "_pipeline",
                         "_dashboard", "_app")):
         row = session.get(Asset, object_id)
-        return row.name if row else None
-    if "flow" in action:
-        row = session.get(Flow, object_id)
-        return row.name if row else None
-    if "interface" in action:
-        row = session.get(Interface, object_id)
         return row.name if row else None
     return None
 
@@ -53,6 +56,8 @@ def create(body: ChangeIn, s: Session = Depends(get_session),
            claims: dict = Depends(require_user)):
     if body.project_id != claims["project_id"]:
         raise HTTPException(403, "project mismatch")
+    if body.action not in ALLOWED_ACTIONS:
+        raise HTTPException(400, "unsupported action")
     c = propose(s, body.project_id, claims["sub"], body.action,
                 body.target, body.payload)
     return {"id": c.id, "status": c.status}

@@ -330,9 +330,9 @@ function onKeydown(event) {
   }
   if (!chord) return;
   const routes = {
-    d: "/dashboard", o: "/ops", c: "/catalog", f: "/flows",
+    d: "/dashboard", o: "/ops", c: "/catalog",
     p: "/pipelines", q: "/quality", a: "/alerts", u: "/users",
-    i: "/interfaces", w: "/workbench",
+    w: "/workbench",
   };
   if (routes[event.key]) {
     event.preventDefault();

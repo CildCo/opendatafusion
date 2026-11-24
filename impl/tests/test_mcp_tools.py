@@ -5,8 +5,8 @@ from odf.services.approval import issue_token, verify_token
 
 
 def test_tools_registered():
-    for name in ["platform_snapshot", "list_flows", "flow_health",
-                 "query_sql", "pause_flow", "resume_flow"]:
+    for name in ["platform_snapshot", "query_sql", "pause_pipeline",
+                 "resume_pipeline"]:
         assert name in TOOLS
 
 

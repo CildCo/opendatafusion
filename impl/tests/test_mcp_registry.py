@@ -55,27 +55,30 @@ def test_failed_tool_is_audited():
 
 def test_existing_mutation_tools_are_marked_write():
     names = {t["name"]: t for t in tool_catalog()}
-    for name in ("pause_flow", "resume_flow", "rollback_flow",
-                 "publish_interface", "revoke_interface", "propose_change",
-                 "apply_change", "pause_pipeline", "publish_api"):
+    for name in ("propose_change", "apply_change", "pause_pipeline",
+                 "resume_pipeline", "publish_api"):
         assert names[name]["write"] is True
 
 
-def test_pause_flow_audits_once_and_commits():
-    from odf.models import AuditLog, Flow
+def test_pause_pipeline_audits_once_and_commits():
+    from odf.models import Asset
     from odf.services.approval import issue_token
     with SessionLocal() as s:
-        f = Flow(project_id=1, name="audit-flow", cron="", status=1)
-        s.add(f)
+        a = Asset(project_id=1, type="pipeline", key="audit-pipe",
+                  name="audit-pipeline", owner="admin", enabled=True)
+        s.add(a)
         s.commit()
-        fid = f.id
-        before = s.query(AuditLog).filter_by(action="pause_flow").count()
-    TOOLS["pause_flow"](flow_id=fid,
-                        approval_token=issue_token(fid, "pause"))
+        aid = a.id
+        before = (s.query(AuditLog)
+                  .filter_by(action="pause_pipeline").count())
+    TOOLS["pause_pipeline"](asset_id=aid,
+                            approval_token=issue_token(aid,
+                                                       "pause_pipeline"))
     with SessionLocal() as s:
-        after = s.query(AuditLog).filter_by(action="pause_flow").count()
-        row = (s.query(AuditLog).filter_by(action="pause_flow")
+        after = (s.query(AuditLog)
+                 .filter_by(action="pause_pipeline").count())
+        row = (s.query(AuditLog).filter_by(action="pause_pipeline")
                .order_by(AuditLog.id.desc()).first())
         assert after == before + 1
-        assert row.target == str(fid)
-        assert s.get(Flow, fid).status == 0
+        assert row.target == str(aid)
+        assert s.get(Asset, aid).enabled is False

@@ -42,8 +42,6 @@ const Webhooks = () => import("./views/Webhooks.vue");
 const Files = () => import("./views/Files.vue");
 const Workspace = () => import("./views/Workspace.vue");
 const Security = () => import("./views/Security.vue");
-const Flows = () => import("./views/Flows.vue");
-const Interfaces = () => import("./views/Interfaces.vue");
 const Quality = () => import("./views/Quality.vue");
 const Alerts = () => import("./views/Alerts.vue");
 const Changes = () => import("./views/Changes.vue");
@@ -69,9 +67,9 @@ const routes = [
       { path: "pipelines/:id", component: PipelineEditor, meta: { title: "管道编辑" } },
       { path: "apis", component: ApiList, meta: { title: "数据接口" } },
       { path: "apis/:id", component: ApiEditor, meta: { title: "接口编辑" } },
-      { path: "flows", component: Flows, meta: { title: "数据集成" } },
-      { path: "flows/:id", component: Flows, meta: { title: "数据集成" } },
-      { path: "interfaces", component: Interfaces, meta: { title: "数据接口" } },
+      { path: "flows", redirect: "/pipelines" },
+      { path: "flows/:id", redirect: "/pipelines" },
+      { path: "interfaces", redirect: "/apis" },
       { path: "tools", component: ToolCatalog, meta: { title: "AI 工具" } },
       { path: "datasets", component: ModelHome, meta: { title: "数据模型" } },
       { path: "datasets/:id", component: DatasetEditor, meta: { title: "数据集编辑" } },

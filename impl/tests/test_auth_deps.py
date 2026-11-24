@@ -93,8 +93,11 @@ def test_publish_requires_approval_token():
             u.role = "admin"
         s.commit()
     token = create_token(1, 1)
-    r = TestClient(app).post(
-        "/api/v1/interfaces/1/publish",
-        params={"approval_token": "bad"},
-        headers={"Authorization": "Bearer " + token})
+    client = TestClient(app)
+    headers = {"Authorization": "Bearer " + token}
+    asset = client.post("/api/v1/dashboards",
+                        json={"name": "auth publish", "content": {"widgets": []}},
+                        headers=headers).json()
+    r = client.post(f"/api/v1/dashboards/{asset['id']}/publish",
+                    params={"approval_token": "bad"}, headers=headers)
     assert r.status_code == 403

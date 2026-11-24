@@ -8,11 +8,11 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from odf.api import (alerts, approvals, audit, auth, catalog, changes,
-                     dashboard, datasources, dependencies, flows, governance,
-                     health, interfaces, mcp, notifications, platform_admin,
+from odf.api import (alerts, audit, auth, catalog, changes,
+                     dashboard, datasources, dependencies, governance,
+                     mcp, notifications, platform_admin,
                      probe,
-                     metadata, openapi_gateway, projects, quality, runs,
+                     metadata, openapi_gateway, projects, quality,
                      saved_queries, standards, users)
 from odf.api.metrics import EXCLUDED, record, router as metrics_router
 import odf.apistudio.api as api_studio
@@ -31,7 +31,7 @@ import odf.cdc.api as cdc_api
 import odf.lakehouse.api as lakehouse_api
 import odf.modelstudio.api as modelstudio_api
 import odf.pipeline.api as pipeline_api
-from odf.services.auth import require_approver, require_user
+from odf.services.auth import require_user
 from odf.settings import get_settings
 
 _request_log = logging.getLogger("odf.request")
@@ -41,16 +41,13 @@ if get_settings().log_json:
 app = FastAPI(title="ODF")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(platform_admin.router, prefix="/api/v1")
-for r in (datasources.router, metadata.router, flows.router, runs.router,
-          interfaces.router, health.router, mcp.router, users.router,
+for r in (datasources.router, metadata.router, mcp.router, users.router,
           projects.router, catalog.router, quality.router,
           standards.router, alerts.router, changes.router, audit.router,
           notifications.router, saved_queries.router, governance.router,
           dashboard.router):
     app.include_router(r, prefix="/api/v1",
                        dependencies=[Depends(require_user)])
-app.include_router(approvals.router, prefix="/api/v1",
-                   dependencies=[Depends(require_approver)])
 app.include_router(pipeline_api.router, prefix="/api/v1",
                    dependencies=[Depends(require_user)])
 app.include_router(api_studio.router, prefix="/api/v1",
@@ -97,7 +94,6 @@ MENU_PREFIXES = (
     ("/api/v1/datasources", "/datasources"),
     ("/api/v1/catalog", "/catalog"),
     ("/api/v1/pipelines", "/pipelines"),
-    ("/api/v1/flows", "/flows"),
     ("/api/v1/apis", "/apis"),
     ("/api/v1/api-catalog", "/grants"),
     ("/api/v1/api-requests", "/grants"),

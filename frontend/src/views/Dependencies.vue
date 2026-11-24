@@ -54,29 +54,19 @@
     <el-dialog v-model="dialog" :title="t('dep.new')" width="600px">
       <el-form label-width="110px">
         <el-form-item :label="t('dep.downstream')" required>
-          <el-select v-model="form.downstream_type" style="width: 130px"
-                     @change="form.downstream_id = null">
-            <el-option value="flow" :label="t('dep.flow')" />
-            <el-option value="pipeline" :label="t('dep.pipeline')" />
-          </el-select>
           <el-select v-model="form.downstream_id" filterable
                      style="width: 250px; margin-left: 8px"
                      :placeholder="t('dep.selectObject')">
-            <el-option v-for="o in options(form.downstream_type)"
+            <el-option v-for="o in pipelines"
                        :key="o.id" :value="o.id"
                        :label="optionLabel(o)" />
           </el-select>
         </el-form-item>
         <el-form-item :label="t('dep.upstream')" required>
-          <el-select v-model="form.upstream_type" style="width: 130px"
-                     @change="form.upstream_id = null">
-            <el-option value="flow" :label="t('dep.flow')" />
-            <el-option value="pipeline" :label="t('dep.pipeline')" />
-          </el-select>
           <el-select v-model="form.upstream_id" filterable
                      style="width: 250px; margin-left: 8px"
                      :placeholder="t('dep.selectObject')">
-            <el-option v-for="o in options(form.upstream_type)"
+            <el-option v-for="o in pipelines"
                        :key="o.id" :value="o.id"
                        :label="optionLabel(o)" />
           </el-select>
@@ -124,17 +114,11 @@ const depGraph = computed(() => {
   }
   return { nodes: [...nodes.values()], edges };
 });
-const flows = ref([]);
 const pipelines = ref([]);
 const loading = ref(false);
 const saving = ref(false);
 const dialog = ref(false);
-const form = reactive({ downstream_type: "flow", downstream_id: null,
-                        upstream_type: "flow", upstream_id: null });
-
-function options(kind) {
-  return kind === "flow" ? flows.value : pipelines.value;
-}
+const form = reactive({ downstream_id: null, upstream_id: null });
 
 function optionLabel(row) {
   return `${row.name} (#${row.id})`;
@@ -143,13 +127,11 @@ function optionLabel(row) {
 async function load() {
   loading.value = true;
   try {
-    const [deps, flowRows, pipeRows] = await Promise.all([
+    const [deps, pipeRows] = await Promise.all([
       api.get("/dependencies"),
-      api.get("/flows"),
       api.get("/pipelines"),
     ]);
     rows.value = deps;
-    flows.value = flowRows;
     pipelines.value = pipeRows.items || [];
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -159,9 +141,7 @@ async function load() {
 }
 
 function openCreate() {
-  form.downstream_type = "flow";
   form.downstream_id = null;
-  form.upstream_type = "flow";
   form.upstream_id = null;
   dialog.value = true;
 }
@@ -173,7 +153,10 @@ async function create() {
   }
   saving.value = true;
   try {
-    await api.post("/dependencies", form);
+    await api.post("/dependencies", {
+      downstream_type: "pipeline", downstream_id: form.downstream_id,
+      upstream_type: "pipeline", upstream_id: form.upstream_id,
+    });
     dialog.value = false;
     await load();
     ElMessage.success(t("dep.created"));

@@ -4,6 +4,36 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [2.0.0] - 2026-11-24
+
+### Removed
+
+- The legacy integration-flow module: its routes, console pages, worker,
+  scheduler hooks, models and health events are gone.
+- The legacy SQL-interface module: its routes, console page, gateway fallback
+  and models are gone.
+- Legacy MCP tools (`list_flows`, `flow_health`, `diagnose_flow`,
+  `pause_flow`, `resume_flow`, `get_flow`, `rollback_flow`, `get_interface`,
+  `publish_interface`, `revoke_interface`).
+- `GET /api/v1/health/snapshot`, `POST /api/v1/flows/*` and
+  `/api/v1/interfaces/*` endpoints; old console paths redirect to Pipelines
+  and Data APIs.
+
+### Added
+
+- Upgrade migration `d7a8b9c0d1e2` converts every remaining flow into a
+  published pipeline (schedule preserved) and every interface into a data API
+  (key preserved), or leaves a draft with a notification when conversion
+  needs review. It then drops the legacy tables and `job.flow_id`.
+
+### Changed
+
+- Scheduling dependencies accept pipelines only.
+- Dashboard counters report pipelines and published APIs; operations health
+  now relies on job status and alerts.
+- The changes page lists and approves asset changes; it no longer creates
+  legacy flow/interface change requests.
+
 ## [1.9.0] - 2026-11-24
 
 ### Added

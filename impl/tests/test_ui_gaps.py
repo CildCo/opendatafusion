@@ -59,7 +59,7 @@ def test_dashboard_counts_published_api_assets():
     uid = _admin()
     c = TestClient(app)
     before = c.get("/api/v1/dashboard", headers=_headers(uid, 913)).json()
-    assert before["interfaces"] == 0
+    assert before["apis"] == 0
     with SessionLocal() as s:
         version = AssetVersion(asset_id=aid, version=1, content_json={},
                                status="published", created_by="1")
@@ -68,7 +68,7 @@ def test_dashboard_counts_published_api_assets():
         s.get(Asset, aid).published_version_id = version.id
         s.commit()
     after = c.get("/api/v1/dashboard", headers=_headers(uid, 913)).json()
-    assert after["interfaces"] == 1
+    assert after["apis"] == 1
 
 
 def test_engine_profiles_mask_secret_values(monkeypatch):

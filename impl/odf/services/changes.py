@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from odf.models import ChangeRequest, Flow, Interface
+from odf.models import ChangeRequest
 from odf.services.approval import verify_token
 from odf.services.audit import write_audit
 
@@ -29,27 +29,6 @@ def list_changes(session, status: str | None = None,
     return q.order_by(ChangeRequest.id.desc()).limit(200).all()
 
 
-def _flow(session, flow_id, project_id):
-    f = session.get(Flow, flow_id)
-    if not f or f.project_id != project_id:
-        raise ValueError("flow not found")
-    return f
-
-
-def _set_flow_status(session, flow_id: int, status: int,
-                     project_id: int | None = None):
-    f = session.get(Flow, flow_id)
-    if not f or (project_id is not None and f.project_id != project_id):
-        raise ValueError("flow not found")
-    f.status = status
-    session.commit()
-    from odf.services.scheduler import schedule, unschedule
-    if status == 1:
-        schedule(session, flow_id)
-    else:
-        unschedule(flow_id)
-
-
 def apply(session, change_id: int, approval_token: str) -> ChangeRequest:
     c = session.get(ChangeRequest, change_id)
     if not c:
@@ -57,31 +36,7 @@ def apply(session, change_id: int, approval_token: str) -> ChangeRequest:
     if not verify_token(int(c.target), c.action, approval_token):
         raise PermissionError("approval required")
 
-    if c.action == "run_flow":
-        from odf.services.jobs import enqueue
-        _flow(session, int(c.target), c.project_id)
-        enqueue(session, int(c.target))
-    elif c.action == "pause_flow":
-        _set_flow_status(session, int(c.target), 0, c.project_id)
-    elif c.action == "resume_flow":
-        _set_flow_status(session, int(c.target), 1, c.project_id)
-    elif c.action == "rollback_flow":
-        f = _flow(session, int(c.target), c.project_id)
-        f.current_version = int(c.payload_json["version"])
-        session.commit()
-    elif c.action == "publish_interface":
-        i = session.get(Interface, int(c.target))
-        if not i or i.project_id != c.project_id:
-            raise ValueError("interface not found")
-        i.status = 1
-        session.commit()
-    elif c.action == "revoke_interface":
-        i = session.get(Interface, int(c.target))
-        if not i or i.project_id != c.project_id:
-            raise ValueError("interface not found")
-        i.status = 0
-        session.commit()
-    elif c.action in ("publish_pipeline", "pause_pipeline",
+    if c.action in ("publish_pipeline", "pause_pipeline",
                       "resume_pipeline", "rollback_pipeline"):
         from odf.assets.service import publish_asset, rollback_asset
         from odf.models import Asset

@@ -4,12 +4,11 @@ from datetime import date, datetime, timezone
 import pytest
 
 from odf.db import SessionLocal
-from odf.models import (ApiCallStat, Asset, AuditLog, Interface, Project,
+from odf.models import (ApiCallStat, Asset, AuditLog, Project,
                         QualityResult, QualityRule)
 from odf.services import ratelimit
 from odf.services.catalog import dataset_detail  # noqa: F401
 from odf.services.quality import rule_summaries
-from odf.services.interface import interface_history
 
 PROJECT_ID = 916
 
@@ -28,7 +27,7 @@ def test_alert_rule_can_be_deleted():
 
     _project()
     with SessionLocal() as s:
-        rule = create_rule(s, PROJECT_ID, "rule-delete", "flow_health", {})
+        rule = create_rule(s, PROJECT_ID, "rule-delete", "lag", {})
         delete_rule(s, PROJECT_ID, rule.id)
         assert s.get(AlertRule, rule.id) is None
         with pytest.raises(ValueError):
@@ -59,25 +58,6 @@ def test_api_stats_aggregate_days_and_keys():
         assert len(out["days"]) == 1
         assert {k["ak"] for k in out["keys"]} == {"ak1", "ak2"}
         assert ratelimit.stats_for_api(s, 9999, a.id, days=7) is None
-
-
-def test_interface_history_lists_executions():
-    _project()
-    with SessionLocal() as s:
-        iface = Interface(project_id=PROJECT_ID, datasource_id=1,
-                          interface_key=uuid.uuid4().hex,
-                          name="hist-iface", sql_text="select 1",
-                          params_json=[], status=1)
-        s.add(iface)
-        s.commit()
-        s.add(AuditLog(actor="openapi", action="query",
-                       target=iface.interface_key,
-                       detail_json={"rows": 3}))
-        s.commit()
-        rows = interface_history(s, PROJECT_ID, iface.id)
-        assert rows[0]["detail"]["rows"] == 3
-        assert rows[0]["actor"] == "openapi"
-        assert interface_history(s, 9999, iface.id) is None
 
 
 def test_quality_rule_summaries_carry_pass_rate():
@@ -145,7 +125,7 @@ def test_audit_list_shows_usernames_for_numeric_actors():
 def test_portal_menu_set_covers_console_pages():
     from odf.portal.service import MENUS
 
-    assert {"/engines", "/cdc", "/interfaces"} <= MENUS
+    assert {"/engines", "/cdc"} <= MENUS
 
 
 def test_engine_job_shows_submitter_name():
@@ -196,7 +176,7 @@ def test_proposed_change_can_be_withdrawn():
 
     _project()
     with SessionLocal() as s:
-        change = propose(s, PROJECT_ID, "tester", "pause_flow", 1, {})
+        change = propose(s, PROJECT_ID, "tester", "pause_pipeline", 1, {})
         withdrawn = withdraw(s, change.id, "tester", PROJECT_ID)
         assert withdrawn.status == "withdrawn"
         with pytest.raises(ValueError):
@@ -217,7 +197,7 @@ def test_change_withdraw_route_is_project_scoped():
             s.add(User(id=9901, username="change-requester", password_hash="x",
                        role="editor", active=True))
             s.commit()
-        change = propose(s, PROJECT_ID, "9901", "pause_flow", 1, {})
+        change = propose(s, PROJECT_ID, "9901", "pause_pipeline", 1, {})
     client = TestClient(app)
     own = {"Authorization": "Bearer " + create_token(9901, PROJECT_ID)}
     ok = client.post(f"/api/v1/changes/{change.id}/withdraw", headers=own)
@@ -256,32 +236,6 @@ def test_audit_filters_and_csv_export():
     assert "text/csv" in resp.headers["content-type"]
     assert "probe_csv" in resp.text
     assert resp.text.splitlines()[0].startswith("id,actor,action,target,at")
-
-
-def test_interface_stats_aggregate_calls():
-    from odf.models import Interface
-    from odf.services.interface import interface_stats
-
-    _project()
-    with SessionLocal() as s:
-        iface = Interface(project_id=PROJECT_ID, datasource_id=1,
-                          interface_key=uuid.uuid4().hex,
-                          name="stats-iface", sql_text="select 1",
-                          params_json=[], status=1)
-        s.add(iface)
-        s.commit()
-        s.add_all([
-            AuditLog(actor="openapi", action="query",
-                     target=iface.interface_key, detail_json={"rows": 3}),
-            AuditLog(actor="openapi", action="query",
-                     target=iface.interface_key, detail_json={"rows": 5}),
-        ])
-        s.commit()
-        out = interface_stats(s, PROJECT_ID, iface.id, days=7)
-        assert out["total"]["calls"] == 2
-        assert out["total"]["rows"] == 8
-        assert out["days"][0]["calls"] == 2
-        assert interface_stats(s, 9999, iface.id, days=7) is None
 
 
 def test_mute_rule_suppresses_matching_alerts():

@@ -4,8 +4,8 @@ from sqlalchemy.orm import sessionmaker
 
 from odf.assets.service import DraftConflict, create_asset, update_draft
 from odf.db import Base
-from odf.models import (Asset, AssetVersion, Datasource, Flow, FlowVersion,
-                        Interface, Job, Project, User)
+from odf.models import (Asset, AssetVersion, Datasource, Job, Project,
+                        User)
 
 
 def _session():
@@ -119,47 +119,6 @@ def test_cancel_queued_job():
     s.refresh(job)
     assert job.status == "cancelled"
     assert job.cancel_requested is False
-
-
-def test_migrate_legacy_flow_to_pipeline():
-    from odf.services.legacy import migrate_flow
-    s = _session()
-    flow = Flow(project_id=1, name="legacy", cron="0 2 * * *", status=1)
-    s.add(flow)
-    s.flush()
-    s.add(FlowVersion(flow_id=flow.id, version=1, created_by="u", dag_json={
-        "source_ds_id": 1, "sink_ds_id": 2,
-        "source_table": "src", "sink_table": "dst",
-        "cursor_column": "id", "pk": "id", "batch": 200,
-    }))
-    s.commit()
-    asset = migrate_flow(s, 1, flow.id, "u")
-    assert asset.type == "pipeline"
-    assert asset.cron == "0 2 * * *"
-    version = s.get(AssetVersion, asset.draft_version_id)
-    nodes = version.content_json["nodes"]
-    assert [node["type"] for node in nodes] == ["source", "sink"]
-    s.refresh(flow)
-    assert flow.status == 0
-    assert flow.migrated_asset_id == asset.id
-
-
-def test_migrate_legacy_interface_to_api():
-    from odf.services.legacy import migrate_interface
-    s = _session()
-    row = Interface(project_id=1, datasource_id=1, interface_key="iface_x",
-                    name="legacy api", sql_text="select 1", status=1,
-                    params_json=[])
-    s.add(row)
-    s.commit()
-    asset = migrate_interface(s, 1, row.id, "u")
-    assert asset.type == "api"
-    assert asset.key == "iface_x"
-    version = s.get(AssetVersion, asset.draft_version_id)
-    assert version.content_json["mode"] == "sql"
-    s.refresh(row)
-    assert row.status == 0
-    assert row.migrated_asset_id == asset.id
 
 
 def test_sample_project_creates_published_assets(tmp_path, monkeypatch):

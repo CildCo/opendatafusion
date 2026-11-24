@@ -29,7 +29,7 @@ separately.
 ┌───────────────┐    ┌─────────────────┐
 │ odf-scheduler │    │ odf-worker × N  │
 │ leader lock   │    │ SKIP LOCKED     │
-│ enqueues jobs │    │ executes flows  │
+│ enqueues jobs │    │ executes jobs   │
 └───────────────┘    └─────────────────┘
 ```
 
@@ -37,19 +37,19 @@ separately.
 
 | Process | Responsibility | Scale |
 |---|---|---|
-| `odf-api` | Management API, auth, metadata, interfaces, health, audit | Horizontal, stateless |
+| `odf-api` | Management API, auth, metadata, APIs, audit | Horizontal, stateless |
 | `odf-mcp` | MCP tool server for external AI operators | Horizontal, stateless |
-| `odf-scheduler` | Cron evaluation, enqueue due flows | One leader (PG advisory lock) |
-| `odf-worker` | Claim jobs, execute ETL connectors, heartbeat | Horizontal |
+| `odf-scheduler` | Cron evaluation, enqueue due pipelines and reports | One leader (PG advisory lock) |
+| `odf-worker` | Claim jobs, execute pipelines and reports, heartbeat | Horizontal |
 | PostgreSQL | Source of truth, durable job queue | Primary/standby |
 | Static SPA | Vue 3 admin console | Any static server |
 
 ## Execution semantics
 
-- **Durable queue**: `POST /flows/{id}/runs` only inserts a `job` row. It never
-  executes ETL in the request thread.
+- **Durable queue**: `POST /pipelines/{id}/run` only inserts a `job` row. It
+  never executes ETL in the request thread.
 - **At-least-once**: a worker claims a job with `FOR UPDATE SKIP LOCKED`, runs
-  the flow, and marks it `success` or retries with backoff. Sinks use primary
+  the pipeline, and marks it `success` or retries with backoff. Sinks use primary
   key upserts, so replay is idempotent.
 - **Heartbeat and recovery**: a running job updates `heartbeat_at`. Jobs whose
   heartbeat is older than the timeout are requeued and counted as attempts.
@@ -57,7 +57,7 @@ separately.
   `last_error` persisted.
 - **Scheduler leader**: the scheduler holds `pg_try_advisory_lock(999999)`; a
   second scheduler exits instead of double-enqueuing.
-- **Cursor safety**: the flow cursor advances only after the sink write
+- **Cursor safety**: the pipeline cursor advances only after the sink write
   transaction commits. A failed run leaves the cursor unchanged.
 - **Tie-safe cursor**: the cursor is `(cursor_column, pk)`, so rows sharing a
   timestamp are not skipped at batch boundaries.
@@ -74,8 +74,7 @@ separately.
 - Workers: run N replicas; `SKIP LOCKED` distributes jobs without coordination.
 - Scheduler: run one leader plus hot standbys; a standby exits and can be
   restarted to take over after the leader dies.
-- Database: use PgBouncer in front of PostgreSQL. Partition `flow_run`,
-  `audit_log`, and `job` by time when volume grows.
+- Database: use PgBouncer in front of PostgreSQL. Partition `audit_log` and `job` by time when volume grows.
 - Queue: PostgreSQL `SKIP LOCKED` is sufficient for moderate throughput. Move
   to RabbitMQ/Kafka when job rate or retention requires it; the `job` table is
   a transactional outbox that can feed a broker.
@@ -145,8 +144,8 @@ separately.
   explicit start cursor in batches, optionally stopping at an inclusive end
   cursor, and never writes `asset.cursor_json`. Every source needs a cursor
   column; jobs are capped at 1000 batches.
-- **Scheduling**: `scheduler_tick` handles connector `flow` schedules and
-  published, enabled `pipeline` assets; cron is editable from the Studio.
+- **Scheduling**: `scheduler_tick` queues published, enabled pipeline assets;
+  cron is editable from the Studio.
   Drafts are never scheduled.
 - **Sink modes**: `upsert` (composite primary key) and `append`.
 - **Approval**: publish / rollback / pause / resume are change requests with
@@ -164,10 +163,6 @@ separately.
   metadata.
 - Preview uses the draft or unsaved content; management test and the
   public gateway use the published version of an enabled asset.
-- Simple interface records (`data_interface`) remain available as a
-  lightweight SQL endpoint registry. The gateway resolves a versioned API
-  asset first, then uses the matching interface record when no asset owns the
-  key.
 
 ## Model Studio
 
@@ -222,11 +217,11 @@ separately.
 
 ## Ops Center
 
-- `odf.ops` aggregates queue counts, failed jobs, alerts, flow health and a
-  merged alert/health timeline from existing tables; no new schema.
-- Jobs are project-scoped through their flow or asset; only failed jobs can
+- `odf.ops` aggregates queue counts, failed jobs, alerts and a merged
+timeline from existing tables; no new schema.
+- Jobs are project-scoped through their asset; only failed jobs can
   be retried, which clears attempts/locks and writes audit.
-- Alerts and health endpoints derive the project from the token; audit
+- Alerts and operations endpoints derive the project from the token; audit
   search is admin-only because the global log has no project column.
 - MCP exposes `ops_summary`, `list_jobs` and `list_alerts` read tools plus
   editor-gated `retry_job` and `ack_alert`.

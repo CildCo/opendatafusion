@@ -73,12 +73,6 @@ def close(alert_id: int, s: Session = Depends(get_session),
         _value_error(e)
 
 
-@router.get("/ops/health")
-def health(s: Session = Depends(get_session),
-           claims: dict = Depends(require_user)):
-    return service.list_health(s, claims["project_id"])
-
-
 @router.get("/ops/timeline")
 def timeline(limit: int = 50, s: Session = Depends(get_session),
              claims: dict = Depends(require_user)):

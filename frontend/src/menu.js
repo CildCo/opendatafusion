@@ -18,7 +18,6 @@ export const MENU_GROUPS = [
     { path: "/pipelines", key: "menu.pipelines", icon: Share },
     { path: "/engines", key: "menu.engines", icon: Cpu },
     { path: "/cdc", key: "menu.cdc", icon: DataLine },
-    { path: "/flows", key: "menu.flows", icon: Share },
     { path: "/datasets", key: "menu.datasets", icon: Collection },
     { path: "/dashboards", key: "menu.dashboards", icon: Odometer },
     { path: "/apps", key: "menu.apps", icon: Grid },
@@ -27,7 +26,6 @@ export const MENU_GROUPS = [
   { key: "nav.governance", items: [
     { path: "/apis", key: "menu.apis", icon: Connection },
     { path: "/governance", key: "menu.governance", icon: Collection },
-    { path: "/interfaces", key: "menu.interfaces", icon: Connection },
     { path: "/grants", key: "menu.grants", icon: Key },
     { path: "/webhooks", key: "menu.webhooks", icon: Promotion },
     { path: "/quality", key: "menu.quality", icon: CircleCheck },

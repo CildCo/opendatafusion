@@ -19,20 +19,19 @@ Cards summarise data sources, flows, interfaces, quality rules, 24-hour runs and
 
 ## 3. Operations centre
 
-Tabs: overview, tasks, alerts, health, API calls, timeline and audit.
+Tabs: overview, tasks, alerts, API calls, timeline and audit.
 
 - **Tasks**: retry a failed task or cancel a running one.
-- **Health**: flow lag, empty rounds and cursor age, plus recent health events.
 - **API calls**: calls, errors and average latency per interface and access key.
 - Rows in tasks and recent failures link to the related object; the alerts tab links to the alert page.
-- **Timeline**: alerts and health events in time order.
+- **Timeline**: alerts in time order.
 - **Dependency skips**: runs skipped in the last 24 hours because an upstream dependency had not succeeded are listed in the Tasks tab. `scripts/check_dependency_health.py` reports the same state and exits non-zero when any exist.
 - **Audit**: the same records as the Audit page.
 
 ## 4. Data sources
 
 - **New data source**: types are grouped into databases, analytics engines, files and APIs/search. Choosing a type renders its fields (host, port, database, account and so on); connection strings are no longer typed by hand. Passwords are stored without being shown, and leaving the field blank on edit keeps the stored value. The type cannot change after creation.
-- **Capabilities**: databases and analytics engines can be tested, synchronised, queried and used as pipeline sources; PostgreSQL, MySQL/MariaDB, SQLite, TiDB and OceanBase can also be pipeline sinks. Database types cover PostgreSQL, MySQL/MariaDB, SQLite, Oracle, SQL Server, the MySQL-protocol TiDB, Apache Doris, StarRocks and OceanBase, the PostgreSQL-protocol openGauss, KingbaseES and GaussDB, and DM (达梦); analytics engines cover ClickHouse, Trino, DuckDB (a local database file) and Hive / Spark Thrift (the HiveServer2 protocol). MongoDB supports connection testing and collection field metadata (set authSource when authenticating against the admin database), but not SQL queries. S3 / MinIO supports a single object (CSV/TSV/Parquet/JSON/Excel) with testing, metadata, query and pipeline-source use; queries download the object to a temporary file, so it suits small and medium objects. Local files cover the same formats. HTTP API and Kafka work as pipeline sources/sinks only (Kafka nodes take a topic directly). Elasticsearch works as a pipeline source/sink and synchronises index metadata, but does not support SQL queries or SQL interfaces.
+- **Capabilities**: databases and analytics engines can be tested, synchronised, queried and used as pipeline sources; PostgreSQL, MySQL/MariaDB, SQLite, TiDB and OceanBase can also be pipeline sinks. Database types cover PostgreSQL, MySQL/MariaDB, SQLite, Oracle, SQL Server, the MySQL-protocol TiDB, Apache Doris, StarRocks and OceanBase, the PostgreSQL-protocol openGauss, KingbaseES and GaussDB, and DM (达梦); analytics engines cover ClickHouse, Trino, DuckDB (a local database file) and Hive / Spark Thrift (the HiveServer2 protocol). MongoDB supports connection testing and collection field metadata (set authSource when authenticating against the admin database), but not SQL queries. S3 / MinIO supports a single object (CSV/TSV/Parquet/JSON/Excel) with testing, metadata, query and pipeline-source use; queries download the object to a temporary file, so it suits small and medium objects. Local files cover the same formats. HTTP API and Kafka work as pipeline sources/sinks only (Kafka nodes take a topic directly). Elasticsearch works as a pipeline source/sink and synchronises index metadata, but does not support SQL queries or SQL APIs.
 - **Test connection** is available while creating or editing, and the list action reports a concrete failure reason such as an unreachable host or a blocked address.
 - **Test** checks connectivity.
 - **Health** shows recent connectivity and metadata-sync attempts with status, duration and the failure reason.
@@ -98,15 +97,13 @@ Node palette: source, filter, select columns, rename, cast, join, aggregate, uni
 - **Details** opens the connector state, the task states with error traces, and the subscribed tables, which can be edited and saved.
 - **Delete** removes the record and the connector.
 
-## 11. Integration
+## 11. Legacy module migration
 
-The flow list shows schedule, version and status. Run executes a flow immediately; the detail drawer exposes overview, versions, run history, downstream impact and the job queue. Flows are the legacy copy engine; **Migrate to pipeline** creates an equivalent pipeline asset and disables the flow, after which the entry links to the pipeline.
+Version 2.0 removes the legacy integration-flow and SQL-interface modules. Upgrading converts every remaining flow into a data pipeline asset and every remaining interface into a data API asset, preserving schedules, keys and published state. A notification links to each migrated asset. Old bookmarks redirect to **Pipelines** and **Data APIs**.
 
-- **Run history** shows start, finish and duration; open a run for throughput and the cursor, and use Retry to queue the flow again.
-- **Versions** can be compared with the current configuration, listing changed keys.
-- **Downstream impact** follows the lineage of the sink table.
-
-Scheduling dependencies live on the **Scheduling dependencies** page: a downstream flow or pipeline queues only after its upstream succeeded within the last 24 hours, and blocked schedules are recorded as skipped runs.
+- Pipelines cover all copy, transformation, engine and scheduling work.
+- APIs cover SQL and visual queries, typed parameters, versioning, approval, call statistics and AK/SK access.
+- Scheduling dependencies accept pipelines only.
 
 ## 12. Data models
 
@@ -144,19 +141,18 @@ Build pages with text, metric cards, tables and forms.
 - Save, Validate, Publish, Run and Share work as for dashboards.
 - Form submissions write through the app's dataset permissions.
 
-## 15. Interfaces
+## 15. Publishing APIs
 
-- Create an interface, then choose visual or SQL mode and configure source, table, columns, filters, sorting, row limit and parameters.
+- Create an API asset in API Studio; choose visual or SQL mode and configure source, table or SQL, columns, filters, sorting, row limit and parameters.
 - Validate, Preview and Test run the configuration against real data.
 - **Docs** shows the path, AK/SK + projectKey authentication and curl/Python examples.
-- Publish serves the interface through the open API; take it offline to revoke.
-- Interfaces are the legacy SQL interface centre; **Migrate to API** creates an API Studio asset with the same SQL and key, and disables the old interface.
+- Publish serves the API through `/openapi/{key}`; revoke takes it offline.
 - The detail panel shows the endpoint address with a copy button, SQL, parameters and a call history with caller, time and returned rows.
-- The list page can delete an interface.
+- The list page can delete an API.
 
 ## 16. Access control
 
-- **Catalog**: published interfaces of this and other projects; request access to another project's interface.
+- **Catalog**: published APIs of this and other projects; request access to another project's API.
 - **My requests** and **Pending approvals** track the workflow.
 - **Grants** lists and revokes access.
 - **Access keys** issues AK/SK for the current project (shown once) and can revoke them.
@@ -176,13 +172,13 @@ The list shows the last result and the pass rate over recent runs. Results summa
 
 ## 19. Alerts
 
-Filter by status and severity. Acknowledge records that the alert was seen; Close removes it from the open list. Alerts come from engine failures, flow health and similar events.
+Filter by status and severity. Acknowledge records that the alert was seen; Close removes it from the open list. Alerts come from engine failures, job failures and similar events.
 
 **Alert rules** below the list creates and deletes rules by name, kind and optional JSON configuration. **Subscriptions** opens webhook event subscriptions. Platform administrators can also set an **alert webhook** under Platform administration → Operations; raised alerts post a Slack-compatible JSON message to it.
 
 ## 20. Changes
 
-Propose a change (run, pause, resume or roll back a flow; publish or revoke an interface), pick the target and add a note. Approvers can approve, execute, or approve and execute. Buttons are disabled once a change is applied.
+Changes are proposed from the editors and API pages (publish, pause, resume, roll back, enable or revoke). Approvers can approve, execute, or approve and execute. Buttons are disabled once a change is applied.
 
 ## 21. AI tools
 
