@@ -109,7 +109,7 @@ def _stream(image, runtime, config, command, catalog=None, state=None,
         # the platform switch, image/command allowlist and timeout are the
         # security boundary.
         # codeql[py/command-line-injection]
-        proc = subprocess.Popen(
+        proc = subprocess.Popen(  # codeql[py/command-line-injection]
             _command(image, runtime, args, workdir),
             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
             stderr=err_handle, text=True, encoding="utf-8",
