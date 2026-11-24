@@ -105,6 +105,10 @@ def _stream(image, runtime, config, command, catalog=None, state=None,
         env.setdefault("AIRBYTE_ENTRYPOINT", "")
         err_handle = (open(stderr_path, "w", encoding="utf-8")
                       if stderr_path else subprocess.DEVNULL)
+        # Airbyte connectors execute administrator-allowlisted code by design;
+        # the platform switch, image/command allowlist and timeout are the
+        # security boundary.
+        # codeql[py/command-line-injection]
         proc = subprocess.Popen(
             _command(image, runtime, args, workdir),
             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
