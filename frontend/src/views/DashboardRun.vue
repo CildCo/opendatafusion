@@ -24,7 +24,7 @@
     </div>
     <main v-else class="canvas" v-loading="loading">
       <DashboardRuntime v-if="content" :content="content" :data="widgets"
-                        :params="paramValues"
+                        :params="paramValues" :asset-id="id" drillable
                         @update:params="setParams" @refresh="refresh" />
     </main>
   </div>

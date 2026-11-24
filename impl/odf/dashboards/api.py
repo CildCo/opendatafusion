@@ -7,7 +7,7 @@ from odf.assets.service import (DraftConflict, create_asset,
                                 list_versions, page_assets, update_asset,
                                 update_draft)
 from odf.dashboards.content import empty_dashboard, validate_dashboard
-from odf.dashboards.service import dashboard_data
+from odf.dashboards.service import dashboard_data, dashboard_drill
 from odf.db import get_session
 from odf.models import AssetVersion
 from odf.services.approval import verify_token
@@ -44,6 +44,19 @@ class DataIn(BaseModel):
 
 class RollbackIn(BaseModel):
     version: int
+
+
+class DrillIn(BaseModel):
+    widget_id: str
+    dimension: str | None = None
+    value: object | None = None
+    params: dict | None = None
+    limit: int = Field(100, ge=1, le=10000)
+
+
+class ReportIn(BaseModel):
+    cron: str
+    enabled: bool = True
 
 
 def _asset(s, asset_id, claims):
@@ -155,12 +168,85 @@ def data(asset_id: int, body: DataIn, s: Session = Depends(get_session),
     return result
 
 
+@router.post("/dashboards/{asset_id}/drill")
+def drill(asset_id: int, body: DrillIn, s: Session = Depends(get_session),
+          claims: dict = Depends(require_user)):
+    a = _asset(s, asset_id, claims)
+    try:
+        result = dashboard_drill(
+            s, a.id, body.widget_id, body.dimension, body.value,
+            body.params, body.limit, role=claims_role(s, claims))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    write_audit(s, claims["sub"], "drill_dashboard", str(a.id),
+                {"widget": body.widget_id, "dimension": body.dimension})
+    return result
+
+
+@router.get("/dashboards/{asset_id}/report")
+def get_report(asset_id: int, s: Session = Depends(get_session),
+               claims: dict = Depends(require_user)):
+    from odf.dashboards.report import schedule_for
+    from odf.models import Job
+    a = _asset(s, asset_id, claims)
+    runs = (s.query(Job)
+            .filter(Job.asset_id == a.id,
+                    Job.asset_type == "dashboard_report")
+            .order_by(Job.id.desc()).limit(20).all())
+    return {"schedule": schedule_for(s, a.project_id, a.id),
+            "runs": [{"id": job.id, "status": job.status,
+                      "created_at": job.created_at.isoformat(),
+                      "finished_at": (job.finished_at.isoformat()
+                                      if job.finished_at else None),
+                      "error": job.last_error} for job in runs]}
+
+
+@router.put("/dashboards/{asset_id}/report")
+def put_report(asset_id: int, body: ReportIn,
+               s: Session = Depends(get_session),
+               claims: dict = Depends(require_editor)):
+    from odf.dashboards.report import upsert_schedule
+    a = _asset(s, asset_id, claims)
+    try:
+        return upsert_schedule(s, a.project_id, a.id, body.cron,
+                               body.enabled, claims["sub"])
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.delete("/dashboards/{asset_id}/report", status_code=204)
+def delete_report(asset_id: int, s: Session = Depends(get_session),
+                  claims: dict = Depends(require_editor)):
+    from odf.dashboards.report import delete_schedule
+    a = _asset(s, asset_id, claims)
+    try:
+        delete_schedule(s, a.project_id, a.id, claims["sub"])
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return None
+
+
+@router.post("/dashboards/{asset_id}/report/run")
+def run_report_now(asset_id: int, s: Session = Depends(get_session),
+                   claims: dict = Depends(require_editor)):
+    from odf.dashboards.report import schedule_for
+    from odf.services.jobs import enqueue_asset
+    a = _asset(s, asset_id, claims)
+    schedule = schedule_for(s, a.project_id, a.id)
+    if not schedule:
+        raise HTTPException(400, "report schedule not found")
+    job = enqueue_asset(s, a.id, "dashboard_report",
+                        {"schedule_id": schedule["id"]})
+    write_audit(s, claims["sub"], "run_dashboard_report_now", str(a.id),
+                {"job_id": job.id})
+    return {"job_id": job.id}
+
+
 @router.get("/dashboards/{asset_id}/export.csv")
 def export_csv(asset_id: int, s: Session = Depends(get_session),
                claims: dict = Depends(require_user)):
-    import csv
-    import io
     from fastapi import Response
+    from odf.dashboards.render import dashboard_csv
     a = _asset(s, asset_id, claims)
     if not a.published_version_id:
         raise HTTPException(400, "dashboard is not published")
@@ -168,30 +254,13 @@ def export_csv(asset_id: int, s: Session = Depends(get_session),
         result = dashboard_data(s, a.id, None, None, 10000,
                                 published_only=True,
                                 role=claims_role(s, claims))
+        content, count = dashboard_csv(result)
     except ValueError as error:
         raise HTTPException(400, str(error))
-    widgets = [(wid, data) for wid, data in result["widgets"].items()
-               if data.get("rows")]
-    if not widgets:
-        raise HTTPException(400, "dashboard has no tabular data")
-    multi = len(widgets) > 1
-    columns = []
-    for _, data in widgets:
-        for name in data.get("columns") or []:
-            if name not in columns:
-                columns.append(name)
-    buf = io.StringIO()
-    writer = csv.writer(buf)
-    writer.writerow((["widget"] if multi else []) + columns)
-    for widget_id, data in widgets:
-        for row in data.get("rows") or []:
-            writer.writerow(
-                ([widget_id] if multi else [])
-                + [row.get(name, "") for name in columns])
     write_audit(s, claims["sub"], "export_dashboard", str(a.id),
-                {"widgets": len(widgets)})
+                {"widgets": count})
     filename = "dashboard-%d.csv" % a.id
-    return Response(content=buf.getvalue(), media_type="text/csv",
+    return Response(content=content, media_type="text/csv",
                     headers={"Content-Disposition":
                              'attachment; filename="%s"' % filename})
 

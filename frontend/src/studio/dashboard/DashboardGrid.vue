@@ -2,11 +2,13 @@
   <div ref="host" class="grid" :style="gridStyle">
     <DashboardWidget v-for="w in widgets" :key="w.id" :widget="w"
                      :data="data?.[w.id]" :selected="selectedId === w.id"
-                     :readonly="readonly" :style="styleFor(w)"
+                     :readonly="readonly" :drillable="drillable"
+                     :style="styleFor(w)"
                      @select="$emit('select', w)"
                      @drag-start="startDrag(w, $event)"
                      @resize-start="startResize(w, $event)"
-                     @filter="$emit('filter', $event)" />
+                     @filter="$emit('filter', $event)"
+                     @drill="$emit('drill', $event)" />
   </div>
 </template>
 
@@ -21,8 +23,9 @@ const props = defineProps({
   rowHeight: { type: Number, default: 80 },
   selectedId: { type: String, default: "" },
   readonly: Boolean,
+  drillable: Boolean,
 });
-const emit = defineEmits(["select", "change", "filter"]);
+const emit = defineEmits(["select", "change", "filter", "drill"]);
 const host = ref(null);
 const width = ref(960);
 let observer = null;

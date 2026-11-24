@@ -147,7 +147,8 @@ def asset_lineage(session, project_id, asset_id):
                         "from": parent_id, "from_column": column,
                         "to": node_id,
                         "to_column": measure.get("as") or column})
-                for dimension in content.get("dimensions") or []:
+                from odf.modelstudio.content import metric_dimensions
+                for dimension in metric_dimensions(content):
                     column_edges.append({
                         "from": parent_id, "from_column": dimension,
                         "to": node_id, "to_column": dimension})

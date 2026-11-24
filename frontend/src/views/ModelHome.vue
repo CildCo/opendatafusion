@@ -83,6 +83,12 @@
         <el-descriptions-item :label="t('model.dimensions')">
           {{ (current.dimensions || []).join(", ") || "-" }}
         </el-descriptions-item>
+        <el-descriptions-item :label="t('model.timeGrain')">
+          {{ timeLabel(current) }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('model.compare')">
+          {{ compareLabel(current.compare) }}
+        </el-descriptions-item>
         <el-descriptions-item :label="t('model.format')">
           <span>{{ formatLabel(current.format) }}</span>
         </el-descriptions-item>
@@ -172,9 +178,25 @@ function definition(row) {
   if (measure.expr) return measure.expr;
   if (!measure.agg) return "-";
   const column = measure.column || "*";
-  const dims = row.dimensions || [];
+  const dims = [...(row.dimensions || [])];
+  if (row.time?.column && !dims.includes(row.time.column)) {
+    dims.push(`${row.time.column} (${row.time.grain || "day"})`);
+  }
   const base = `${measure.agg}(${column})`;
   return dims.length ? `${base} by ${dims.join(", ")}` : base;
+}
+
+function timeLabel(row) {
+  if (!row.time?.column) return "-";
+  return `${row.time.column} · ${row.time.grain || "day"}`;
+}
+
+function compareLabel(value) {
+  const labels = {
+    previous: t("model.comparePrevious"),
+    year: t("model.compareYear"),
+  };
+  return labels[value] || t("model.compareNone");
 }
 
 function formatLabel(format) {

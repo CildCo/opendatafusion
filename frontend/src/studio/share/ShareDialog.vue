@@ -21,6 +21,13 @@
           <el-button @click="copy">{{ t("share.copy") }}</el-button>
         </template>
       </el-input>
+      <div class="embed">
+        <div class="hint">{{ t("share.embedHint") }}</div>
+        <el-input :model-value="embedCode" type="textarea" :rows="3"
+                  readonly size="small" />
+        <el-button size="small" style="margin-top: 6px"
+                   @click="copyEmbed">{{ t("share.copyEmbed") }}</el-button>
+      </div>
     </el-alert>
     <el-table :data="shares" size="small" :empty-text="t('share.empty')"
               style="margin-top: 12px">
@@ -52,7 +59,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../../api";
 import { fmtDate, t } from "../../i18n";
@@ -67,6 +74,10 @@ const days = ref(7);
 const creating = ref(false);
 const createdUrl = ref("");
 const shares = ref([]);
+const embedCode = computed(() => createdUrl.value
+  ? `<iframe src="${createdUrl.value}" width="100%" height="720" ` +
+    `style="border:0" loading="lazy"></iframe>`
+  : "");
 
 function fmt(v) {
   if (!v) return "-";
@@ -111,6 +122,15 @@ async function copy() {
   }
 }
 
+async function copyEmbed() {
+  try {
+    await navigator.clipboard.writeText(embedCode.value);
+    ElMessage.success(t("share.copied"));
+  } catch (e) {
+    ElMessage.error(t("share.copyFailed"));
+  }
+}
+
 async function revoke(row) {
   try {
     await ElMessageBox.confirm(t("share.revokeConfirm"), t("share.revokeTitle"));
@@ -127,4 +147,5 @@ async function revoke(row) {
 .row { display: flex; gap: 8px; align-items: center; }
 .spacer { flex: 1; }
 .hint { font-size: 12px; color: #6b7280; }
+.embed { margin-top: 10px; }
 </style>

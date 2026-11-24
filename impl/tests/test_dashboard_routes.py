@@ -97,3 +97,47 @@ def test_published_data_flag_uses_published_content():
     assert pub["widgets"]["t"]["text"] == "A"
     draft = c.post(f"/api/v1/dashboards/{did}/data", json={}, headers=h).json()
     assert draft["widgets"]["t"]["text"] == "DRAFT"
+
+
+def test_report_schedule_routes():
+    _user(1, "admin")
+    c = TestClient(app)
+    h = _h()
+    content = {"widgets": [{"id": "t", "type": "text", "text": "x",
+                            "x": 0, "y": 0, "w": 3, "h": 2}]}
+    did = c.post("/api/v1/dashboards",
+                 json={"name": "Report", "content": content},
+                 headers=h).json()["id"]
+    assert c.get(f"/api/v1/dashboards/{did}/report",
+                 headers=h).json()["schedule"] is None
+    c.post(f"/api/v1/dashboards/{did}/publish?approval_token="
+           + issue_token(did, "publish_dashboard"), headers=h)
+    r = c.put(f"/api/v1/dashboards/{did}/report",
+              json={"cron": "0 0 8 * * *", "enabled": True}, headers=h)
+    assert r.status_code == 200
+    assert r.json()["cron"] == "0 0 8 * * *"
+    r = c.post(f"/api/v1/dashboards/{did}/report/run", headers=h)
+    assert r.status_code == 200
+    assert r.json()["job_id"]
+    runs = c.get(f"/api/v1/dashboards/{did}/report", headers=h).json()["runs"]
+    assert len(runs) == 1
+    assert c.delete(f"/api/v1/dashboards/{did}/report",
+                    headers=h).status_code == 204
+    assert c.get(f"/api/v1/dashboards/{did}/report",
+                 headers=h).json()["schedule"] is None
+
+
+def test_report_route_rejects_bad_cron():
+    _user(1, "admin")
+    c = TestClient(app)
+    h = _h()
+    content = {"widgets": [{"id": "t", "type": "text", "text": "x",
+                            "x": 0, "y": 0, "w": 3, "h": 2}]}
+    did = c.post("/api/v1/dashboards",
+                 json={"name": "BadCron", "content": content},
+                 headers=h).json()["id"]
+    c.post(f"/api/v1/dashboards/{did}/publish?approval_token="
+           + issue_token(did, "publish_dashboard"), headers=h)
+    r = c.put(f"/api/v1/dashboards/{did}/report",
+              json={"cron": "nope"}, headers=h)
+    assert r.status_code == 400

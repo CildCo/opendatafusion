@@ -243,6 +243,12 @@ def process_job(session, job, worker_id):
                          resume_cursors=payload.get("resume_cursors"))
         complete(session, job.id, True)
         return
+    if job.asset_type == "dashboard_report":
+        from odf.dashboards.report import run_report
+        payload = job.payload_json or {}
+        run_report(session, payload.get("schedule_id"), worker_id)
+        complete(session, job.id, True)
+        return
     from odf.workers.etl import run_flow
     run = run_flow(session, job.flow_id, worker_id)
     complete(session, job.id, run.status == 2,
@@ -336,6 +342,7 @@ def scheduler_tick(session, now=None):
         pass
     _auto_sync_datasources(session, now)
     _scheduled_quality(session, now)
+    _scheduled_reports(session, now)
     try:
         from odf.services.audit_ops import maintenance
         maintenance(session, now)
@@ -413,6 +420,17 @@ def _scheduled_quality(session, now):
                         "quality check failed: %s" % rule.name,
                         {"rule_id": rule.id, "status": result.status,
                          "detail": result.detail_json})
+
+
+def _scheduled_reports(session, now):
+    from odf.dashboards.report import due_schedules
+    try:
+        due = due_schedules(session, now)
+    except Exception:
+        return
+    for row in due:
+        enqueue_asset(session, row.asset_id, "dashboard_report",
+                      {"schedule_id": row.id})
 
 
 def scheduler_loop(poll_s: int = 5) -> None:

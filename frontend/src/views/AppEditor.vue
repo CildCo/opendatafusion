@@ -563,7 +563,10 @@ async function loadModel() {
   try {
     const m = await api.get(`/metrics/${c.metric_id}`);
     const mc = m.published || m.draft || {};
-    const dims = mc.dimensions || [];
+    const dims = [...(mc.dimensions || [])];
+    if (mc.time?.column && !dims.includes(mc.time.column)) {
+      dims.push(mc.time.column);
+    }
     const alias = (mc.measure || {}).as || "value";
     const cols = [...dims, alias];
     modelColumns.value = cols;

@@ -2,7 +2,8 @@ from odf.apistudio.catalog import table_columns
 from odf.apistudio.params import (ParamError, coerce_params,
                                   validate_param_defs)
 from odf.modelstudio.content import (dataset_output_columns,
-                                     validate_dataset, validate_metric)
+                                     metric_dimensions, validate_dataset,
+                                     validate_metric)
 from odf.models import Asset, AssetVersion, Datasource
 
 TYPES = {"text", "metric", "table", "form"}
@@ -156,8 +157,7 @@ def _form_errors(session, comp, project_id):
 
 
 def _metric_columns(content):
-    dims = [d for d in content.get("dimensions") or []
-            if isinstance(d, str)]
+    dims = metric_dimensions(content)
     measure = content.get("measure") or {}
     return dims + [measure.get("as") or "value"]
 

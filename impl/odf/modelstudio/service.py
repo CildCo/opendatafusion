@@ -9,7 +9,11 @@ from odf.apistudio.service import run_content
 from odf.assets.service import get_asset
 from odf.modelstudio import cache
 from odf.modelstudio.content import (_published_dataset,
-                                     dataset_output_columns, validate_metric)
+                                     dataset_output_columns,
+                                     metric_dimensions, validate_metric)
+from odf.modelstudio.timegrain import (COMPARE_MODES, TimeGrainError,
+                                       bucket_sql, parse_time, shift_time,
+                                       timegrain_message)
 from odf.models import AssetVersion, Datasource
 from odf.services.query import execute_query
 from odf.settings import get_settings
@@ -140,9 +144,24 @@ def metric_sql(session, content, extra_filters=None,
         expr = "COUNT(*)" if col == "*" else "%s(%s)" % (
             agg, quote_ident(col))
     alias = measure.get("as") or "value"
-    dims = content.get("dimensions") or []
-    selects = [quote_ident(d) for d in dims] + [
-        "%s AS %s" % (expr, quote_ident(alias))]
+    dims = metric_dimensions(content)
+    time = content.get("time")
+    bucket = None
+    if isinstance(time, dict) and time.get("column") and time.get("grain"):
+        try:
+            bucket = bucket_sql(ds.kind, quote_ident(time["column"]),
+                                time["grain"])
+        except TimeGrainError as error:
+            raise ValueError(timegrain_message(error))
+    selects, groups = [], []
+    for d in dims:
+        if bucket is not None and d == time["column"]:
+            selects.append("%s AS %s" % (bucket, quote_ident(d)))
+            groups.append(bucket)
+        else:
+            selects.append(quote_ident(d))
+            groups.append(quote_ident(d))
+    selects.append("%s AS %s" % (expr, quote_ident(alias)))
     params = dict(base_binds)
     where = []
 
@@ -179,8 +198,8 @@ def metric_sql(session, content, extra_filters=None,
     sql = "SELECT %s FROM (%s) AS base" % (", ".join(selects), base_sql)
     if where:
         sql += " WHERE " + " AND ".join(where)
-    if dims:
-        sql += " GROUP BY " + ", ".join(quote_ident(d) for d in dims)
+    if groups:
+        sql += " GROUP BY " + ", ".join(groups)
     return sql, params
 
 
@@ -195,20 +214,109 @@ def _execute_metric(session, content, ds_content, ds, sql, params,
         raise ValueError(str(e))
     from odf.services.masking import apply_metric_masks
     rows = apply_metric_masks(session, ds_content, rows,
-                              content.get("dimensions") or [],
+                              metric_dimensions(content),
                               content["measure"].get("as") or "value",
                               content["measure"].get("column"), role)
     return {"columns": columns, "rows": rows, "row_count": len(rows),
             "ms": int((time.time() - started) * 1000), "sql": sql}
 
 
+def _shift_filter_value(value, unit):
+    if isinstance(value, list):
+        return [shift_time(v, unit, -1) if parse_time(v) else v
+                for v in value]
+    return shift_time(value, unit, -1) if parse_time(value) else value
+
+
+def _shift_time_filters(filters, time_column, unit):
+    out = []
+    for f in filters or []:
+        if not isinstance(f, dict) or f.get("column") != time_column \
+                or f.get("op") not in ("=", ">", ">=", "<", "<=", "in"):
+            out.append(f)
+            continue
+        out.append({**f, "value": _shift_filter_value(f.get("value"), unit)})
+    return out
+
+
+def _key_value(value):
+    if value is None:
+        return ""
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def _comparison(session, content, ds_content, ds, base_filters,
+                extra_filters, max_rows, role, current):
+    time = content["time"]
+    time_column = time["column"]
+    grain = time["grain"]
+    unit = grain if (content.get("compare") or "none") != "year" else "year"
+    previous_content = {
+        **content,
+        "filters": _shift_time_filters(content.get("filters"), time_column,
+                                       unit)}
+    previous_sql, previous_params = metric_sql(
+        session, previous_content,
+        _shift_time_filters(extra_filters, time_column, unit),
+        base_filters)
+    previous = _execute_metric(session, previous_content, ds_content, ds,
+                               previous_sql, previous_params, max_rows, role)
+    alias = content["measure"].get("as") or "value"
+    dims = metric_dimensions(content)
+    others = [d for d in dims if d != time_column]
+
+    def key(row, bucket):
+        return tuple([_key_value(row.get(d)) for d in others]
+                     + [_key_value(bucket)])
+
+    values = {}
+    for row in previous["rows"]:
+        values[key(row, shift_time(row.get(time_column), unit, 1))] = \
+            row.get(alias)
+    columns = list(current["columns"])
+    for name in (alias + "_previous", alias + "_delta",
+                 alias + "_delta_pct"):
+        if name not in columns:
+            columns.append(name)
+    for row in current["rows"]:
+        prior = values.get(key(row, row.get(time_column)))
+        row[alias + "_previous"] = prior
+        if prior is None or row.get(alias) is None:
+            row[alias + "_delta"] = None
+            row[alias + "_delta_pct"] = None
+            continue
+        try:
+            delta = row[alias] - prior
+        except TypeError:
+            row[alias + "_delta"] = None
+            row[alias + "_delta_pct"] = None
+            continue
+        row[alias + "_delta"] = delta
+        row[alias + "_delta_pct"] = (
+            round(float(delta) / abs(float(prior)) * 100, 2)
+            if prior else None)
+    current["columns"] = columns
+    current["compare_sql"] = previous_sql
+    return current
+
+
 def query_metric(session, asset_id, content=None, limit=100,
-                 published_only=False, extra_filters=None, role=None):
+                 published_only=False, extra_filters=None, role=None,
+                 compare=None):
     a = get_asset(session, asset_id)
     if not a or a.type != "metric":
         raise ValueError("metric not found")
     content = _metric_content(session, a, content, published_only)
     content = {**content, "project_id": a.project_id}
+    if compare is not None:
+        if compare not in COMPARE_MODES:
+            raise ValueError(timegrain_message(TimeGrainError("compare")))
+        content["compare"] = compare
+    compare = content.get("compare") or "none"
+    if compare != "none" and not content.get("time"):
+        raise ValueError(timegrain_message(TimeGrainError("requires_time")))
     from odf.services.policies import filters_for
     base_filters = filters_for(session, content["dataset_id"], role)
     sql, params = metric_sql(session, content, extra_filters, base_filters)
@@ -223,7 +331,7 @@ def query_metric(session, asset_id, content=None, limit=100,
         raw = json.dumps({
             "asset": a.id, "version": a.published_version_id,
             "sql": sql, "params": params, "role": role,
-            "max_rows": max_rows,
+            "max_rows": max_rows, "compare": compare,
         }, sort_keys=True, default=str)
         key = hashlib.sha256(raw.encode()).hexdigest()
         hit = cache.get(key, "metric")
@@ -232,6 +340,9 @@ def query_metric(session, asset_id, content=None, limit=100,
             return hit
     result = _execute_metric(session, content, ds_content, ds, sql, params,
                              max_rows, role)
+    if compare != "none":
+        result = _comparison(session, content, ds_content, ds, base_filters,
+                             extra_filters, max_rows, role, result)
     result["cached"] = False
     if key is not None:
         cache.put(key, result, ttl, int(s.metric_cache_size or 128))
@@ -314,6 +425,8 @@ def metric_catalog(session, project_id, q=None):
             dataset.project_id == project_id else None,
             "measure": content.get("measure") or {},
             "dimensions": content.get("dimensions") or [],
+            "time": content.get("time"),
+            "compare": content.get("compare") or "none",
             "format": content.get("format") or {},
             "usage_count": len(usage), "usage": usage,
             "has_draft": metric.draft_version_id is not None,
@@ -332,6 +445,9 @@ def metric_catalog(session, project_id, q=None):
                 str(measure.get("column") or ""),
                 str(measure.get("as") or ""),
                 " ".join(row.get("dimensions") or []),
+                str((row.get("time") or {}).get("column") or ""),
+                str((row.get("time") or {}).get("grain") or ""),
+                str(row.get("compare") or ""),
                 " ".join(u.get("name") or "" for u in row.get("usage") or []),
             ]).lower()
         rows = [row for row in rows if text in haystack(row)]
