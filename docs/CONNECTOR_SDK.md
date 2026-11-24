@@ -64,6 +64,12 @@ def register():
   rules and console actions. Do not advertise a capability the plugin does not
   implement.
 
+## Airbyte connectors
+
+The built-in `airbyte` type runs any connector that implements the Airbyte
+protocol instead of a Python plugin. Platform administrators enable it and
+set image/command allowlists; see [Airbyte connectors](AIRBYTE.md).
+
 ## Loading plugins
 
 Set `ODF_CONNECTOR_PLUGINS` to a comma-separated list of module names:

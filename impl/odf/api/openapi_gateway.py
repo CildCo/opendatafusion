@@ -48,6 +48,61 @@ def parse_params(body):
     return data
 
 
+@router.post("/openapi/graphql")
+async def graphql_endpoint(request: Request):
+    body = await request.body()
+    project_key = request.headers.get("projectKey")
+    if not project_key:
+        raise HTTPException(400, "missing projectKey header")
+    auth = request.headers.get("Authorization", "")
+    ak, _ = extract_auth(auth)
+    with SessionLocal() as s:
+        project = s.query(Project).filter_by(code=project_key).first()
+        if not project:
+            raise HTTPException(403, "project not found")
+        cred = s.query(AkSk).filter_by(ak=ak, enabled=True).first()
+        if not cred:
+            raise HTTPException(401, "missing access key")
+        if cred.project_id != project.id:
+            raise HTTPException(403, "interface permission denied")
+        host = request.client.host if request.client else ""
+        try:
+            ipaddress.ip_address(host)
+        except ValueError:
+            host = "127.0.0.1"
+        if not client_allowed(host, cred.ip_allowlist or []):
+            raise HTTPException(403, "client IP is not allowed")
+        ok = verify(ak, decrypt_secret(cred.sk_encrypted), request.method,
+                    body, request.headers.get("Content-Type", ""),
+                    request.headers.get("Date", "0"), request.url.path,
+                    auth, int(time.time() * 1000))
+        if not ok:
+            raise HTTPException(401, "signature mismatch or expired")
+        limit = min([c for c in (cred.rate_limit_per_min,
+                                 get_settings().api_rate_default)
+                     if c and c > 0] or [0])
+        if not check_rate(s, "graphql:%s" % ak, limit):
+            raise HTTPException(429, "rate limit exceeded")
+        try:
+            data = json.loads(body or b"{}")
+        except (ValueError, TypeError):
+            raise HTTPException(400, "invalid JSON body")
+        query = data.get("query") if isinstance(data, dict) else None
+        if not isinstance(query, str) or not query.strip():
+            raise HTTPException(400, "query is required")
+        if len(query) > 20000:
+            raise HTTPException(400, "query is too large")
+        variables = data.get("variables")
+        if variables is not None and not isinstance(variables, dict):
+            raise HTTPException(400, "variables must be an object")
+        from odf.graphql.service import execute
+        result = execute(s, project.id, query, variables,
+                         data.get("operationName"))
+        payload = result.formatted
+        write_audit(s, actor=ak, action="graphql_call", target="graphql",
+                    detail={"errors": bool(payload.get("errors"))})
+        return json.loads(json.dumps(payload, default=str))
+
 @router.post("/openapi/{interface_key}")
 async def call_interface(interface_key: str, request: Request):
     body = await request.body()

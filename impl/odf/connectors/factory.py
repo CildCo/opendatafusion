@@ -38,6 +38,9 @@ def source_for(ds, dag):
         return HiveSource(ds, dag)
     if ds.kind == "dm":
         return DmSource(ds, dag)
+    if ds.kind == "airbyte":
+        from odf.connectors.airbyte import AirbyteSource
+        return AirbyteSource(ds, dag)
     raise ValueError("unsupported source kind: %s" % ds.kind)
 
 

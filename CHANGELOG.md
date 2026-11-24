@@ -4,6 +4,33 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [2.1.0] - 2026-11-24
+
+### Added
+
+- Airbyte protocol connectors: import an Airbyte source by image or local
+  command, discover its streams, sync their schemas into the catalog and use
+  them as pipeline sources. Disabled by default and gated by an image/command
+  allowlist, timeout and platform administrator switch.
+- OpenLineage events for pipeline and backfill jobs (`START`, `COMPLETE`,
+  `FAIL`) with input/output datasets, run facets and error messages.
+- Catalog export as JSON (`GET /catalog/export`) and scheduled push to an
+  external catalog endpoint, with a manual **Sync now** action.
+- A GraphQL gateway at `/openapi/graphql`: signed AK/SK requests, a schema
+  built from published APIs, typed arguments, introspection and a console
+  schema/example viewer.
+- A map dashboard widget with uploaded GeoJSON, metric dimension and value,
+  visual scale, tooltips, drill-through and share-page rendering.
+- A mobile navigation drawer and responsive editor layouts for dashboards,
+  models, APIs and apps.
+
+### Changed
+
+- Airbyte and lineage settings live in platform administration; the console
+  can send an OpenLineage test event and push the catalog immediately.
+- Pipeline jobs emit lineage only when an endpoint is configured; failures in
+  the lineage endpoint never block a job.
+
 ## [2.0.0] - 2026-11-24
 
 ### Removed

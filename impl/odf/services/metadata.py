@@ -270,6 +270,18 @@ def _sync_es(session, ds) -> int:
     return len(tables)
 
 
+def _sync_airbyte(session, ds) -> int:
+    from odf.connectors import airbyte
+    found = airbyte.tables(get_dsn(ds))
+    before = _existing_columns(session, ds.id)
+    tables = {(t["schema"], t["table"]): t["columns"] for t in found}
+    _upsert(session, ds, tables)
+    _detect_drift(session, ds, before,
+                  {k: {c["name"]: c["type"] for c in v}
+                   for k, v in tables.items()})
+    return len(found)
+
+
 def _sync_trino(session, ds) -> int:
     client = client_for_datasource(ds)
     catalog = getattr(client, "catalog", "") or ""
@@ -320,4 +332,6 @@ def sync_datasource(session, datasource_id: int) -> int:
         return _sync_clickhouse(session, ds)
     if ds.kind == "trino":
         return _sync_trino(session, ds)
+    if ds.kind == "airbyte":
+        return _sync_airbyte(session, ds)
     return _sync_sql(session, ds)

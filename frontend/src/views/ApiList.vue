@@ -7,6 +7,7 @@
                 @clear="search" />
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("api.refresh") }}</el-button>
+      <el-button @click="openGraphql">{{ t("api.graphql") }}</el-button>
       <el-button v-if="canEdit" type="primary" @click="create">{{ t("api.new") }}</el-button>
     </div>
     <el-card shadow="never">
@@ -51,6 +52,30 @@
                    :title="t('api.empty')" :description="t('api.intro')"
                    :action-text="canEdit ? t('api.new') : ''" @action="create" />
     </el-card>
+    <el-dialog v-model="graphqlOpen" :title="t('api.graphql')" width="760px">
+      <el-descriptions :column="1" border size="small">
+        <el-descriptions-item :label="t('api.graphqlEndpoint')">
+          <span class="mono">{{ graphql.endpoint }}</span>
+          <el-button link @click="copy(graphql.endpoint)">
+            {{ t("api.copy") }}
+          </el-button>
+        </el-descriptions-item>
+      </el-descriptions>
+      <h4>{{ t("api.graphqlExample") }}</h4>
+      <el-input :model-value="graphql.example" type="textarea" :rows="5"
+                readonly />
+      <h4>{{ t("api.graphqlSchema") }}</h4>
+      <el-input :model-value="graphql.sdl" type="textarea" :rows="10"
+                readonly />
+      <template #footer>
+        <el-button @click="copy(graphql.example)">
+          {{ t("api.copyExample") }}
+        </el-button>
+        <el-button type="primary" @click="graphqlOpen = false">
+          {{ t("api.close") }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -74,6 +99,8 @@ const pageSize = ref(50);
 const canEdit = canWrite();
 const q = ref("");
 const loading = ref(false);
+const graphqlOpen = ref(false);
+const graphql = ref({ endpoint: "", example: "", sdl: "" });
 
 async function remove(row) {
   try {
@@ -128,6 +155,15 @@ async function create() {
     router.push(`/apis/${r.id}`);
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));
+  }
+}
+
+async function openGraphql() {
+  try {
+    graphql.value = await api.get("/apis/graphql/schema");
+    graphqlOpen.value = true;
+  } catch (e) {
+    ElMessage.error(errMsg(e));
   }
 }
 

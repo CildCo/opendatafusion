@@ -1,3 +1,4 @@
+import json
 import re
 from pathlib import Path
 
@@ -10,6 +11,13 @@ from odf.settings import get_settings
 
 
 def mask_dsn(dsn: str) -> str:
+    raw = (dsn or "").strip()
+    if raw.startswith("{") and '"image"' in raw:
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            return "airbyte://***"
+        return "airbyte://%s" % data.get("image", "***")
     # Greedy up to the last '@' so passwords containing '@' are fully hidden.
     masked = re.sub(r"(://[^:/@]+:)(.*)(@[^@/]+(?::\d+)?(?:/|$))",
                     r"\1***\3", dsn)
@@ -165,6 +173,10 @@ def check_connection(dsn: str, timeout: int = 5,
         if kind == "dm":
             from odf.connectors import dm
             dm.ping(dsn)
+            return {"ok": True, "error": None}
+        if kind == "airbyte":
+            from odf.connectors import airbyte
+            airbyte.check(dsn, timeout)
             return {"ok": True, "error": None}
         args = connect_args_for(kind, dsn, timeout)
         e = create_engine(dsn, connect_args=args)

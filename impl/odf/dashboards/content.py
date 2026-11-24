@@ -7,9 +7,11 @@ from odf.modelstudio.content import (dataset_output_columns,
                                      validate_metric)
 from odf.models import Asset, AssetVersion, Datasource
 
-TYPES = {"card", "line", "bar", "area", "pie", "table", "text", "pivot"}
+TYPES = {"card", "line", "bar", "area", "pie", "table", "text",
+         "pivot", "map"}
 CHART_TYPES = {"line", "bar", "area", "pie"}
-METRIC_TYPES = {"card"} | CHART_TYPES | {"pivot"}
+MAP_TYPES = {"map"}
+METRIC_TYPES = {"card"} | CHART_TYPES | MAP_TYPES | {"pivot"}
 
 
 def empty_dashboard():
@@ -226,12 +228,14 @@ def validate_widget(session, content, w, project_id):
              or "value")
     if value not in cols:
         errs.append(_err("widget.value_column", "column not in metric output"))
-    if typ in CHART_TYPES:
+    if typ in CHART_TYPES or typ in MAP_TYPES:
         dim = w.get("dimension")
         if not dim or dim not in metric_dimensions(metric_content):
             errs.append(_err("widget.dimension",
                              "dimension must be a metric dimension"))
         errs.extend(_emit_errors(w, cols, param_names, dimension=dim))
+        if typ in MAP_TYPES:
+            errs.extend(_map_errors(w))
     elif typ == "table":
         errs.extend(_emit_errors(w, cols, param_names))
     elif typ == "card":
@@ -239,6 +243,26 @@ def validate_widget(session, content, w, project_id):
             errs.append(_err("widget.emit",
                              "cards cannot define emit"))
     return errs
+
+
+def _map_errors(widget):
+    geo = widget.get("geo_json")
+    if not isinstance(geo, dict):
+        return [_err("widget.geo_json", "map requires GeoJSON data")]
+    if geo.get("type") != "FeatureCollection" or             not isinstance(geo.get("features"), list) or             not geo["features"]:
+        return [_err("widget.geo_json",
+                     "GeoJSON must be a non-empty FeatureCollection")]
+    import json
+    if len(json.dumps(geo)) > 1500000:
+        return [_err("widget.geo_json", "GeoJSON exceeds 1.5 MB")]
+    for feature in geo["features"]:
+        if not isinstance(feature, dict) or                 not isinstance(feature.get("properties"), dict):
+            return [_err("widget.geo_json",
+                         "every feature needs a properties object")]
+    prop = widget.get("name_property") or "name"
+    if not isinstance(prop, str) or not prop:
+        return [_err("widget.name_property", "name property is required")]
+    return []
 
 
 def validate_dashboard(session, content, project_id):

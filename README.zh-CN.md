@@ -76,16 +76,16 @@ OpenDataFusion 是一个开源自托管的数据平台，把通常分散在数�
 
 | 领域 | 能力 |
 | --- | --- |
-| **数据源** | 通过统一注册表接入 24 种数据源：PostgreSQL、MySQL/MariaDB、SQLite、Oracle、SQL Server、TiDB、Apache Doris、StarRocks、OceanBase、openGauss、KingbaseES、GaussDB、达梦 DM、ClickHouse、Trino、DuckDB、Hive/Spark Thrift、S3/MinIO、CSV/TSV/Parquet/JSON/Excel、HTTP、Elasticsearch、MongoDB 和 Kafka。按类型生成表单、能力范围、新建前测试、DSN 加密、元数据同步和 schema drift 告警。 |
+| **数据源** | 通过统一注册表接入 25 种数据源：PostgreSQL、MySQL/MariaDB、SQLite、Oracle、SQL Server、TiDB、Apache Doris、StarRocks、OceanBase、openGauss、KingbaseES、GaussDB、达梦 DM、ClickHouse、Trino、DuckDB、Hive/Spark Thrift、S3/MinIO、CSV/TSV/Parquet/JSON/Excel、HTTP、Elasticsearch、MongoDB、Kafka 和 Airbyte 协议数据源。按类型生成表单、能力范围、新建前测试、DSN 加密、元数据同步和 schema drift 告警。 |
 | **管道 Studio** | 可视化 DAG：source、filter、select、rename、cast、join、aggregate、union、dedupe、quality、sink；schema 校验、节点级错误策略、预览、版本化发布、cron、游标查看/重置、有界回填。 |
-| **接口 Studio** | 可视化单表查询或受控 SQL；类型化参数；预览/测试；审批发布与回滚；生成文档；AK/SK 签名调用 `/openapi/{key}`。 |
+| **接口 Studio** | 可视化单表查询或受控 SQL；类型化参数；预览/测试；审批发布与回滚；生成文档；AK/SK 签名调用 `/openapi/{key}`；`/openapi/graphql` 提供带 Schema 内省的 GraphQL 网关。 |
 | **模型 Studio** | 数据集和指标资产；SQL 数据集、表达式指标、时间粒度与同环比；schema、预览、审批发布；面向 AI 的读取工具。 |
-| **看板 Studio** | 12 列栅格看板，卡片、折线/柱状/饼图、表格和文本；参数与 widget 过滤器；明细下钻；定时 CSV 报表；拖拽调整；版本化发布；只读运行页、限时分享链接和嵌入代码。 |
+| **看板 Studio** | 12 列栅格看板，卡片、折线/柱状/饼图、表格和文本；参数与 widget 过滤器；明细下钻；GeoJSON 地图组件；定时 CSV 报表；拖拽调整；版本化发布；只读运行页、限时分享链接和嵌入代码。 |
 | **应用 Studio** | 多页内部应用，支持参数、指标卡、表格、行详情抽屉，以及基于已发布数据集的带审计新增/修改/删除表单。 |
 | **湖仓** | 基于 Apache Iceberg 的 Trino 数据源，支持元数据同步、表维护（小文件合并、快照过期），Iceberg 目录作为一等数据源注册。 |
 | **计算引擎** | 通过 Spark Operator 提交 Spark 应用，通过 SQL Gateway 执行 Flink SQL：提交、查看、取消、savepoint，并默认应用湖仓执行配置。 |
 | **增量同步** | 从平台创建、暂停、恢复和监控 PostgreSQL、MySQL、Oracle 的 Debezium 连接器；变更事件写入 Kafka 供 Flink 或 Spark 消费。 |
-| **目录与血缘** | 表和字段搜索、标签、列级血缘、下游影响分析和健康事件。 |
+| **目录与血缘** | 表和字段搜索、标签、列级血缘、下游影响分析、OpenLineage 事件，以及可推送到外部目录的 JSON 目录导出。 |
 | **治理** | 列分类与脱敏、行策略、数据标准、freshness/regex/enum/schema 质量规则，以及带审计的策略变更。 |
 | **运维** | 运维中心、队列概览、任务重试、告警确认、依赖感知调度、Prometheus 指标、请求 ID、JSON 日志、备份恢复和 HA 指南。 |
 | **开放 API 与 MCP** | 管理 API、签名公共网关、streamable HTTP MCP、stdio MCP，以及审批令牌保护的写工具。 |
@@ -175,6 +175,8 @@ cp .env.example .env
 | [测试](docs/TESTING.md) | 单元、集成、浏览器和完整矩阵测试 |
 | [环境与资产包](docs/ENVIRONMENTS.md) | 环境标签、资产包导入导出与环境晋级 |
 | [连接器 SDK](docs/CONNECTOR_SDK.md) | 注册外部连接器包 |
+| [Airbyte](docs/AIRBYTE.md) | 使用 Airbyte 协议源作为管道输入 |
+| [血缘与目录导出](docs/LINEAGE.md) | OpenLineage 事件与外部目录同步 |
 | [控制台使用指南](docs/USER_GUIDE.zh-CN.md) | 每个页面与按钮的操作说明（[英文版](docs/USER_GUIDE.md)） |
 
 ## 开发

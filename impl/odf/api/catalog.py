@@ -28,6 +28,23 @@ def datasets(s: Session = Depends(get_session),
     return list_datasets(s, claims["project_id"])
 
 
+@router.get("/catalog/export")
+def export(s: Session = Depends(get_session),
+           claims: dict = Depends(require_user)):
+    import json
+    from fastapi import Response
+    from odf.lineage.catalog_sync import export_project
+    from odf.services.audit import write_audit
+    payload = export_project(s, claims["project_id"])
+    write_audit(s, claims["sub"], "export_catalog", str(claims["project_id"]),
+                {"projects": 1})
+    return Response(
+        content=json.dumps(payload, ensure_ascii=False, default=str),
+        media_type="application/json",
+        headers={"Content-Disposition":
+                 "attachment; filename=odf-catalog.json"})
+
+
 @router.get("/catalog/datasets/{dataset_id}")
 def detail(dataset_id: int, s: Session = Depends(get_session),
            claims: dict = Depends(require_user)):

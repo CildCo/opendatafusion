@@ -97,6 +97,8 @@ export default {
     "ds.group.api": "API 与搜索",
     "ds.group.stream": "消息流",
     "dsf.host": "主机", "dsf.port": "端口", "dsf.database": "数据库",
+    "dsf.image": "连接器镜像 / 命令", "dsf.runtime": "运行方式",
+    "dsf.config": "连接器配置（JSON）",
     "dsf.username": "用户名", "dsf.password": "密码",
     "dsf.sslmode": "SSL 模式", "dsf.path": "文件路径",
     "dsf.url": "服务地址", "dsf.service": "服务名",
@@ -116,6 +118,7 @@ export default {
 
     "cat.searchPlaceholder": "搜索表名",
     "cat.refresh": "刷新",
+    "cat.export": "导出目录",
     "cat.datasets": "数据资产",
     "cat.noDatasets": "尚未同步元数据",
     "cat.search": "搜索",
@@ -371,6 +374,8 @@ export default {
     "ds.group.api": "APIs and search",
     "ds.group.stream": "Streaming",
     "dsf.host": "Host", "dsf.port": "Port", "dsf.database": "Database",
+    "dsf.image": "Connector image / command", "dsf.runtime": "Runtime",
+    "dsf.config": "Connector configuration (JSON)",
     "dsf.username": "Username", "dsf.password": "Password",
     "dsf.sslmode": "SSL mode", "dsf.path": "File path",
     "dsf.url": "Base URL", "dsf.service": "Service",
@@ -390,6 +395,7 @@ export default {
 
     "cat.searchPlaceholder": "Search tables",
     "cat.refresh": "Refresh",
+    "cat.export": "Export catalog",
     "cat.datasets": "Data assets",
     "cat.noDatasets": "Metadata not synced yet",
     "cat.search": "Search",

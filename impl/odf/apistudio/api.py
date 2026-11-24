@@ -100,6 +100,15 @@ def delete(asset_id: int, s: Session = Depends(get_session),
     return None
 
 
+@router.get("/apis/graphql/schema")
+def graphql_schema(s: Session = Depends(get_session),
+                   claims: dict = Depends(require_user)):
+    from odf.graphql.service import example, sdl
+    return {"endpoint": "/openapi/graphql",
+            "sdl": sdl(s, claims["project_id"]),
+            "example": example(s, claims["project_id"])}
+
+
 @router.get("/apis/{asset_id}")
 def get_(asset_id: int, s: Session = Depends(get_session),
          claims: dict = Depends(require_user)):

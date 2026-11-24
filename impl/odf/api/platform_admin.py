@@ -98,6 +98,29 @@ async def backup_restore(file: UploadFile = File(...),
     return {"restored": counts}
 
 
+@router.post("/platform/lineage/test")
+def lineage_test(s: Session = Depends(get_session),
+                 claims: dict = Depends(require_platform_admin)):
+    from odf.lineage.openlineage import send_test
+    try:
+        return send_test(s)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+
+
+@router.post("/platform/catalog/sync")
+def catalog_sync_now(s: Session = Depends(get_session),
+                     claims: dict = Depends(require_platform_admin)):
+    from odf.lineage.catalog_sync import push
+    from odf.services.audit import write_audit
+    try:
+        out = push(s)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    write_audit(s, claims["sub"], "catalog_sync", "platform", out)
+    return out
+
+
 class TestOidcIn(BaseModel):
     issuer: str
 

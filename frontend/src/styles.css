@@ -715,3 +715,53 @@ code {
     max-width: calc(100vw - 24px);
   }
 }
+
+@media (max-width: 900px) {
+  .dash-page,
+  .model-page,
+  .api-page,
+  .app-page {
+    height: auto !important;
+    min-height: calc(100vh - 56px) !important;
+  }
+  .dash-page .body,
+  .model-page .body,
+  .api-page .body,
+  .app-page .body {
+    display: block !important;
+  }
+  .dash-page .body > *,
+  .model-page .body > *,
+  .api-page .body > *,
+  .app-page .body > * {
+    max-height: none !important;
+  }
+  .dash-page .palette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    border-right: 0;
+    border-bottom: 1px solid var(--odf-rule);
+  }
+  .dash-page .palette .label { width: 100%; margin: 4px 0 2px; }
+  .dash-page .palette .add { width: auto; margin: 0; }
+  .dash-page .palette .param-row { width: 100%; }
+  .dash-page .canvas { min-height: 520px; }
+  .dash-page .config,
+  .api-page .right,
+  .app-page .config,
+  .model-page .form {
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-top: 1px solid var(--odf-rule);
+  }
+  .dash-page .head,
+  .model-page .head,
+  .api-page .head,
+  .app-page .head {
+    height: auto !important;
+    min-height: 52px;
+    flex-wrap: wrap;
+    padding: 6px 10px;
+  }
+}

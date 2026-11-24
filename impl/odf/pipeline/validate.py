@@ -59,7 +59,7 @@ def validate_pipeline_content(session, content, project_id=0):
             except ValueError as e:
                 errs.append(_err(nid, "table", str(e)))
                 continue
-            if node.get("type") == "source" and not config.get("pk"):
+            if node.get("type") == "source" and not config.get("pk")                     and ds.kind != "airbyte":
                 errs.append(_err(nid, "pk", "source 缺少主键"))
             if node.get("type") == "sink" and not config.get("pk"):
                 errs.append(_err(nid, "pk", "sink 缺少主键"))

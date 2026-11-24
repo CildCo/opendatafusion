@@ -217,3 +217,30 @@ def test_pivot_and_area_widgets_validate(tmp_path):
          "dimension": "city", "x": 6, "y": 0, "w": 6, "h": 4},
     ]}
     assert validate_dashboard(s, content, 1) == []
+
+
+GEO = {"type": "FeatureCollection", "features": [
+    {"type": "Feature", "properties": {"name": "north"},
+     "geometry": {"type": "Polygon", "coordinates": [
+         [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]}},
+    {"type": "Feature", "properties": {"name": "south"},
+     "geometry": {"type": "Polygon", "coordinates": [
+         [[0, 1], [1, 1], [1, 2], [0, 2], [0, 1]]]}},
+]}
+
+
+def test_map_widget_requires_geojson_and_dimension(tmp_path):
+    s = _env(tmp_path)
+    ds = create_asset(s, 1, "dataset", "D", DATASET, "admin", enabled=False)
+    publish_asset(s, ds.id, "admin")
+    mid = _metric(s, ds.id)
+    base = {"id": "m", "type": "map", "metric_id": mid, "dimension": "city",
+            "x": 0, "y": 0, "w": 6, "h": 4, "geo_json": GEO}
+    content = {"columns": 12, "widgets": [base]}
+    assert validate_dashboard(s, content, 1) == []
+    content = {"columns": 12, "widgets": [{**base, "geo_json": None}]}
+    assert validate_dashboard(s, content, 1)
+    content = {"columns": 12, "widgets": [
+        {**base, "geo_json": {"type": "FeatureCollection",
+                              "features": []}}]}
+    assert validate_dashboard(s, content, 1)
