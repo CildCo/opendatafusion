@@ -1,4 +1,7 @@
+import re
 from datetime import datetime, timedelta, timezone
+
+_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
 
 
 def _domain(session, project_id, domain_id):
@@ -154,6 +157,20 @@ def _clean_contract(raw):
     for key in ("enforce", "allow_extra"):
         if key in raw:
             out[key] = bool(raw[key])
+    if "freshness" in raw and raw["freshness"] is not None:
+        value = raw["freshness"]
+        if not isinstance(value, dict):
+            raise ValueError("freshness must be an object")
+        column = value.get("column")
+        if not isinstance(column, str) or not _IDENT.match(column):
+            raise ValueError("freshness column must be an identifier")
+        try:
+            hours = int(value.get("max_hours"))
+        except (TypeError, ValueError):
+            raise ValueError("freshness max_hours must be a number")
+        if not 1 <= hours <= 8760:
+            raise ValueError("freshness max_hours must be 1..8760")
+        out["freshness"] = {"column": column, "max_hours": hours}
     for key in ("schema", "quality"):
         value = raw.get(key)
         if value is None:

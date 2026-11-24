@@ -80,7 +80,28 @@ class SourceExecutor(NodeExecutor):
         src = source_for(ds, dag)
         start = ctx.cursor_override.get(nid, ctx.cursors.get(nid))
         rows, cursor = src.read(start, ctx.batch)
-        if config.get("debezium"):
+        if config.get("cdc_delete"):
+            emitted = []
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                payload = row.get("payload")
+                if not isinstance(payload, dict):
+                    payload = row
+                if payload.get("op") == "d":
+                    before = payload.get("before")
+                    if isinstance(before, dict):
+                        record = dict(before)
+                        record["__odf_op"] = "delete"
+                        emitted.append(record)
+                    continue
+                after = payload.get("after")
+                if isinstance(after, dict):
+                    record = dict(after)
+                    record["__odf_op"] = "upsert"
+                    emitted.append(record)
+            rows = emitted
+        elif config.get("debezium"):
             unwrapped = []
             for row in rows:
                 if not isinstance(row, dict):

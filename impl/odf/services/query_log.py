@@ -1,4 +1,5 @@
 import hashlib
+import re
 from datetime import datetime, timedelta, timezone
 
 from odf.models import Datasource, QueryRun
@@ -8,6 +9,17 @@ SOURCES = {"workbench", "federated", "model", "dataset", "api", "other"}
 PREVIEW_CHARS = 200
 TEXT_CAP = 20000
 SUMMARY_CAP = 20000
+_COMMENT = re.compile(r"--[^\n]*|/\*.*?\*/", re.S)
+_STRING = re.compile(r"'(?:''|[^'])*'")
+_NUMBER = re.compile(r"\b\d+(?:\.\d+)?\b")
+
+
+def normalize_statement(sql):
+    text = _COMMENT.sub(" ", sql or "")
+    text = _STRING.sub("?", text)
+    text = _NUMBER.sub("?", text)
+    text = re.sub(r"\s+", " ", text).strip().lower()
+    return text[:300]
 
 
 def record(session, project_id, datasource_id, actor, source, ms,
@@ -88,7 +100,8 @@ def summary(session, project_id, days=7):
             .order_by(QueryRun.id.desc()).limit(SUMMARY_CAP).all())
     ok = [row for row in rows if row.status == "ok"]
     durations = sorted(row.ms for row in ok)
-    by_source, by_datasource, daily = {}, {}, {}
+    by_source, by_datasource, by_actor, daily = {}, {}, {}, {}
+    templates = {}
     for row in rows:
         source = by_source.setdefault(
             row.source, {"source": row.source, "count": 0, "errors": 0,
@@ -105,6 +118,24 @@ def summary(session, project_id, days=7):
         datasource["total_ms"] += row.ms
         if row.status != "ok":
             datasource["errors"] += 1
+        actor = by_actor.setdefault(
+            row.actor or "-", {"actor": row.actor or "-", "count": 0,
+                               "errors": 0, "total_ms": 0})
+        actor["count"] += 1
+        actor["total_ms"] += row.ms
+        if row.status != "ok":
+            actor["errors"] += 1
+        statement = normalize_statement(row.sql_text or row.sql_preview)
+        template = templates.setdefault(
+            statement, {"statement": statement, "count": 0, "errors": 0,
+                        "total_ms": 0, "slowest_ms": 0, "variants": set(),
+                        "sample": row.sql_preview})
+        template["count"] += 1
+        template["total_ms"] += row.ms
+        template["slowest_ms"] = max(template["slowest_ms"], row.ms)
+        template["variants"].add(row.sql_hash)
+        if row.status != "ok":
+            template["errors"] += 1
         day = row.created_at.date().isoformat() if row.created_at else ""
         bucket = daily.setdefault(day, {"day": day, "count": 0,
                                         "errors": 0, "total_ms": 0})
@@ -124,7 +155,16 @@ def summary(session, project_id, days=7):
     for item in by_source.values():
         item["avg_ms"] = round(item["total_ms"] / item["count"]) \
             if item["count"] else 0
+    for item in by_actor.values():
+        item["avg_ms"] = round(item["total_ms"] / item["count"]) \
+            if item["count"] else 0
+    for item in templates.values():
+        item["variants"] = len(item["variants"])
+        item["avg_ms"] = round(item["total_ms"] / item["count"]) \
+            if item["count"] else 0
     slowest = sorted(rows, key=lambda row: row.ms, reverse=True)[:10]
+    by_template = sorted(templates.values(),
+                         key=lambda item: item["count"], reverse=True)[:10]
     return {
         "days": days, "total": len(rows), "ok": len(ok),
         "errors": len(rows) - len(ok),
@@ -136,6 +176,9 @@ def summary(session, project_id, days=7):
         "by_datasource": sorted(by_datasource.values(),
                                 key=lambda item: item["count"],
                                 reverse=True),
+        "by_actor": sorted(by_actor.values(),
+                           key=lambda item: item["count"], reverse=True),
+        "templates": by_template,
         "daily": [daily[key] for key in sorted(daily)],
         "slowest": [_out(row, names.get(row.datasource_id))
                     for row in slowest],

@@ -4,6 +4,33 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [2.4.0] - 2026-11-24
+
+### Added
+
+- Table materialization builds a shadow table, runs the model tests against
+  it and swaps it into place only when every test passes. A failing test drops
+  the shadow and leaves the previous table intact.
+- **Infer from SQL** parses model SQL with `sqlglot` and fills column sources
+  for direct projections, single-column expressions and joins, without
+  overwriting manual sources.
+- Data contracts gain freshness checks: a time column and maximum age are
+  validated against the live table, reporting stale, empty or non-time data.
+- Query performance adds normalized statement templates and a per-user
+  breakdown.
+- CDC delete propagation: the source node emits `payload.before` rows with
+  `__odf_op = delete` when **Propagate deletes** is enabled, and the new `cdc`
+  sink mode deletes by primary key and upserts the rest.
+
+### Changed
+
+- Generated CDC pipelines use `cdc` source and sink settings.
+- Table materialization no longer drops the target before running tests.
+
+### Dependencies
+
+- Added `sqlglot`.
+
 ## [2.3.0] - 2026-11-24
 
 ### Added

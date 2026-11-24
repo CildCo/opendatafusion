@@ -100,7 +100,8 @@ Shape:
     {"name": "order_id", "type": "bigint", "required": true},
     {"name": "total", "type": "double"}
   ],
-  "quality": []
+  "quality": [],
+  "freshness": {"column": "updated_at", "max_hours": 24}
 }
 ```
 
@@ -115,6 +116,9 @@ Shape:
   error names the missing columns and follows the normal alert path.
 - Checks run when requested and after every model materialization. Dataset
   contracts are checked on demand so that previews stay cheap.
+- **Freshness** queries `MAX(<column>)` on the live table and reports an issue
+  when it is older than `max_hours`, empty or not a time value. Leave the
+  column blank to disable it.
 - Supported asset types are datasets and models; other types return an error.
 
 Checking a Trino model uses `DESCRIBE <catalog>.<schema>.<table>`. Other SQL

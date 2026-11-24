@@ -231,6 +231,27 @@
               <template #default="{ row }">{{ fmt(row.created_at) }}</template>
             </el-table-column>
           </el-table>
+          <div class="section-title">{{ t("ops.perfByActor") }}</div>
+          <el-table :data="perf.by_actor || []" size="small"
+                    :empty-text="t('ops.perfEmpty')">
+            <el-table-column prop="actor" :label="t('ops.perfActor')" min-width="140" />
+            <el-table-column prop="count" :label="t('ops.perfCount')" width="90" />
+            <el-table-column prop="errors" :label="t('ops.error')" width="90" />
+            <el-table-column prop="avg_ms" :label="t('ops.perfAvgMs')" width="110" />
+          </el-table>
+          <div class="section-title">{{ t("ops.perfTemplates") }}</div>
+          <el-table :data="perf.templates || []" size="small"
+                    :empty-text="t('ops.perfEmpty')">
+            <el-table-column prop="statement" :label="t('ops.perfStatement')"
+                             min-width="320" show-overflow-tooltip />
+            <el-table-column prop="count" :label="t('ops.perfCount')" width="90" />
+            <el-table-column prop="errors" :label="t('ops.error')" width="90" />
+            <el-table-column prop="avg_ms" :label="t('ops.perfAvgMs')" width="110" />
+            <el-table-column prop="slowest_ms" :label="t('ops.perfSlowestMs')"
+                             width="130" />
+            <el-table-column prop="variants" :label="t('ops.perfVariants')"
+                             width="110" />
+          </el-table>
         </el-tab-pane>
 
         <el-tab-pane :label="t('ops.tabTimeline')" name="timeline">

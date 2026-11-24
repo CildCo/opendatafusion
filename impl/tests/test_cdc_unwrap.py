@@ -6,7 +6,8 @@ from odf.pipeline.nodes.source import SourceExecutor
 class _Reader:
     def read(self, cursor, limit):
         return ([{"payload": {"op": "c", "after": {"id": 1, "city": "a"}}},
-                 {"payload": {"op": "d", "after": None}},
+                 {"payload": {"op": "d", "before": {"id": 2, "city": "b"},
+                              "after": None}},
                  {"id": 3, "city": "raw"}], "cursor")
 
 
@@ -44,3 +45,16 @@ def test_plain_kafka_messages_stay_unchanged(monkeypatch):
     table = SourceExecutor().run(
         [], {"datasource_id": 1, "table": "t"}, ctx)
     assert len(table.to_pylist()) == 3
+
+
+def test_cdc_delete_rows_are_emitted(monkeypatch):
+    import odf.pipeline.nodes.source as module
+    monkeypatch.setattr(module, "source_for", lambda ds, dag: _Reader())
+    ctx = _Ctx()
+    table = SourceExecutor().run(
+        [], {"datasource_id": 1, "table": "t", "debezium": True,
+             "cdc_delete": True}, ctx)
+    rows = table.to_pylist()
+    assert rows[0] == {"id": 1, "city": "a", "__odf_op": "upsert"}
+    assert rows[1] == {"id": 2, "city": "b", "__odf_op": "delete"}
+    assert len(rows) == 2

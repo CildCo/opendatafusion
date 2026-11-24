@@ -241,3 +241,41 @@ def test_partition_columns_must_be_identifiers(tmp_path):
             "incremental_strategy": "append", "layer": "staging",
             "tests": [], "columns": []}, 1)
     assert any("identifier" in e["message"] for e in errs)
+
+
+def _sqlite_tables(tmp_path):
+    raw = create_engine("sqlite:///" + str(tmp_path / "m.db"))
+    with raw.connect() as c:
+        names = [r[0] for r in c.execute(text(
+            "select name from sqlite_master where type='table'"))]
+    raw.dispose()
+    return names
+
+
+def test_table_materialization_leaves_no_shadow_tables(tmp_path):
+    s = _env(tmp_path)
+    asset, _ = _model(s, "swap", "select * from orders")
+    publish_asset(s, asset.id, "admin")
+    materialize_model(s, asset.id)
+    materialize_model(s, asset.id)
+    leftovers = [n for n in _sqlite_tables(tmp_path) if "__odf_" in n]
+    assert leftovers == []
+    assert _target_rows(s, asset)
+
+
+def test_failed_test_keeps_the_previous_table(tmp_path):
+    from odf.transform.service import ModelTestError
+    s = _env(tmp_path)
+    asset, _ = _model(
+        s, "guarded", "select * from orders",
+        tests=[{"kind": "accepted_values", "column": "city",
+                "values": ["a", "b"]}])
+    publish_asset(s, asset.id, "admin")
+    materialize_model(s, asset.id)
+    _update_source(tmp_path, "insert into orders values (4,'z',1)")
+    with pytest.raises(ModelTestError):
+        materialize_model(s, asset.id)
+    rows = _target_rows(s, asset)
+    assert len(rows) == 3
+    leftovers = [n for n in _sqlite_tables(tmp_path) if "__odf_" in n]
+    assert leftovers == []

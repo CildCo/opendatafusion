@@ -36,7 +36,11 @@
           </el-select>
         </el-form-item>
         <el-form-item v-if="isKafka" :label="t('nconf.debezium')">
-          <el-switch v-model="cfg.debezium" />
+          <el-switch v-model="cfg.debezium" @change="$emit('update')" />
+        </el-form-item>
+        <el-form-item v-if="isKafka && cfg.debezium"
+                      :label="t('nconf.cdcDelete')">
+          <el-switch v-model="cfg.cdc_delete" @change="$emit('update')" />
         </el-form-item>
       </el-form>
     </template>
@@ -268,6 +272,7 @@
           <el-select v-model="cfg.mode" style="width: 100%">
             <el-option value="upsert" label="upsert" />
             <el-option value="append" label="append" />
+            <el-option value="cdc" label="cdc" />
           </el-select>
         </el-form-item>
         <el-form-item v-if="!isKafka" :label="t('nconf.primaryKey')">
