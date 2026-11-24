@@ -74,7 +74,7 @@ Chinese from the header switch.
 | ![Pipeline studio](docs/images/pipeline.png) **Pipeline studio.** Visual DAGs with transforms, engine nodes, cursors, versioned publishing, scheduling and dependencies. | ![Metric catalogue](docs/images/metrics.png) **Semantic layer.** A metric catalogue with source dataset, definition, owner and the dashboards and apps that consume it. |
 | ![Dashboards](docs/images/dashboards.png) **Dashboards.** Cards, charts, tables and text on a 12-column grid, with filters, versioned publish and expiring share links. | ![Data apps](docs/images/apps.png) **Data apps.** Multi-page internal apps with parameters, metric cards, tables and audited write forms over published datasets. |
 | ![Data quality](docs/images/quality.png) **Data quality.** Freshness, null, uniqueness, range, enum and schema rules with pass rates and per-run results. | ![Operations](docs/images/ops.png) **Operations.** Queue and failures, alert triage, dependency skips, API calls and audit in one console. |
-| ![Governed APIs](docs/images/interfaces.png) **Governed APIs.** Visual or SQL APIs with typed parameters, publication, call history, grants and signed AK/SK gateway access. | ![SQL workbench](docs/images/workbench.png) **SQL workbench.** Read-only queries with governed sources, federated queries and CSV export. |
+| **Governed APIs.** Visual or SQL APIs with typed parameters, publication, call history, grants and signed AK/SK gateway access. | ![SQL workbench](docs/images/workbench.png) **SQL workbench.** Read-only queries with governed sources, federated queries and CSV export. |
 
 ## Why OpenDataFusion
 
