@@ -35,6 +35,9 @@
                        :label="c.name" />
           </el-select>
         </el-form-item>
+        <el-form-item v-if="isKafka" :label="t('nconf.debezium')">
+          <el-switch v-model="cfg.debezium" />
+        </el-form-item>
       </el-form>
     </template>
 

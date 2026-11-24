@@ -4,7 +4,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from odf.cdc import service
+from odf.cdc.pipeline import build_pipeline
 from odf.db import get_session
+from odf.services.audit import write_audit
 from odf.services.auth import require_editor, require_user
 
 router = APIRouter()
@@ -149,3 +151,29 @@ def delete_source(source_id: int, session: Session = Depends(get_session),
     except httpx.HTTPError:
         raise HTTPException(502, "debezium is unreachable")
     return None
+
+
+class PipelineIn(BaseModel):
+    kafka_datasource_id: int
+    sink_datasource_id: int
+    sink_table: str = ""
+    name: str = ""
+    pk: str = "id"
+
+
+@router.post("/cdc/sources/{source_id}/pipeline", status_code=201)
+def create_pipeline(source_id: int, body: PipelineIn,
+                    session: Session = Depends(get_session),
+                    claims: dict = Depends(require_editor)):
+    source = _source(session, claims["project_id"], source_id)
+    try:
+        result = build_pipeline(
+            session, claims["project_id"], source,
+            body.kafka_datasource_id, body.sink_datasource_id,
+            body.sink_table, body.name, claims["sub"], body.pk)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    write_audit(session, claims["sub"], "create_cdc_pipeline",
+                str(source.id), {"pipeline_id": result["id"],
+                                 "topics": result["topics"]})
+    return result

@@ -80,3 +80,42 @@ not part of the current governance baseline.
 App Studio edit forms that expose a masked column should not be used to update
 that column: the form reads masked values. Use a dedicated write API over a
 non-sensitive table, or exclude the field from the form.
+
+## Data contracts
+
+Every dataset and transform model can carry a contract in
+`asset.contract_json`. The contract is edited from **Governance → Data
+contracts** or through `PUT /api/v1/assets/{id}/governance`.
+
+Shape:
+
+```json
+{
+  "owner": "data-team",
+  "sla": "daily by 07:00",
+  "notes": "",
+  "enforce": true,
+  "allow_extra": true,
+  "schema": [
+    {"name": "order_id", "type": "bigint", "required": true},
+    {"name": "total", "type": "double"}
+  ],
+  "quality": []
+}
+```
+
+- **Generate** reads the live table structure and writes the `schema` list.
+  Datasets resolve their table through the asset query; models resolve their
+  physical target.
+- **Check** compares expected columns with the live table: missing columns,
+  type differences and, when `allow_extra` is false, unexpected columns.
+  Type comparison ignores parameters and casing, so `varchar(32)` matches
+  `varchar`.
+- **Enforce** makes a model run fail when the check does not pass. The job
+  error names the missing columns and follows the normal alert path.
+- Checks run when requested and after every model materialization. Dataset
+  contracts are checked on demand so that previews stay cheap.
+- Supported asset types are datasets and models; other types return an error.
+
+Checking a Trino model uses `DESCRIBE <catalog>.<schema>.<table>`. Other SQL
+datasources use SQLAlchemy column inspection.

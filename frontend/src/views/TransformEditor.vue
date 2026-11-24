@@ -54,6 +54,23 @@
                          :label="c" />
             </el-select>
           </el-form-item>
+          <el-form-item v-if="content.materialization === 'incremental'"
+                        :label="t('tm.incrementalStrategy')">
+            <el-select v-model="content.incremental_strategy"
+                       style="width: 100%">
+              <el-option value="append" :label="t('tm.strategyAppend')" />
+              <el-option value="merge" :label="t('tm.strategyMerge')" />
+            </el-select>
+          </el-form-item>
+          <el-form-item v-if="content.materialization !== 'view'"
+                        :label="t('tm.partitionBy')">
+            <el-select v-model="content.partition_by" multiple filterable
+                       allow-create :placeholder="t('tm.partitionHint')"
+                       style="width: 100%">
+              <el-option v-for="c in resultColumns" :key="c" :value="c"
+                         :label="c" />
+            </el-select>
+          </el-form-item>
           <el-form-item :label="t('tm.description')">
             <el-input v-model="content.description" type="textarea"
                       :rows="2" />
@@ -93,6 +110,27 @@
         <el-button link type="primary" @click="addTest">
           {{ t("tm.addTest") }}
         </el-button>
+
+        <h4 class="col-head">
+          {{ t("tm.columns") }}
+          <el-button link type="primary" size="small" @click="fillColumns">
+            {{ t("tm.fillColumns") }}
+          </el-button>
+        </h4>
+        <div v-for="(col, i) in content.columns" :key="i" class="col-row">
+          <el-input v-model="col.name" size="small" style="width: 100px"
+                    placeholder="name" />
+          <el-input v-model="col.source" size="small" style="width: 118px"
+                    :placeholder="t('tm.source')" />
+          <el-input v-model="col.type" size="small" style="width: 80px"
+                    placeholder="type" />
+          <el-button link type="danger" @click="content.columns.splice(i, 1)"
+                     :aria-label="t('common.remove')">×</el-button>
+        </div>
+        <el-button link type="primary" size="small" @click="addColumn">
+          {{ t("tm.addColumn") }}
+        </el-button>
+        <p class="hint">{{ t("tm.columnsHint") }}</p>
         <p class="hint">{{ t("tm.refHint") }}</p>
       </aside>
 
@@ -163,7 +201,8 @@ const testKinds = ["not_null", "unique", "accepted_values",
 const content = ref({
   datasource_id: null, sql: "",
   materialization: "table", schema: "", unique_key: [], layer: "staging",
-  description: "", tests: [], columns: [],
+  description: "", tests: [], columns: [], partition_by: [],
+  incremental_strategy: "append",
 });
 
 function setValues(test, text) {
@@ -173,6 +212,21 @@ function setValues(test, text) {
 
 function addTest() {
   content.value.tests.push({ kind: "not_null", column: "" });
+}
+
+function addColumn() {
+  content.value.columns.push({ name: "", source: "", type: "",
+                               description: "" });
+}
+
+function fillColumns() {
+  const known = new Set(content.value.columns.map((c) => c.name));
+  for (const name of resultColumns.value) {
+    if (!known.has(name)) {
+      content.value.columns.push({ name, source: name, type: "",
+                                   description: "" });
+    }
+  }
 }
 
 async function load() {
@@ -191,6 +245,8 @@ async function load() {
     description: draft.description || "",
     tests: draft.tests || [],
     columns: draft.columns || [],
+    partition_by: draft.partition_by || [],
+    incremental_strategy: draft.incremental_strategy || "append",
   };
   try {
     target.value = (await api.get(`/models/${id}/target`)).target || "";
@@ -328,6 +384,9 @@ onMounted(load);
             flex-wrap: wrap; }
 h4 { margin: 14px 0 8px; font-size: 13px; color: #374151; }
 .hint { color: #6b7280; font-size: 11px; }
+.col-head { display: flex; align-items: center; justify-content: space-between;
+            gap: 6px; }
+.col-row { display: flex; gap: 4px; margin-bottom: 4px; align-items: center; }
 .stats { margin-top: 8px; font-size: 12px; color: #475569; }
 .sql { background: #0f172a; color: #e2e8f0; padding: 8px;
        border-radius: 6px; font-size: 11px; white-space: pre-wrap; }

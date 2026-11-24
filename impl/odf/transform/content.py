@@ -5,6 +5,7 @@ from odf.apistudio.sqlguard import ensure_read_only
 REF = re.compile(r"\{\{\s*ref\(\s*['\"]([^'\"]+)['\"]\s*\)\s*\}\}")
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
 MATERIALIZATIONS = ("view", "table", "incremental")
+INCREMENTAL_STRATEGIES = ("append", "merge")
 LAYERS = ("raw", "staging", "intermediate", "mart")
 TEST_KINDS = ("not_null", "unique", "accepted_values", "relationships", "sql")
 
@@ -13,7 +14,8 @@ def empty_model():
     return {"datasource_id": None, "sql": "",
             "materialization": "table", "schema": "",
             "unique_key": [], "layer": "staging", "description": "",
-            "tests": [], "columns": []}
+            "tests": [], "columns": [], "partition_by": [],
+            "incremental_strategy": "append"}
 
 
 def refs(sql):
@@ -125,6 +127,63 @@ def validate_model(session, content, project_id, asset_id=None):
     if not isinstance(key, list) or \
             any(not isinstance(x, str) or not IDENT.match(x) for x in key):
         errs.append(_err("unique_key", "unique_key must be column names"))
+    elif len(key) > 8:
+        errs.append(_err("unique_key", "at most 8 unique columns"))
+    strategy = content.get("incremental_strategy") or "append"
+    if strategy not in INCREMENTAL_STRATEGIES:
+        errs.append(_err("incremental_strategy",
+                         "incremental_strategy must be append or merge"))
+    elif strategy == "merge" and materialization != "incremental":
+        errs.append(_err("incremental_strategy",
+                         "merge is only available for incremental models"))
+    elif strategy == "merge" and isinstance(key, list) and not key:
+        errs.append(_err("incremental_strategy",
+                         "merge requires at least one unique_key column"))
+    partition = content.get("partition_by") or []
+    if not isinstance(partition, list) or any(
+            not isinstance(x, str) or not IDENT.match(x) for x in partition):
+        errs.append(_err("partition_by",
+                         "partition columns must be identifiers"))
+    elif len(partition) > 4:
+        errs.append(_err("partition_by", "at most 4 partition columns"))
+    elif len(set(partition)) != len(partition):
+        errs.append(_err("partition_by", "duplicate partition columns"))
+    elif partition and materialization == "view":
+        errs.append(_err("partition_by",
+                         "views cannot be partitioned"))
+    elif partition and ds and ds.kind != "trino":
+        errs.append(_err("partition_by",
+                         "partitioning requires a Trino datasource"))
+    columns = content.get("columns") or []
+    if not isinstance(columns, list):
+        errs.append(_err("columns", "columns must be an array"))
+    else:
+        if len(columns) > 500:
+            errs.append(_err("columns", "at most 500 columns"))
+        seen_columns = set()
+        for column in columns:
+            if not isinstance(column, dict) or \
+                    not isinstance(column.get("name"), str) or \
+                    not IDENT.match(column["name"]):
+                errs.append(_err("columns",
+                                 "column definitions need a valid name"))
+                continue
+            name = column["name"]
+            if name in seen_columns:
+                errs.append(_err("columns", "duplicate column: %s" % name))
+            seen_columns.add(name)
+            source = column.get("source") or ""
+            if source and (not isinstance(source, str) or not re.fullmatch(
+                    r"[A-Za-z_][A-Za-z0-9_$]*(\.[A-Za-z_][A-Za-z0-9_$]*)?",
+                    source)):
+                errs.append(_err("columns",
+                                 "source must be column or ref.column"))
+            data_type = column.get("type") or ""
+            if not isinstance(data_type, str) or len(data_type) > 64:
+                errs.append(_err("columns", "invalid column type"))
+            description = column.get("description") or ""
+            if not isinstance(description, str) or len(description) > 200:
+                errs.append(_err("columns", "column description is too long"))
     tests = content.get("tests") or []
     if not isinstance(tests, list):
         errs.append(_err("tests", "tests must be an array"))

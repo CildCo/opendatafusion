@@ -74,6 +74,52 @@
                     :description="t('gov.emptyTerms')" />
         </el-card>
       </el-tab-pane>
+      <el-tab-pane :label="t('gov.contracts')" name="contracts">
+        <div class="toolbar">
+          <span class="hint">{{ t("gov.contractsHint") }}</span>
+          <div class="spacer" />
+          <el-button @click="loadContracts" :loading="loading">
+            {{ t("common.refresh") }}
+          </el-button>
+        </div>
+        <el-card shadow="never">
+          <el-table :data="contracts" size="small" v-loading="loading">
+            <el-table-column :label="t('gov.asset')" min-width="220">
+              <template #default="{ row }">
+                <b>{{ row.name }}</b>
+                <div class="muted">{{ row.asset_type }} · {{ row.key }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="columns" :label="t('gov.contractColumns')"
+                             width="110" />
+            <el-table-column :label="t('gov.contractEnforce')" width="110">
+              <template #default="{ row }">
+                <el-switch :model-value="row.enforce" :disabled="!canEdit"
+                           @change="setContract(row, { enforce: $event })" />
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('gov.contractStrict')" width="130">
+              <template #default="{ row }">
+                <el-switch :model-value="!row.allow_extra" :disabled="!canEdit"
+                           @change="setContract(row, { allow_extra: !$event })" />
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('gov.actions')" width="220">
+              <template #default="{ row }">
+                <el-button link @click="checkContract(row)">
+                  {{ t("gov.check") }}
+                </el-button>
+                <el-button v-if="canEdit" link type="primary"
+                           @click="genContract(row)">
+                  {{ row.columns ? t("gov.regenerate") : t("gov.generate") }}
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-if="!loading && !contracts.length"
+                    :description="t('gov.emptyContracts')" />
+        </el-card>
+      </el-tab-pane>
     </el-tabs>
 
     <el-dialog v-model="domainOpen" :title="domainForm.id
@@ -128,11 +174,39 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="contractOpen" :title="t('gov.contractResult')"
+               width="640px">
+      <el-alert v-if="contractResult.ok" type="success" :closable="false"
+                :title="t('gov.contractOk')" />
+      <el-alert v-else type="error" :closable="false"
+                :title="t('gov.contractFailed')" />
+      <p class="muted">
+        {{ contractResult.target }} · {{ contractResult.actual }} /
+        {{ contractResult.expected }}
+      </p>
+      <el-table v-if="(contractResult.issues || []).length"
+                :data="contractResult.issues" size="small">
+        <el-table-column prop="kind" :label="t('gov.issueKind')"
+                         width="120" />
+        <el-table-column prop="column" :label="t('gov.issueColumn')"
+                         min-width="140" />
+        <el-table-column prop="expected" :label="t('gov.issueExpected')"
+                         min-width="120" />
+        <el-table-column prop="actual" :label="t('gov.issueActual')"
+                         min-width="120" />
+      </el-table>
+      <template #footer>
+        <el-button @click="contractOpen = false">
+          {{ t("common.close") }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from "vue";
+import { onMounted, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, canWrite, errMsg } from "../api";
 import { t } from "../i18n";
@@ -150,6 +224,55 @@ const domainForm = reactive({ id: null, name: "", owner: "",
                              description: "" });
 const termForm = reactive({ id: null, term: "", definition: "",
                             domain_id: null, owner: "" });
+const contracts = ref([]);
+const contractOpen = ref(false);
+const contractResult = ref({});
+
+async function loadContracts() {
+  loading.value = true;
+  try {
+    contracts.value = (await api.get(
+      "/governance/contracts?include_missing=true")).items || [];
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function checkContract(row) {
+  try {
+    contractResult.value = await api.post(
+      `/assets/${row.asset_id}/contract/check`);
+    contractOpen.value = true;
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function genContract(row) {
+  try {
+    await api.post(`/assets/${row.asset_id}/contract/generate`);
+    ElMessage.success(t("gov.generated"));
+    await loadContracts();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function setContract(row, patch) {
+  try {
+    await api.patch(`/assets/${row.asset_id}/contract`, patch);
+    ElMessage.success(t("gov.contractUpdated"));
+    await loadContracts();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+watch(tab, (name) => {
+  if (name === "contracts") loadContracts();
+});
 
 async function load() {
   loading.value = true;
@@ -257,4 +380,6 @@ onMounted(load);
 <style scoped>
 .toolbar { display: flex; gap: 10px; align-items: center; margin: 10px 0; }
 .spacer { flex: 1; }
+.hint { font-size: 12px; color: #6b7280; }
+.muted { font-size: 11px; color: #94a3b8; margin-top: 2px; }
 </style>

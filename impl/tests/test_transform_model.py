@@ -163,3 +163,81 @@ def test_model_dependency_waits_for_upstream_success(tmp_path):
     s.add(Job(asset_id=up.id, asset_type="model", status="success"))
     s.commit()
     assert dependencies_satisfied(s, 1, "model", down.id)["satisfied"]
+
+
+def _update_source(tmp_path, statement):
+    raw = create_engine("sqlite:///" + str(tmp_path / "m.db"))
+    with raw.begin() as c:
+        c.execute(text(statement))
+    raw.dispose()
+
+
+def _target_rows(s, asset):
+    from odf.services.query import execute_query
+    from odf.transform.service import target_for
+    content = s.get(__import__("odf.models", fromlist=["AssetVersion"])
+                    .AssetVersion, asset.published_version_id).content_json
+    target, ds, _ = target_for(s, asset, content)
+    return execute_query(s, ds, "select * from %s order by id" % target,
+                         {}, 10)["rows"]
+
+
+def test_incremental_append_keeps_existing_rows(tmp_path):
+    s = _env(tmp_path)
+    asset, _ = _model(s, "inc", "select * from orders",
+                      materialization="incremental", unique_key=["id"])
+    publish_asset(s, asset.id, "admin")
+    materialize_model(s, asset.id)
+    _update_source(tmp_path, "update orders set amount = 99 where id = 1")
+    materialize_model(s, asset.id)
+    rows = _target_rows(s, asset)
+    assert len(rows) == 3
+    assert [r["amount"] for r in rows if r["id"] == 1] == [10]
+
+
+def test_incremental_merge_updates_existing_keys(tmp_path):
+    s = _env(tmp_path)
+    asset, _ = _model(s, "merge", "select * from orders",
+                      materialization="incremental", unique_key=["id"],
+                      incremental_strategy="merge")
+    publish_asset(s, asset.id, "admin")
+    materialize_model(s, asset.id)
+    _update_source(tmp_path, "update orders set amount = 99 where id = 1")
+    out = materialize_model(s, asset.id)
+    assert out["merged"] is True
+    rows = _target_rows(s, asset)
+    assert len(rows) == 3
+    assert [r["amount"] for r in rows if r["id"] == 1] == [99]
+
+
+def test_merge_requires_unique_key(tmp_path):
+    s = _env(tmp_path)
+    errs = validate_model(
+        s, {"datasource_id": 1, "sql": "select * from orders",
+            "materialization": "incremental", "schema": "main",
+            "unique_key": [], "incremental_strategy": "merge",
+            "partition_by": [], "layer": "staging", "tests": [],
+            "columns": []}, 1)
+    assert any(e["field"] == "incremental_strategy" for e in errs)
+
+
+def test_partitioning_requires_trino(tmp_path):
+    s = _env(tmp_path)
+    errs = validate_model(
+        s, {"datasource_id": 1, "sql": "select * from orders",
+            "materialization": "table", "schema": "main",
+            "unique_key": [], "partition_by": ["city"],
+            "incremental_strategy": "append", "layer": "staging",
+            "tests": [], "columns": []}, 1)
+    assert any(e["field"] == "partition_by" for e in errs)
+
+
+def test_partition_columns_must_be_identifiers(tmp_path):
+    s = _env(tmp_path)
+    errs = validate_model(
+        s, {"datasource_id": 1, "sql": "select * from orders",
+            "materialization": "table", "schema": "main",
+            "unique_key": [], "partition_by": ["city; drop table"],
+            "incremental_strategy": "append", "layer": "staging",
+            "tests": [], "columns": []}, 1)
+    assert any("identifier" in e["message"] for e in errs)

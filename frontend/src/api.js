@@ -97,6 +97,7 @@ export const api = {
   get: (p) => request(p),
   post: (p, b) => request(p, { method: "POST", body: JSON.stringify(b ?? {}) }),
   put: (p, b) => request(p, { method: "PUT", body: JSON.stringify(b ?? {}) }),
+  patch: (p, b) => request(p, { method: "PATCH", body: JSON.stringify(b ?? {}) }),
   del: (p) => request(p, { method: "DELETE" }),
   applyChange,
   download: async (p, filename = "download") => {

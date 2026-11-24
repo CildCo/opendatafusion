@@ -172,6 +172,67 @@
           </el-table>
         </el-tab-pane>
 
+        <el-tab-pane :label="t('ops.tabPerf')" name="perf">
+          <div class="filters">
+            <el-select v-model="perfDays" size="small" style="width: 120px"
+                       @change="loadPerf">
+              <el-option :value="7" :label="t('ops.perf7')" />
+              <el-option :value="30" :label="t('ops.perf30')" />
+            </el-select>
+            <el-button size="small" @click="loadPerf">{{ t("ops.query") }}</el-button>
+            <span class="updated">{{ t("ops.perfHint") }}</span>
+          </div>
+          <div class="perf-cards">
+            <div class="perf-card">
+              <b>{{ perf.total || 0 }}</b><span>{{ t("ops.perfTotal") }}</span>
+            </div>
+            <div class="perf-card">
+              <b>{{ perf.p50_ms || 0 }}</b><span>{{ t("ops.perfP50") }}</span>
+            </div>
+            <div class="perf-card">
+              <b>{{ perf.p95_ms || 0 }}</b><span>{{ t("ops.perfP95") }}</span>
+            </div>
+            <div class="perf-card">
+              <b>{{ perf.avg_ms || 0 }}</b><span>{{ t("ops.perfAvg") }}</span>
+            </div>
+            <div class="perf-card">
+              <b class="danger">{{ perf.errors || 0 }}</b>
+              <span>{{ t("ops.perfErrors") }}</span>
+            </div>
+          </div>
+          <div class="section-title">{{ t("ops.perfBySource") }}</div>
+          <el-table :data="perf.by_source || []" size="small"
+                    :empty-text="t('ops.perfEmpty')">
+            <el-table-column prop="source" :label="t('ops.perfSource')" min-width="120" />
+            <el-table-column prop="count" :label="t('ops.perfCount')" width="90" />
+            <el-table-column prop="errors" :label="t('ops.error')" width="90" />
+            <el-table-column prop="avg_ms" :label="t('ops.perfAvgMs')" width="110" />
+          </el-table>
+          <div class="section-title">{{ t("ops.perfByDatasource") }}</div>
+          <el-table :data="perf.by_datasource || []" size="small"
+                    :empty-text="t('ops.perfEmpty')">
+            <el-table-column prop="datasource_name" :label="t('ops.perfDatasource')" min-width="180">
+              <template #default="{ row }">{{ row.datasource_name || "-" }}</template>
+            </el-table-column>
+            <el-table-column prop="count" :label="t('ops.perfCount')" width="90" />
+            <el-table-column prop="errors" :label="t('ops.error')" width="90" />
+            <el-table-column prop="avg_ms" :label="t('ops.perfAvgMs')" width="110" />
+          </el-table>
+          <div class="section-title">{{ t("ops.perfSlowest") }}</div>
+          <el-table :data="perf.slowest || []" size="small"
+                    :empty-text="t('ops.perfEmpty')">
+            <el-table-column prop="ms" label="ms" width="80" />
+            <el-table-column prop="source" :label="t('ops.perfSource')" width="110" />
+            <el-table-column prop="datasource_name" :label="t('ops.perfDatasource')" width="140" />
+            <el-table-column prop="sql_preview" :label="t('ops.perfSql')" min-width="300"
+                             show-overflow-tooltip />
+            <el-table-column prop="actor" :label="t('ops.perfActor')" width="120" />
+            <el-table-column :label="t('ops.perfTime')" width="180">
+              <template #default="{ row }">{{ fmt(row.created_at) }}</template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
         <el-tab-pane :label="t('ops.tabTimeline')" name="timeline">
           <el-timeline v-if="timeline.length">
             <el-timeline-item v-for="(x, i) in timeline" :key="i"
@@ -261,6 +322,8 @@ const jobs = ref([]);
 const alerts = ref([]);
 const timeline = ref([]);
 const apiStats = ref([]);
+const perf = ref({});
+const perfDays = ref(7);
 const audit = ref([]);
 const dependencyBlocked = ref([]);
 const jobStatus = ref("");
@@ -347,6 +410,13 @@ async function loadTimeline() {
 }
 async function loadApiStats() {
   apiStats.value = await api.get("/api-stats");
+}
+async function loadPerf() {
+  try {
+    perf.value = await api.get(`/query-runs/summary?days=${perfDays.value}`);
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
 }
 async function loadDependencyStatus() {
   try {
@@ -443,6 +513,7 @@ watch(auto, (on) => {
 });
 watch(tab, (name) => {
   if (name === "audit") loadAudit();
+  if (name === "perf") loadPerf();
 });
 
 onMounted(load);
@@ -467,6 +538,14 @@ onBeforeUnmount(() => {
 .card-value { font-size: 24px; font-weight: 700; color: #0f172a;
               line-height: 1.2; }
 .card-label { font-size: 11px; color: #64748b; margin-top: 2px; }
+.perf-cards { display: grid; grid-template-columns: repeat(5, 1fr);
+              gap: 10px; margin: 4px 0 12px; }
+.perf-card { background: #fff; border: 1px solid #e5e7eb;
+             border-radius: 6px; padding: 10px 12px;
+             display: flex; flex-direction: column; gap: 2px; }
+.perf-card b { font-size: 22px; color: #0f172a; }
+.perf-card b.danger { color: #dc2626; }
+.perf-card span { font-size: 11px; color: #64748b; }
 .panel :deep(.el-card__body) { padding: 8px 14px 14px; }
 .filters { display: flex; gap: 8px; align-items: center; margin-bottom: 10px;
            flex-wrap: wrap; }

@@ -11,6 +11,7 @@
                  @click="removeSelected">
         {{ t("pipe.deleteSelected").replace("{n}", selected.length) }}
       </el-button>
+      <el-button v-if="canEdit" @click="templateOpen = true">{{ t("tpl.button") }}</el-button>
       <el-button v-if="canEdit" type="primary" @click="create">{{ t("pipe.newPipeline") }}</el-button>
     </div>
 
@@ -90,6 +91,9 @@
         <p v-else class="muted">{{ t("pipe.noNodes") }}</p>
       </div>
     </el-drawer>
+
+    <template-dialog v-model="templateOpen" mode="pipeline"
+                     @created="onTemplateCreated" />
   </div>
 </template>
 
@@ -103,6 +107,7 @@ import EmptyState from "../components/EmptyState.vue";
 import EntityIcon from "../components/EntityIcon.vue";
 import PageHeader from "../components/PageHeader.vue";
 import StatusDot from "../components/StatusDot.vue";
+import TemplateDialog from "../components/TemplateDialog.vue";
 
 const rows = ref([]);
 const total = ref(0);
@@ -116,6 +121,11 @@ const runsOpen = ref(false);
 const runs = ref([]);
 const currentName = ref("");
 const router = useRouter();
+const templateOpen = ref(false);
+
+function onTemplateCreated(result) {
+  router.push(`/pipelines/${result.id}`);
+}
 const route = useRoute();
 
 async function load() {

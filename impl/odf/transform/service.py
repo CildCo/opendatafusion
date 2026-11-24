@@ -117,7 +117,8 @@ def compile_model(session, asset, content=None):
     return sql, mapping
 
 
-def preview_model(session, asset_id, content=None, limit=100, role=None):
+def preview_model(session, asset_id, content=None, limit=100, role=None,
+                  actor=""):
     asset = get_asset(session, asset_id)
     if not asset or asset.type != "model":
         raise ValueError("model not found")
@@ -127,14 +128,22 @@ def preview_model(session, asset_id, content=None, limit=100, role=None):
     ds = _datasource(session, content, asset.project_id)
     max_rows = max(1, min(int(limit), 10000))
     started = time.time()
-    result = execute_query(session, ds, limited(sql, ds.kind, max_rows),
-                           {}, max_rows)
+    from odf.services.query_log import record as record_query
+    try:
+        result = execute_query(session, ds, limited(sql, ds.kind, max_rows),
+                               {}, max_rows)
+    except ValueError as error:
+        record_query(session, asset.project_id, ds.id, actor, "model",
+                     int((time.time() - started) * 1000), 0, error, sql)
+        raise
+    elapsed = int((time.time() - started) * 1000)
+    record_query(session, asset.project_id, ds.id, actor, "model", elapsed,
+                 len(result["rows"]), None, sql)
     target, _, schema = target_for(session, asset, content)
     columns = [{"name": c, "type": "unknown"}
                for c in result.get("columns") or []]
     return {"columns": columns, "rows": result["rows"],
-            "row_count": result["row_count"],
-            "ms": int((time.time() - started) * 1000),
+            "row_count": result["row_count"], "ms": elapsed,
             "sql": sql, "target": target, "schema": schema}
 
 
@@ -214,6 +223,50 @@ def run_tests(session, asset, content, target):
     return results
 
 
+def _create_table_sql(target, sql, partition_by=None):
+    if partition_by:
+        parts = ", ".join("'%s'" % column for column in partition_by)
+        return ("CREATE TABLE %s WITH (format = 'PARQUET', "
+                "partitioning = ARRAY[%s]) AS %s" % (target, parts, sql))
+    return "CREATE TABLE %s AS %s" % (target, sql)
+
+
+MERGE_KEY_CAP = 50000
+MERGE_BATCH = 200
+
+
+def _merge_rows(session, ds, target, sql, keys, kind):
+    selected = ", ".join(quote_ident(key) for key in keys)
+    count = execute_query(
+        session, ds, limited("SELECT %s FROM (%s) s" % (selected, sql),
+                             kind, MERGE_KEY_CAP + 1),
+        {}, MERGE_KEY_CAP + 1)
+    rows = count["rows"]
+    if len(rows) > MERGE_KEY_CAP:
+        return False
+    from odf.services.connections import engine_for
+    for start in range(0, len(rows), MERGE_BATCH):
+        batch = rows[start:start + MERGE_BATCH]
+        params, conditions = {}, []
+        for i, row in enumerate(batch):
+            for j, key in enumerate(keys):
+                params["k%d_%d" % (i, j)] = row[key]
+            conditions.append("(" + " AND ".join(
+                "%s = :k%d_%d" % (quote_ident(key), i, j)
+                for j, key in enumerate(keys)) + ")")
+        statement = "DELETE FROM %s WHERE %s" % (
+            target, " OR ".join(conditions))
+        if kind == "trino":
+            from odf.trino.client import render_params
+            _ddl(session, ds, render_params(statement, params))
+        else:
+            with engine_for(ds) as engine:
+                with engine.begin() as conn:
+                    conn.execute(text(statement), params)
+    _ddl(session, ds, "INSERT INTO %s SELECT * FROM (%s) s" % (target, sql))
+    return True
+
+
 def materialize_model(session, asset_id, job=None):
     asset = get_asset(session, asset_id)
     if not asset or asset.type != "model":
@@ -226,8 +279,10 @@ def materialize_model(session, asset_id, job=None):
     ds = _datasource(session, content, asset.project_id)
     target, _, schema = target_for(session, asset, content)
     materialization = content.get("materialization")
+    partition_by = content.get("partition_by") or []
     if ds.kind == "trino":
         _ensure_schema(session, ds, schema, asset.project_id)
+    merged, rebuilt = False, False
     if materialization == "view":
         _drop(session, ds, "DROP TABLE IF EXISTS %s" % target)
         _drop(session, ds, "DROP VIEW IF EXISTS %s" % target)
@@ -236,14 +291,23 @@ def materialize_model(session, asset_id, job=None):
         execute_query(session, ds, limited(sql, ds.kind, 1), {}, 1)
         _drop(session, ds, "DROP VIEW IF EXISTS %s" % target)
         _ddl(session, ds, "DROP TABLE IF EXISTS %s" % target)
-        _ddl(session, ds, "CREATE TABLE %s AS %s" % (target, sql))
+        _ddl(session, ds, _create_table_sql(target, sql, partition_by))
     elif materialization == "incremental":
         if not _table_exists(session, ds, target):
             _drop(session, ds, "DROP VIEW IF EXISTS %s" % target)
-            _ddl(session, ds, "CREATE TABLE %s AS %s" % (target, sql))
+            _ddl(session, ds, _create_table_sql(target, sql, partition_by))
         else:
             keys = content.get("unique_key") or []
-            if keys:
+            strategy = content.get("incremental_strategy") or "append"
+            if keys and strategy == "merge":
+                merged = _merge_rows(session, ds, target, sql, keys,
+                                     ds.kind)
+                if not merged:
+                    _ddl(session, ds, "DROP TABLE IF EXISTS %s" % target)
+                    _ddl(session, ds,
+                         _create_table_sql(target, sql, partition_by))
+                    rebuilt = True
+            elif keys:
                 match = " AND ".join(
                     "t.%s = s.%s" % (quote_ident(k), quote_ident(k))
                     for k in keys)
@@ -251,15 +315,17 @@ def materialize_model(session, asset_id, job=None):
                     "INSERT INTO %s SELECT * FROM (%s) s WHERE NOT EXISTS "
                     "(SELECT 1 FROM %s t WHERE %s)"
                     % (target, sql, target, match))
+                _ddl(session, ds, statement)
             else:
                 statement = "INSERT INTO %s SELECT * FROM (%s) s" % (
                     target, sql)
-            _ddl(session, ds, statement)
+                _ddl(session, ds, statement)
     else:
         raise ValueError("unsupported materialization")
     results = run_tests(session, asset, content, target)
     out = {"target": target, "schema": schema,
-           "materialization": materialization, "tests": results}
+           "materialization": materialization, "merged": merged,
+           "rebuilt": rebuilt, "tests": results}
     if job is not None:
         payload = dict(job.payload_json or {})
         payload["last_result"] = out
@@ -268,6 +334,18 @@ def materialize_model(session, asset_id, job=None):
     failed = [r for r in results if r["status"] == "fail"]
     if failed:
         raise ModelTestError(results)
+    contract = asset.contract_json or {}
+    if contract.get("schema"):
+        from odf.services.contracts import check_asset
+        checked = check_asset(session, asset.project_id, asset.id,
+                              content=content)
+        out["contract"] = checked
+        if contract.get("enforce") and not checked["ok"]:
+            missing = ", ".join(
+                item["column"] for item in checked["issues"]
+                if item["kind"] == "missing") or "schema mismatch"
+            raise ValueError(
+                "data contract check failed: %s" % missing)
     return out
 
 
