@@ -4,15 +4,15 @@ from sqlalchemy.orm import Session
 
 from odf.models import Asset, Job, JobDependency
 
-TYPES = ("pipeline",)
+TYPES = ("pipeline", "model")
 DEFAULT_WINDOW_HOURS = 24
 
 
 def _object(session, project_id, kind, object_id):
-    if kind != "pipeline":
+    if kind not in TYPES:
         return None
     row = session.get(Asset, object_id)
-    if not row or row.project_id != project_id or row.type != "pipeline":
+    if not row or row.project_id != project_id or row.type != kind:
         return None
     return row
 
@@ -102,7 +102,7 @@ def delete_dependency(session, project_id, dependency_id):
 
 def _last_success(session, project_id, kind, object_id):
     row = (session.query(Job)
-           .filter(Job.asset_type == "pipeline", Job.asset_id == object_id,
+           .filter(Job.asset_type == kind, Job.asset_id == object_id,
                    Job.status == "success")
            .order_by(Job.finished_at.desc().nulls_last(),
                      Job.id.desc()).first())
@@ -163,7 +163,7 @@ def recent_blocked(session, project_id=None, hours=24, limit=50):
         if job.asset_id:
             asset = session.get(Asset, job.asset_id)
             if asset:
-                kind, object_id, name = "pipeline", asset.id, asset.name
+                kind, object_id, name = asset.type, asset.id, asset.name
                 if project_id is not None and asset.project_id != project_id:
                     continue
         if not kind:

@@ -3,16 +3,19 @@
     <el-tabs v-model="tab" @tab-change="go">
       <el-tab-pane :label="t('model.datasets')" name="datasets" />
       <el-tab-pane :label="t('model.metrics')" name="metrics" />
+      <el-tab-pane :label="t('model.transforms')" name="models" />
     </el-tabs>
     <div class="toolbar">
       <el-input v-model="q" clearable style="width: 280px"
                 @keyup.enter="search" @clear="search"
                 :placeholder="t(tab === 'metrics'
-                  ? 'model.searchMetrics' : 'model.search')" />
+                  ? 'model.searchMetrics'
+                  : (tab === 'models' ? 'model.searchTransforms' : 'model.search'))" />
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("model.refresh") }}</el-button>
       <el-button v-if="canEdit" type="primary" @click="create">
-        {{ t(tab === "datasets" ? "model.newDataset" : "model.newMetric") }}
+        {{ t(tab === "datasets" ? "model.newDataset"
+             : (tab === "models" ? "model.newTransform" : "model.newMetric")) }}
       </el-button>
     </div>
     <el-card shadow="never">
@@ -46,6 +49,19 @@
               </el-button>
             </template>
           </el-table-column>
+        </template>
+        <template v-if="tab === 'models'">
+          <el-table-column prop="layer" :label="t('model.layer')"
+                           width="120" />
+          <el-table-column :label="t('model.materialization')" width="130">
+            <template #default="{ row }">
+              <el-tag size="small" type="info">
+                {{ row.materialization || "-" }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="owner" :label="t('model.owner')"
+                           width="120" />
         </template>
         <el-table-column :label="t('model.actions')" width="170">
           <template #default="{ row }">
@@ -158,7 +174,8 @@ import GraphCanvas from "../components/GraphCanvas.vue";
 
 const route = useRoute();
 const router = useRouter();
-const tab = ref(route.path.startsWith("/metrics") ? "metrics" : "datasets");
+const tab = ref(route.path.startsWith("/metrics")
+  ? "metrics" : route.path.startsWith("/models") ? "models" : "datasets");
 const canEdit = canWrite();
 const rows = ref([]);
 const total = ref(0);
@@ -260,7 +277,7 @@ async function load() {
     if (q.value.trim()) params.set("q", q.value.trim());
     const path = tab.value === "metrics"
       ? `/metrics/catalog?${params.toString()}`
-      : `/datasets?${params.toString()}`;
+      : `/${tab.value}?${params.toString()}`;
     const result = await api.get(path);
     rows.value = result.items || [];
     total.value = result.total || 0;
@@ -300,7 +317,8 @@ async function create() {
 }
 
 watch(() => route.path, () => {
-  tab.value = route.path.startsWith("/metrics") ? "metrics" : "datasets";
+  tab.value = route.path.startsWith("/metrics")
+    ? "metrics" : route.path.startsWith("/models") ? "models" : "datasets";
   page.value = 1;
   load();
 });

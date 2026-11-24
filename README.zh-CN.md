@@ -79,10 +79,10 @@ OpenDataFusion 是一个开源自托管的数据平台，把通常分散在数�
 | **数据源** | 通过统一注册表接入 25 种数据源：PostgreSQL、MySQL/MariaDB、SQLite、Oracle、SQL Server、TiDB、Apache Doris、StarRocks、OceanBase、openGauss、KingbaseES、GaussDB、达梦 DM、ClickHouse、Trino、DuckDB、Hive/Spark Thrift、S3/MinIO、CSV/TSV/Parquet/JSON/Excel、HTTP、Elasticsearch、MongoDB、Kafka 和 Airbyte 协议数据源。按类型生成表单、能力范围、新建前测试、DSN 加密、元数据同步和 schema drift 告警。 |
 | **管道 Studio** | 可视化 DAG：source、filter、select、rename、cast、join、aggregate、union、dedupe、quality、sink；schema 校验、节点级错误策略、预览、版本化发布、cron、游标查看/重置、有界回填。 |
 | **接口 Studio** | 可视化单表查询或受控 SQL；类型化参数；预览/测试；审批发布与回滚；生成文档；AK/SK 签名调用 `/openapi/{key}`；`/openapi/graphql` 提供带 Schema 内省的 GraphQL 网关。 |
-| **模型 Studio** | 数据集和指标资产；SQL 数据集、表达式指标、时间粒度与同环比；schema、预览、审批发布；面向 AI 的读取工具。 |
+| **模型 Studio** | 数据集、指标和转换模型资产；SQL 数据集、表达式指标、时间粒度与同环比；带 ref、view/table/incremental 物化、测试和仓库分层的 SQL 模型；审批发布；面向 AI 的读取工具。 |
 | **看板 Studio** | 12 列栅格看板，卡片、折线/柱状/饼图、表格和文本；参数与 widget 过滤器；明细下钻；GeoJSON 地图组件；定时 CSV 报表；拖拽调整；版本化发布；只读运行页、限时分享链接和嵌入代码。 |
 | **应用 Studio** | 多页内部应用，支持参数、指标卡、表格、行详情抽屉，以及基于已发布数据集的带审计新增/修改/删除表单。 |
-| **湖仓** | 基于 Apache Iceberg 的 Trino 数据源，支持元数据同步、表维护（小文件合并、快照过期），Iceberg 目录作为一等数据源注册。 |
+| **湖仓** | 基于 Apache Iceberg 的 Trino 数据源，支持表健康、快照、时间旅行、文件合并、快照过期和定时维护。 |
 | **计算引擎** | 通过 Spark Operator 提交 Spark 应用，通过 SQL Gateway 执行 Flink SQL：提交、查看、取消、savepoint，并默认应用湖仓执行配置。 |
 | **增量同步** | 从平台创建、暂停、恢复和监控 PostgreSQL、MySQL、Oracle 的 Debezium 连接器；变更事件写入 Kafka 供 Flink 或 Spark 消费。 |
 | **目录与血缘** | 表和字段搜索、标签、列级血缘、下游影响分析、OpenLineage 事件，以及可推送到外部目录的 JSON 目录导出。 |
@@ -176,6 +176,8 @@ cp .env.example .env
 | [环境与资产包](docs/ENVIRONMENTS.md) | 环境标签、资产包导入导出与环境晋级 |
 | [连接器 SDK](docs/CONNECTOR_SDK.md) | 注册外部连接器包 |
 | [Airbyte](docs/AIRBYTE.md) | 使用 Airbyte 协议源作为管道输入 |
+| [转换模型](docs/MODELS.md) | SQL 模型、ref、物化、测试与分层 |
+| [湖仓](docs/LAKEHOUSE.md) | 快照、时间旅行、健康与维护计划 |
 | [血缘与目录导出](docs/LINEAGE.md) | OpenLineage 事件与外部目录同步 |
 | [控制台使用指南](docs/USER_GUIDE.zh-CN.md) | 每个页面与按钮的操作说明（[英文版](docs/USER_GUIDE.md)） |
 

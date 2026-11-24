@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 BUNDLE_FORMAT = "odf-bundle"
 BUNDLE_VERSION = 1
-ASSET_TYPES = {"pipeline", "dataset", "metric", "api", "dashboard", "app"}
+ASSET_TYPES = {"pipeline", "dataset", "metric", "api", "dashboard", "app", "model"}
 
 
 def _iso(value):
@@ -193,6 +193,7 @@ def import_bundle(session, project_id, bundle, actor):
     missing_refs = []
     asset_mapping = {}
     targets = []
+    key_mapping = {}
     project = session.get(Project, project_id)
 
     def unique_key(source_key):
@@ -234,10 +235,18 @@ def import_bundle(session, project_id, bundle, actor):
             created += 1
         if isinstance(row.get("id"), int):
             asset_mapping[row["id"]] = target.id
+        key_mapping[row["key"]] = target_key
         targets.append((row, target))
 
+    import re
+    from odf.transform.content import REF
     for row, target in targets:
         content = _remap(row["content"], mapping, missing_refs, asset_mapping)
+        if row["type"] == "model":
+            def repl(match):
+                name = match.group(1).strip()
+                return "{{ ref('%s') }}" % key_mapping.get(name, name)
+            content["sql"] = REF.sub(repl, content.get("sql") or "")
         update_draft(session, target.id, content, actor,
                      note="bundle import")
         target.description = (row.get("description") or "")[:4000]

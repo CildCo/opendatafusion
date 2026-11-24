@@ -120,7 +120,8 @@ Datasets and metrics.
 - **Row policies** append filters per column, operator, value and role; admins are exempt.
 - **Column masking** sets a classification (PII/confidential/sensitive), a mask type (redact, partial, hash, null) and exempt roles.
 - **Versions** lists history and supports rollback; the list page can delete a dataset or metric.
-- **Lineage** opens the upstream graph and column-level edges for the current dataset, metric, API or dashboard without leaving the editor.
+- **Lineage** opens the upstream graph and column-level edges for the current dataset, metric, model, API or dashboard without leaving the editor.
+- **Transform models** are the third tab. A model is SQL with a materialization (view, table or incremental), a warehouse layer, optional incremental key and tests. Reference another published model with `{{ ref('key') }}`; publishing records dependencies and lineage. Preview does not materialize; Run queues a job. See [Transform models](MODELS.md).
 - **Export catalog** downloads the current project as JSON; platform administrators can also push that snapshot to an external catalog on a schedule. See [Lineage and catalog export](LINEAGE.md).
 
 ## 13. Dashboards
@@ -255,3 +256,14 @@ project members keep using the workspace.
 
 Enable required two-factor authentication only after the selected roles have
 enrolled; otherwise those users cannot sign in.
+
+## 28. Lakehouse tables
+
+Select a Trino datasource and schema to inspect Iceberg tables.
+
+- **Health** shows file count and size, small files, snapshots, partitions and issues.
+- **Snapshots** lists Iceberg snapshots with time and operation.
+- **Time travel** queries a snapshot id or timestamp.
+- **Maintain** runs file optimization and snapshot expiry with a retention and size threshold.
+- **Schedule** stores a cron maintenance plan; the scheduler queues a job and failures raise an alert.
+- Reading requires a signed-in project user; maintenance and schedules require an editor. See [Lakehouse table management](LAKEHOUSE.md).

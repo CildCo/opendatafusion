@@ -1,0 +1,91 @@
+# Transform models
+
+Transform models are SQL assets that materialize warehouse tables. They reuse
+the asset version model, approval flow, job queue, lineage and quality
+machinery; there is no separate scheduler or lineage store.
+
+## Model content
+
+```json
+{
+  "datasource_id": 1,
+  "sql": "select city, sum(amount) as total from orders group by city",
+  "materialization": "table",
+  "schema": "odf_p1",
+  "unique_key": [],
+  "layer": "staging",
+  "description": "",
+  "tests": [{"kind": "not_null", "column": "total"}],
+  "columns": []
+}
+```
+
+- `materialization`: `view`, `table` or `incremental`.
+- `layer`: `raw`, `staging`, `intermediate` or `mart`.
+- `schema`: blank uses the project schema for Trino, `main` for SQLite and
+  DuckDB, `public` for PostgreSQL. MySQL and ClickHouse require an explicit
+  schema.
+- `unique_key`: used by incremental models to insert only keys that do not
+  exist in the target table. Without it, incremental appends every row.
+
+## References
+
+Use `{{ ref('model-key') }}` to reference another published model:
+
+```sql
+select city, sum(amount) as total
+from {{ ref('staging-orders') }}
+group by city
+```
+
+- The referenced model must be published.
+- References form a DAG; cycles are rejected.
+- Publishing a model records its refs as scheduling dependencies and lineage
+  edges, so downstream models wait for upstream success and the graph shows
+  the chain.
+- A model cannot reference itself.
+
+## Materialization
+
+- `view` replaces the target view with the compiled SQL.
+- `table` drops and recreates the target table from the compiled SQL.
+- `incremental` creates the table on the first run and inserts new rows on
+  later runs. With `unique_key`, rows whose key already exists are skipped.
+  Updates to existing keys are not applied; use `table` when full replacement
+  is needed.
+
+Trino models use the datasource catalog and create the project schema when
+needed. Other SQL datasources use the configured schema.
+
+## Tests
+
+Tests run after materialization:
+
+| Kind | Meaning |
+|---|---|
+| `not_null` | column has no nulls |
+| `unique` | column has no duplicates |
+| `accepted_values` | every non-null value is in the list |
+| `relationships` | every value exists in another published model |
+| `sql` | custom read-only query; a positive first value means failure |
+
+A failing test marks the job failed, stores the results in the job payload and
+raises an alert through the normal job failure path. Tests are structural
+validation at publish time and execute at run time.
+
+## Preview and target
+
+- **Preview** compiles refs, runs the query with a bounded limit and returns
+  columns, rows and SQL without materializing.
+- The header shows the physical target name (`catalog.schema.table` for
+  Trino).
+
+## Scheduling and operations
+
+- Models have a cron, an enabled flag and the same dependency window as
+  pipelines.
+- The scheduler enqueues a `model` job, and the worker materializes it.
+- Run history is the normal job history in the operations centre.
+- Manual **Run** enqueues the same job.
+- Publishing goes through the approval token flow; rollback republishes an
+  older version and resyncs dependencies.
