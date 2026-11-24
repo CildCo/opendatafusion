@@ -78,6 +78,17 @@ def apply(session, change_id: int, approval_token: str) -> ChangeRequest:
         else:
             a.enabled = False
             session.commit()
+    elif c.action in ("publish_model", "rollback_model"):
+        from odf.assets.service import publish_asset, rollback_asset
+        from odf.models import Asset
+        a = session.get(Asset, int(c.target))
+        if not a or a.type != "model" or a.project_id != c.project_id:
+            raise ValueError("model not found")
+        if c.action == "publish_model":
+            publish_asset(session, a.id, c.actor)
+        else:
+            rollback_asset(session, a.id,
+                           int(c.payload_json["version"]), c.actor)
     elif c.action in ("publish_dataset", "rollback_dataset",
                       "publish_metric", "rollback_metric"):
         from odf.assets.service import publish_asset, rollback_asset

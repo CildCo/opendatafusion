@@ -9,7 +9,7 @@ from sqlalchemy import create_engine, text
 TOOLS = {}
 WRITE_TOOLS = set()
 APPROVER_TOOLS = {"publish_pipeline", "rollback_pipeline", "publish_api",
-                  "revoke_api", "submit_app_form"}
+                  "revoke_api", "publish_model", "submit_app_form"}
 CURRENT_PROJECT = ContextVar("mcp_project", default=None)
 _HIDDEN_ARGS = {"approval_token"}
 
@@ -532,6 +532,117 @@ def _require_token(target, action, token):
     from odf.services.approval import verify_token
     if not verify_token(target, action, token):
         raise PermissionError("approval required")
+
+
+@tool("list_models")
+def list_models(project_id: int = 0):
+    """List transform models in a project."""
+    from odf.db import SessionLocal
+    from odf.models import Asset
+    project = _project() or project_id
+    if not project:
+        raise PermissionError("project is required")
+    with SessionLocal() as s:
+        q = (s.query(Asset)
+             .filter_by(project_id=project, type="model")
+             .order_by(Asset.id).all())
+        return [{"id": a.id, "key": a.key, "name": a.name,
+                 "published": a.published_version_id is not None,
+                 "enabled": bool(a.enabled)} for a in q]
+
+
+@tool("get_model")
+def get_model(asset_id: int):
+    """Return a transform model with its draft and published content."""
+    from odf.db import SessionLocal
+    from odf.models import AssetVersion
+    with SessionLocal() as s:
+        a = _check_asset(s, asset_id, "model")
+        draft = s.get(AssetVersion, a.draft_version_id)             if a.draft_version_id else None
+        published = s.get(AssetVersion, a.published_version_id)             if a.published_version_id else None
+        return {"id": a.id, "key": a.key, "name": a.name,
+                "draft": draft.content_json if draft else None,
+                "published": published.content_json if published else None}
+
+
+@tool("create_model_draft", write=True)
+def create_model_draft(name: str, content: dict, project_id: int = 1):
+    """Create a transform model asset with a draft version."""
+    from odf.assets.service import create_asset
+    from odf.db import SessionLocal
+    from odf.transform.content import empty_model
+    project = _project() or project_id
+    with SessionLocal() as s:
+        a = create_asset(s, project, "model", name,
+                         content or empty_model(), "mcp", enabled=True)
+        return {"id": a.id, "key": a.key}
+
+
+@tool("update_model_draft", write=True)
+def update_model_draft(asset_id: int, content: dict):
+    """Replace the draft content of a transform model."""
+    from odf.assets.service import update_draft
+    from odf.db import SessionLocal
+    with SessionLocal() as s:
+        a = _check_asset(s, asset_id, "model")
+        version = update_draft(s, a.id, content, "mcp")
+        return {"asset_id": a.id, "version": version.version}
+
+
+@tool("validate_model")
+def validate_model_tool(asset_id: int, content: dict | None = None):
+    """Validate a transform model draft."""
+    from odf.db import SessionLocal
+    from odf.models import AssetVersion
+    from odf.transform.content import validate_model
+    with SessionLocal() as s:
+        a = _check_asset(s, asset_id, "model")
+        if content is None:
+            version = s.get(AssetVersion, a.draft_version_id)                 if a.draft_version_id else None
+            content = version.content_json if version else {}
+        errors = validate_model(s, content, a.project_id, a.id)
+        return {"valid": not errors, "errors": errors}
+
+
+@tool("preview_model")
+def preview_model_tool(asset_id: int, limit: int = 100):
+    """Preview a transform model query without materializing it."""
+    from odf.db import SessionLocal
+    from odf.transform.service import preview_model
+    with SessionLocal() as s:
+        a = _check_asset(s, asset_id, "model")
+        return preview_model(s, a.id, limit=max(1, min(limit, 1000)))
+
+
+@tool("publish_model", write=True)
+def publish_model(asset_id: int, approval_token: str):
+    """Publish a transform model and sync its dependencies."""
+    _require_token(asset_id, "publish_model", approval_token)
+    from odf.assets.service import publish_asset
+    from odf.db import SessionLocal
+    from odf.models import AssetVersion
+    from odf.transform.service import sync_model_graph
+    with SessionLocal() as s:
+        a = _check_asset(s, asset_id, "model")
+        version = publish_asset(s, a.id, "mcp")
+        a.enabled = True
+        s.commit()
+        sync_model_graph(s, a, version.content_json)
+        return {"asset_id": a.id, "version": version.version}
+
+
+@tool("run_model", write=True)
+def run_model(asset_id: int, approval_token: str):
+    """Enqueue one materialization run for a published model."""
+    _require_token(asset_id, "run_model", approval_token)
+    from odf.db import SessionLocal
+    from odf.services.jobs import enqueue_asset
+    with SessionLocal() as s:
+        a = _check_asset(s, asset_id, "model")
+        if not a.published_version_id:
+            raise ValueError("model is not published")
+        job = enqueue_asset(s, a.id, "model")
+        return {"asset_id": a.id, "job_id": job.id}
 
 
 @tool("publish_pipeline", write=True)

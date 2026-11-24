@@ -504,6 +504,8 @@ class Job(Base):
     asset_id: Mapped[int | None] = mapped_column(
         ForeignKey("asset.id"), nullable=True)
     asset_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    project_id: Mapped[int | None] = mapped_column(
+        ForeignKey("project.id"), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(16), default="queued", index=True)
     run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
     payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -516,6 +518,33 @@ class Job(Base):
     cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class LakehouseMaintenance(Base):
+    __tablename__ = "lakehouse_maintenance"
+    __table_args__ = (UniqueConstraint("project_id", "datasource_id",
+                                       "schema_name", "table_name"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"),
+                                            index=True)
+    datasource_id: Mapped[int] = mapped_column(
+        ForeignKey("datasource.id"), index=True)
+    schema_name: Mapped[str] = mapped_column(String(128))
+    table_name: Mapped[str] = mapped_column(String(128), default="")
+    cron: Mapped[str] = mapped_column(String(64))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    optimize: Mapped[bool] = mapped_column(Boolean, default=True)
+    expire_snapshots: Mapped[bool] = mapped_column(Boolean, default=True)
+    retention: Mapped[str] = mapped_column(String(16), default="7d")
+    file_size_threshold: Mapped[str] = mapped_column(String(16),
+                                                     default="128MB")
+    created_by: Mapped[str] = mapped_column(String(64))
+    last_run_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    last_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now)
 
 
 class Asset(Base):

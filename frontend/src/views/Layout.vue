@@ -221,6 +221,9 @@ const menuGroups = computed(() => {
 });
 
 const activePath = computed(() => {
+  if (route.path === "/models" || route.path.startsWith("/models/")) {
+    return "/datasets";
+  }
   const found = groups.flatMap((g) => g.items)
     .filter((m) => route.path === m.path || route.path.startsWith(m.path + "/"))
     .sort((a, b) => b.path.length - a.path.length)[0];

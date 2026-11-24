@@ -23,7 +23,7 @@ def usage(session, project_id):
                 "jobs": {"queued": 0, "running": 0, "failed": 0},
                 "members": 0, "quota": {}}
     job_q = session.query(Job.status, func.count(Job.id)).filter(
-        Job.asset_id.in_(asset_ids))
+        (Job.asset_id.in_(asset_ids)) | (Job.project_id == project_id))
     jobs = {status: count for status, count in job_q.group_by(Job.status).all()}
     return {"assets": sum(count for _, count in assets),
             "assets_by_type": {kind: count for kind, count in assets},
@@ -58,6 +58,6 @@ def check_job(session, project_id):
         return
     q = session.query(func.count(Job.id)).filter(
         Job.status.in_(("queued", "running")),
-        Job.asset_id.in_(asset_ids))
+        (Job.asset_id.in_(asset_ids)) | (Job.project_id == project_id))
     if (q.scalar() or 0) >= limit:
         raise ValueError("project job quota reached (%d)" % limit)

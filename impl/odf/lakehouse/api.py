@@ -157,3 +157,171 @@ def lakehouse_maintain(body: MaintainIn, session: Session = Depends(get_session)
     except Exception:
         raise HTTPException(502, "trino query failed")
     return {"schema": target, "results": results}
+
+
+class MaintenanceIn(BaseModel):
+    datasource_id: int
+    schema_name: str | None = None
+    table_name: str = ""
+    cron: str
+    enabled: bool = True
+    optimize: bool = True
+    expire_snapshots: bool = True
+    retention: str = "7d"
+    file_size_threshold: str = "128MB"
+
+
+class TimeTravelIn(BaseModel):
+    datasource_id: int
+    schema_name: str | None = None
+    snapshot_id: int | None = None
+    timestamp: str | None = None
+    limit: int = 100
+
+
+def _table_name(table: str) -> str:
+    import re
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_$]*", table):
+        raise HTTPException(400, "invalid table name")
+    return table
+
+
+def _target(session, claims, datasource_id, schema):
+    ds = _trino(session, claims["project_id"], datasource_id)
+    client = client_for_datasource(ds)
+    return ds, client, (schema or getattr(client, "schema", "")
+                        or project_schema(claims["project_id"]))
+
+
+@router.get("/lakehouse/tables/{table}/snapshots")
+def lakehouse_snapshots(table: str, datasource_id: int,
+                        schema: str | None = None, limit: int = 100,
+                        session: Session = Depends(get_session),
+                        claims: dict = Depends(require_user)):
+    from odf.lakehouse.service import snapshots
+    _, client, target = _target(session, claims, datasource_id, schema)
+    try:
+        return {"schema": target, "table": _table_name(table),
+                "snapshots": snapshots(client, target, table, limit)}
+    except Exception:
+        raise HTTPException(502, "trino query failed")
+
+
+@router.get("/lakehouse/tables/{table}/files")
+def lakehouse_files(table: str, datasource_id: int,
+                    schema: str | None = None, limit: int = 500,
+                    session: Session = Depends(get_session),
+                    claims: dict = Depends(require_user)):
+    from odf.lakehouse.service import files
+    _, client, target = _target(session, claims, datasource_id, schema)
+    try:
+        return {"schema": target, "table": _table_name(table),
+                "files": files(client, target, table, limit)}
+    except Exception:
+        raise HTTPException(502, "trino query failed")
+
+
+@router.get("/lakehouse/tables/{table}/history")
+def lakehouse_history(table: str, datasource_id: int,
+                      schema: str | None = None, limit: int = 100,
+                      session: Session = Depends(get_session),
+                      claims: dict = Depends(require_user)):
+    from odf.lakehouse.service import history
+    _, client, target = _target(session, claims, datasource_id, schema)
+    try:
+        return {"schema": target, "table": _table_name(table),
+                "history": history(client, target, table, limit)}
+    except Exception:
+        raise HTTPException(502, "trino query failed")
+
+
+@router.get("/lakehouse/tables/{table}/partitions")
+def lakehouse_partitions(table: str, datasource_id: int,
+                         schema: str | None = None, limit: int = 500,
+                         session: Session = Depends(get_session),
+                         claims: dict = Depends(require_user)):
+    from odf.lakehouse.service import partitions
+    _, client, target = _target(session, claims, datasource_id, schema)
+    try:
+        return {"schema": target, "table": _table_name(table),
+                "partitions": partitions(client, target, table, limit)}
+    except Exception:
+        raise HTTPException(502, "trino query failed")
+
+
+@router.get("/lakehouse/tables/{table}/health")
+def lakehouse_health(table: str, datasource_id: int,
+                     schema: str | None = None,
+                     session: Session = Depends(get_session),
+                     claims: dict = Depends(require_user)):
+    from odf.lakehouse.service import health
+    _, client, target = _target(session, claims, datasource_id, schema)
+    try:
+        return {"schema": target, "table": _table_name(table),
+                **health(client, target, table)}
+    except Exception:
+        raise HTTPException(502, "trino query failed")
+
+
+@router.post("/lakehouse/tables/{table}/time-travel")
+def lakehouse_time_travel(table: str, body: TimeTravelIn,
+                          session: Session = Depends(get_session),
+                          claims: dict = Depends(require_user)):
+    from odf.lakehouse.service import time_travel
+    _, client, target = _target(session, claims, body.datasource_id,
+                                body.schema_name)
+    try:
+        return time_travel(client, target, _table_name(table),
+                           body.snapshot_id, body.timestamp, body.limit)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    except Exception:
+        raise HTTPException(502, "trino query failed")
+
+
+@router.get("/lakehouse/maintenance")
+def maintenance_list(datasource_id: int | None = None,
+                     session: Session = Depends(get_session),
+                     claims: dict = Depends(require_user)):
+    from odf.lakehouse.schedule import list_schedules
+    return list_schedules(session, claims["project_id"], datasource_id)
+
+
+@router.put("/lakehouse/maintenance")
+def maintenance_save(body: MaintenanceIn,
+                     session: Session = Depends(get_session),
+                     claims: dict = Depends(require_editor)):
+    from odf.lakehouse.schedule import upsert
+    try:
+        return upsert(session, claims["project_id"], body.datasource_id,
+                      body.schema_name, body.table_name, body.cron,
+                      body.enabled, body.optimize, body.expire_snapshots,
+                      body.retention, body.file_size_threshold,
+                      claims["sub"])
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+
+
+@router.delete("/lakehouse/maintenance/{schedule_id}", status_code=204)
+def maintenance_delete(schedule_id: int,
+                       session: Session = Depends(get_session),
+                       claims: dict = Depends(require_editor)):
+    from odf.lakehouse.schedule import delete
+    try:
+        delete(session, claims["project_id"], schedule_id)
+    except ValueError as error:
+        raise HTTPException(404, str(error))
+    return None
+
+
+@router.post("/lakehouse/maintenance/{schedule_id}/run")
+def maintenance_run(schedule_id: int,
+                    session: Session = Depends(get_session),
+                    claims: dict = Depends(require_editor)):
+    from odf.lakehouse.schedule import enqueue
+    from odf.models import LakehouseMaintenance
+    row = session.get(LakehouseMaintenance, schedule_id)
+    if not row or row.project_id != claims["project_id"]:
+        raise HTTPException(404, "maintenance schedule not found")
+    job = enqueue(session, row)
+    return {"job_id": job.id}

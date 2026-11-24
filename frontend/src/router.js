@@ -17,6 +17,7 @@ const Dashboard = () => import("./views/Dashboard.vue");
 const Datasources = () => import("./views/Datasources.vue");
 const Catalog = () => import("./views/Catalog.vue");
 const CatalogDetail = () => import("./views/CatalogDetail.vue");
+const Lakehouse = () => import("./views/Lakehouse.vue");
 const PipelineList = () => import("./views/PipelineList.vue");
 const PipelineEditor = () => import("./views/PipelineEditor.vue");
 const ApiList = () => import("./views/ApiList.vue");
@@ -25,6 +26,7 @@ const ToolCatalog = () => import("./views/ToolCatalog.vue");
 const ModelHome = () => import("./views/ModelHome.vue");
 const DatasetEditor = () => import("./views/DatasetEditor.vue");
 const MetricEditor = () => import("./views/MetricEditor.vue");
+const TransformEditor = () => import("./views/TransformEditor.vue");
 const DashboardHome = () => import("./views/DashboardHome.vue");
 const DashboardEditor = () => import("./views/DashboardEditor.vue");
 const DashboardRun = () => import("./views/DashboardRun.vue");
@@ -63,6 +65,7 @@ const routes = [
       { path: "catalog", component: Catalog, meta: { title: "数据目录" } },
       { path: "governance", component: Governance, meta: { title: "业务域与术语" } },
       { path: "catalog/:id", component: CatalogDetail, meta: { title: "数据目录" } },
+      { path: "lakehouse", component: Lakehouse, meta: { title: "湖仓" } },
       { path: "pipelines", component: PipelineList, meta: { title: "数据管道" } },
       { path: "pipelines/:id", component: PipelineEditor, meta: { title: "管道编辑" } },
       { path: "apis", component: ApiList, meta: { title: "数据接口" } },
@@ -75,6 +78,9 @@ const routes = [
       { path: "datasets/:id", component: DatasetEditor, meta: { title: "数据集编辑" } },
       { path: "metrics", component: ModelHome, meta: { title: "数据模型" } },
       { path: "metrics/:id", component: MetricEditor, meta: { title: "指标编辑" } },
+      { path: "models", component: ModelHome, meta: { title: "数据模型" } },
+      { path: "models/:id", component: TransformEditor,
+        meta: { title: "转换模型" } },
       { path: "dashboards", component: DashboardHome, meta: { title: "数据看板" } },
       { path: "dashboards/:id", component: DashboardEditor, meta: { title: "看板编辑" } },
       { path: "dashboards/:id/run", component: DashboardRun, meta: { title: "看板运行" } },

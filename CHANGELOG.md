@@ -4,6 +4,30 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [2.2.0] - 2026-11-24
+
+### Added
+
+- Transform models: SQL assets with `{{ ref('key') }}` dependencies,
+  view/table/incremental materializations, incremental keys, warehouse
+  layers, preview, tests, scheduling, approval, rollback and model lineage.
+- Model tests (`not_null`, `unique`, `accepted_values`, `relationships` and
+  custom SQL) that fail the job, store results and raise alerts.
+- Lakehouse table management: table health, snapshots, file and partition
+  statistics, time travel by snapshot or timestamp, immediate maintenance and
+  cron maintenance schedules with run history and alerts.
+- MCP tools for listing, creating, validating, previewing, publishing and
+  running transform models.
+
+### Changed
+
+- The scheduler runs published transform models alongside pipelines and
+  honours model-to-model dependencies.
+- Scheduling dependencies, asset lineage, bundles, the operations queue and
+  the console model list include transform models.
+- Maintenance jobs carry a project id so they appear in the project
+  operations queue.
+
 ## [2.1.0] - 2026-11-24
 
 ### Added

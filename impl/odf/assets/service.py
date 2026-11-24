@@ -153,6 +153,9 @@ def _validate_for(session, asset, content):
     if asset.type == "app":
         from odf.appstudio.content import validate_app
         return validate_app(session, content, asset.project_id)
+    if asset.type == "model":
+        from odf.transform.content import validate_model
+        return validate_model(session, content, asset.project_id, asset.id)
     return []
 
 

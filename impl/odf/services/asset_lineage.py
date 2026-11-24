@@ -25,6 +25,9 @@ def _parent_assets(session, asset, content):
         dataset_id = content.get("dataset_id")
         if isinstance(dataset_id, int):
             ids.append(dataset_id)
+    elif asset.type == "model":
+        from odf.transform.service import model_parents
+        return model_parents(session, asset, content)
     elif asset.type == "dashboard":
         for widget in content.get("widgets") or []:
             if not isinstance(widget, dict):
@@ -103,6 +106,11 @@ def asset_lineage(session, project_id, asset_id):
             if table_ref:
                 walk_table(table_ref, table)
                 add_edge(table_ref, node_id, "table", asset.type)
+        if asset.type == "model":
+            for parent in _parent_assets(session, asset, content):
+                walk(parent)
+                add_edge(_asset_node_id(parent), node_id, parent.type,
+                         asset.type)
         if asset.type == "pipeline":
             rows = (session.query(LineageEdge)
                     .filter(LineageEdge.project_id == project_id,

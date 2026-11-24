@@ -61,13 +61,14 @@ const TYPE_LABEL = {
   table: "search.group.table",
   dataset: "search.group.dataset",
   metric: "search.group.metric",
+  model: "search.group.model",
   pipeline: "search.group.pipeline",
   api: "search.group.api",
   dashboard: "search.group.dashboard",
   app: "search.group.app",
   job: "search.group.job",
 };
-const ORDER = ["table", "dataset", "metric", "pipeline", "api",
+const ORDER = ["table", "dataset", "metric", "model", "pipeline", "api",
                "dashboard", "app", "job"];
 
 const ACTIONS = [
@@ -83,7 +84,7 @@ function close() {
 
 async function loadLists() {
   if (lists.value) return lists.value;
-  const names = ["datasets", "metrics", "pipelines",
+  const names = ["datasets", "metrics", "models", "pipelines",
                  "dashboards", "apps", "apis"];
   const results = await Promise.allSettled(
     names.map((name) => api.get(`/${name}?page_size=200`)));
@@ -111,6 +112,10 @@ function itemsFrom(list) {
   for (const row of list.metrics || []) {
     out.push({ type: "metric", label: row.name, sub: row.key || "",
                route: `/metrics/${row.id}` });
+  }
+  for (const row of list.models || []) {
+    out.push({ type: "model", label: row.name, sub: row.key || "",
+               route: `/models/${row.id}` });
   }
   for (const row of list.pipelines || []) {
     out.push({ type: "pipeline", label: row.name, sub: row.cron || "",

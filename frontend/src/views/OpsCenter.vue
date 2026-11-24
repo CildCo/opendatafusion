@@ -305,11 +305,15 @@ function targetPath(row) {
   const type = row.asset_type || row.target_type || "";
   return { pipeline: "/pipelines", api: "/apis",
            dashboard: "/dashboards", app: "/apps", dataset: "/datasets",
-           metric: "/metrics" }[type] || "";
+           metric: "/metrics", model: "/models", lakehouse: "/lakehouse" }[type] || "";
 }
 
 function openTarget(row) {
   const base = targetPath(row);
+  if ((row.target_type || row.asset_type) === "lakehouse") {
+    router.push(base);
+    return;
+  }
   const assetId = row.asset_id || row.target_id;
   router.push(assetId ? `${base}/${assetId}` : base);
 }

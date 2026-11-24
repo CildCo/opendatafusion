@@ -3,8 +3,8 @@ import re
 from odf.models import PortalSetting
 from odf.services.audit import write_audit
 
-MENUS = {"/dashboard", "/ops", "/datasources", "/catalog", "/workbench",
-         "/files", "/pipelines", "/engines", "/cdc", "/datasets",
+MENUS = {"/dashboard", "/ops", "/datasources", "/catalog", "/lakehouse", "/workbench",
+         "/files", "/pipelines", "/engines", "/cdc", "/datasets", "/models",
          "/dashboards", "/apps", "/dependencies", "/apis",
          "/tools",
          "/grants", "/webhooks", "/quality", "/alerts", "/changes",

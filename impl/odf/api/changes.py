@@ -23,7 +23,7 @@ ALLOWED_ACTIONS = {
     "publish_pipeline", "pause_pipeline", "resume_pipeline",
     "rollback_pipeline", "publish_api", "rollback_api", "enable_api",
     "revoke_api", "publish_dataset", "rollback_dataset", "publish_metric",
-    "rollback_metric", "publish_dashboard", "rollback_dashboard",
+    "rollback_metric", "publish_model", "rollback_model", "publish_dashboard", "rollback_dashboard",
     "publish_app", "rollback_app", "app_form_submit",
 }
 

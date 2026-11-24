@@ -58,6 +58,8 @@ def heartbeat(session, job_id: int, worker_id: str) -> None:
 
 def _job_project(session, job):
     from odf.models import Asset
+    if job.project_id:
+        return job.project_id
     if job.asset_id:
         asset = session.get(Asset, job.asset_id)
         return asset.project_id if asset else None
@@ -230,6 +232,17 @@ def process_job(session, job, worker_id):
         complete(session, job.id, True)
         openlineage.emit(session, "COMPLETE", job)
         return
+    if job.asset_type == "model":
+        from odf.transform.service import materialize_model
+        materialize_model(session, job.asset_id, job)
+        complete(session, job.id, True)
+        return
+    if job.asset_type == "lakehouse_maintenance":
+        from odf.lakehouse.schedule import run_schedule
+        payload = job.payload_json or {}
+        run_schedule(session, payload.get("schedule_id"), worker_id)
+        complete(session, job.id, True)
+        return
     if job.asset_type == "dashboard_report":
         from odf.dashboards.report import run_report
         payload = job.payload_json or {}
@@ -271,13 +284,14 @@ def scheduler_tick(session, now=None):
     from odf.services.scheduler import cron_to_trigger
     now = now or _now()
     for a in (session.query(Asset)
-              .filter(Asset.type == "pipeline", Asset.enabled == True,  # noqa: E712
+              .filter(Asset.type.in_(("pipeline", "model")),
+                      Asset.enabled == True,  # noqa: E712
                       Asset.published_version_id.isnot(None)).all()):
         if not a.cron:
             continue
         last = (session.query(Job)
                 .filter(Job.asset_id == a.id,
-                        Job.asset_type == "pipeline")
+                        Job.asset_type == a.type)
                 .order_by(Job.id.desc()).first())
         try:
             trig = cron_to_trigger(a.cron)
@@ -288,14 +302,14 @@ def scheduler_tick(session, now=None):
             if nxt and _aware(nxt) > now:
                 continue
         from odf.services.dependencies import dependencies_satisfied
-        state = dependencies_satisfied(session, a.project_id, "pipeline",
+        state = dependencies_satisfied(session, a.project_id, a.type,
                                        a.id, now=now)
         if not state["satisfied"]:
             enqueue_skipped(session, "waiting for upstream: " + ", ".join(
                 item["name"] for item in state["blocked"]),
-                asset_id=a.id, asset_type="pipeline")
+                asset_id=a.id, asset_type=a.type)
             continue
-        enqueue_asset(session, a.id, "pipeline")
+        enqueue_asset(session, a.id, a.type)
     try:
         deliver_due(session)
     except Exception:
@@ -303,6 +317,7 @@ def scheduler_tick(session, now=None):
     _auto_sync_datasources(session, now)
     _scheduled_quality(session, now)
     _scheduled_reports(session, now)
+    _lakehouse_schedules(session, now)
     _catalog_sync(session)
     try:
         from odf.services.audit_ops import maintenance
@@ -381,6 +396,15 @@ def _scheduled_quality(session, now):
                         "quality check failed: %s" % rule.name,
                         {"rule_id": rule.id, "status": result.status,
                          "detail": result.detail_json})
+
+
+def _lakehouse_schedules(session, now):
+    try:
+        from odf.lakehouse.schedule import due, enqueue
+        for row in due(session, now):
+            enqueue(session, row)
+    except Exception:
+        pass
 
 
 def _catalog_sync(session):

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from odf.models import Alert, Asset, Job
 from odf.services.audit import write_audit
@@ -26,10 +26,16 @@ def _limit(value, cap):
 
 def _job_query(session, project_id):
     asset_ids = select(Asset.id).where(Asset.project_id == project_id)
-    return session.query(Job).filter(Job.asset_id.in_(asset_ids))
+    return session.query(Job).filter(or_(
+        Job.asset_id.in_(asset_ids), Job.project_id == project_id))
 
 
 def _target(session, job):
+    if job.asset_type == "lakehouse_maintenance":
+        return {"target_type": "lakehouse",
+                "target_id": job.project_id,
+                "target_name": "lakehouse maintenance",
+                "asset_type": job.asset_type}
     a = session.get(Asset, job.asset_id) if job.asset_id else None
     return {"target_type": "asset", "target_id": job.asset_id,
             "target_name": a.name if a else "",

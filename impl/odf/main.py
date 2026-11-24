@@ -30,6 +30,7 @@ import odf.api.stats as stats_api
 import odf.cdc.api as cdc_api
 import odf.lakehouse.api as lakehouse_api
 import odf.modelstudio.api as modelstudio_api
+import odf.transform.api as transform_api
 import odf.pipeline.api as pipeline_api
 from odf.services.auth import require_user
 from odf.settings import get_settings
@@ -53,6 +54,8 @@ app.include_router(pipeline_api.router, prefix="/api/v1",
 app.include_router(api_studio.router, prefix="/api/v1",
                    dependencies=[Depends(require_user)])
 app.include_router(modelstudio_api.router, prefix="/api/v1",
+                   dependencies=[Depends(require_user)])
+app.include_router(transform_api.router, prefix="/api/v1",
                    dependencies=[Depends(require_user)])
 app.include_router(app_api.router, prefix="/api/v1",
                    tags=["apps"], dependencies=[Depends(require_user)])
