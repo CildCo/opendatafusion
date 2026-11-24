@@ -25,9 +25,10 @@ pipeline editor:
 
 The generator creates one branch per subscribed table (up to ten):
 `cdc.source → sink`. Each source node reads its Debezium topic and has
-**Debezium envelope** enabled, so the pipeline consumes `payload.after` and
-skips delete events (`payload.after = null`). Each sink upserts by the
-primary key.
+**Debezium envelope** and **Propagate deletes** enabled. Create and update
+events produce `payload.after` rows; delete events produce the
+`payload.before` row with `__odf_op = delete`. Each sink runs in `cdc` mode:
+delete rows remove the target row by primary key, all others upsert.
 
 Target tables must exist before generation; validation reports missing tables
 and unsupported datasources. The generated pipeline is a draft: review it,
@@ -35,8 +36,9 @@ schedule it, publish it through the approval flow, or edit the nodes.
 
 ## Limits
 
-- Deletes are not propagated; a delete in the source leaves the target row in
-  place. Use a model or maintenance job to reconcile deletes.
+- A delete row must carry every primary-key value; otherwise the run fails.
 - One primary key column is used for both source and sink nodes.
+- Manual pipelines need the source switch **Propagate deletes** and sink mode
+  `cdc` to get the same behaviour.
 - Kafka consumer offsets are stored on the pipeline asset, like any other
   Kafka pipeline.

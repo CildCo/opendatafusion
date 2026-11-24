@@ -121,7 +121,8 @@ Datasets and metrics.
 - **Column masking** sets a classification (PII/confidential/sensitive), a mask type (redact, partial, hash, null) and exempt roles.
 - **Versions** lists history and supports rollback; the list page can delete a dataset or metric.
 - **Lineage** opens the upstream graph and column-level edges for the current dataset, metric, model, API or dashboard without leaving the editor.
-- **Transform models** are the third tab. A model is SQL with a materialization (view, table or incremental), a warehouse layer, optional incremental key and tests. Reference another published model with `{{ ref('key') }}`; publishing records dependencies and lineage. Preview does not materialize; Run queues a job. See [Transform models](MODELS.md).
+- **Transform models** are the third tab. A model is SQL with a materialization (view, table or incremental), a warehouse layer, optional incremental key and tests. Reference another published model with `{{ ref('key') }}`; publishing records dependencies and lineage. Preview does not materialize; Run queues a job.
+- Model tables are built in a shadow table, tested, then swapped; a failing test leaves the previous table in place. Incremental models can merge by key, Trino models can declare partition columns, and **Infer from SQL** fills column-level lineage sources. See [Transform models](MODELS.md).
 - **Export catalog** downloads the current project as JSON; platform administrators can also push that snapshot to an external catalog on a schedule. See [Lineage and catalog export](LINEAGE.md).
 
 ## 13. Dashboards
@@ -276,8 +277,8 @@ The workbench records every executed statement.
   user. Select a run to restore its SQL. Federated runs cannot be restored.
 - **Execution plan** runs `EXPLAIN` for the current single-source statement.
 - **Operations centre → Query performance** summarises the last 7 or 30 days:
-  total, failures, average, P50 and P95, counts by source and datasource, and
-  the ten slowest statements.
+  total, failures, average, P50 and P95, counts by source, datasource and user,
+  the ten slowest statements, and normalized statement templates.
 
 See [Query workbench and performance](QUERY.md).
 
@@ -291,6 +292,8 @@ their contract.
   unexpected or mistyped columns.
 - **Enforce** makes a model run fail when its output drifts from the contract.
 - **No extra columns** also rejects columns that the contract does not list.
+- **Freshness** sets a time column and maximum age; checks report stale, empty
+  or non-time values.
 
 See [Data contracts](GOVERNANCE.md#data-contracts).
 
@@ -302,7 +305,9 @@ source.
 - Choose a Kafka datasource, a target datasource and a primary key.
 - One branch per subscribed table reads the Debezium topic and writes the
   target table.
-- The source node unwraps `payload.after`, so delete events are skipped.
+- The source node unwraps `payload.after` and, with **Propagate deletes**,
+  sends `payload.before` delete rows.
+- Sinks run in `cdc` mode: delete rows remove by primary key, others upsert.
 - Target tables must exist first; validation reports missing tables.
 
 See [Change data capture](STREAMING.md).

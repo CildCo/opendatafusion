@@ -54,7 +54,9 @@ group by city
 ## Materialization
 
 - `view` replaces the target view with the compiled SQL.
-- `table` drops and recreates the target table from the compiled SQL.
+- `table` builds the result in a shadow table, runs the configured tests
+  against it, and only then swaps it into place. A failing test drops the
+  shadow and leaves the previous table untouched.
 - `incremental` creates the table on the first run and inserts new rows on
   later runs. With `unique_key`, rows whose key already exists are skipped.
   With `incremental_strategy: merge`, existing rows for the selected keys are
@@ -84,6 +86,21 @@ Tests run after materialization:
 A failing test marks the job failed, stores the results in the job payload and
 raises an alert through the normal job failure path. Tests are structural
 validation at publish time and execute at run time.
+
+## Column definitions and inference
+
+Each column can declare a name, type, source and description. The source is a
+column name or `ref.column`; model lineage uses it to draw column-level edges.
+
+**Infer from SQL** parses the model query and fills blank sources:
+
+- a direct projection (`city`) maps to the parent model column;
+- a single-column expression (`upper(city) as city_upper`) maps to that column;
+- expressions touching several columns are left blank for manual review;
+- joins use table aliases to choose the parent;
+- manual sources are never overwritten.
+
+Inference needs published references and a single SELECT statement.
 
 ## Preview and target
 

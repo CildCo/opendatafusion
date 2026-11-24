@@ -113,9 +113,14 @@
 
         <h4 class="col-head">
           {{ t("tm.columns") }}
-          <el-button link type="primary" size="small" @click="fillColumns">
-            {{ t("tm.fillColumns") }}
-          </el-button>
+          <span>
+            <el-button link type="primary" size="small" @click="inferColumns">
+              {{ t("tm.inferColumns") }}
+            </el-button>
+            <el-button link type="primary" size="small" @click="fillColumns">
+              {{ t("tm.fillColumns") }}
+            </el-button>
+          </span>
         </h4>
         <div v-for="(col, i) in content.columns" :key="i" class="col-row">
           <el-input v-model="col.name" size="small" style="width: 100px"
@@ -226,6 +231,18 @@ function fillColumns() {
       content.value.columns.push({ name, source: name, type: "",
                                    description: "" });
     }
+  }
+}
+
+async function inferColumns() {
+  try {
+    const result = await api.post(`/models/${id}/infer-columns`, {
+      content: content.value,
+    });
+    content.value.columns = result.columns || [];
+    ElMessage.success(t("tm.inferred"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
   }
 }
 

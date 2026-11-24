@@ -104,10 +104,13 @@
                            @change="setContract(row, { allow_extra: !$event })" />
               </template>
             </el-table-column>
-            <el-table-column :label="t('gov.actions')" width="220">
+            <el-table-column :label="t('gov.actions')" width="300">
               <template #default="{ row }">
                 <el-button link @click="checkContract(row)">
                   {{ t("gov.check") }}
+                </el-button>
+                <el-button v-if="canEdit" link @click="openFreshness(row)">
+                  {{ t("gov.freshness") }}
                 </el-button>
                 <el-button v-if="canEdit" link type="primary"
                            @click="genContract(row)">
@@ -175,6 +178,25 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="freshOpen" :title="t('gov.freshness')" width="460px">
+      <el-form label-width="120px">
+        <el-form-item :label="t('gov.freshnessColumn')">
+          <el-input v-model="freshForm.column"
+                    :placeholder="t('gov.freshnessColumnHint')" />
+        </el-form-item>
+        <el-form-item :label="t('gov.freshnessHours')">
+          <el-input-number v-model="freshForm.max_hours" :min="1"
+                           :max="8760" />
+        </el-form-item>
+      </el-form>
+      <p class="muted">{{ t("gov.freshnessHint") }}</p>
+      <template #footer>
+        <el-button @click="freshOpen = false">{{ t("common.cancel") }}</el-button>
+        <el-button type="primary" :loading="saving"
+                   @click="saveFreshness">{{ t("gov.save") }}</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="contractOpen" :title="t('gov.contractResult')"
                width="640px">
       <el-alert v-if="contractResult.ok" type="success" :closable="false"
@@ -227,6 +249,8 @@ const termForm = reactive({ id: null, term: "", definition: "",
 const contracts = ref([]);
 const contractOpen = ref(false);
 const contractResult = ref({});
+const freshOpen = ref(false);
+const freshForm = reactive({ asset_id: null, column: "", max_hours: 24 });
 
 async function loadContracts() {
   loading.value = true;
@@ -257,6 +281,31 @@ async function genContract(row) {
     await loadContracts();
   } catch (e) {
     ElMessage.error(errMsg(e));
+  }
+}
+
+function openFreshness(row) {
+  freshForm.asset_id = row.asset_id;
+  freshForm.column = (row.freshness && row.freshness.column) || "";
+  freshForm.max_hours = (row.freshness && row.freshness.max_hours) || 24;
+  freshOpen.value = true;
+}
+
+async function saveFreshness() {
+  saving.value = true;
+  try {
+    const freshness = freshForm.column.trim()
+      ? { column: freshForm.column.trim(),
+          max_hours: freshForm.max_hours }
+      : {};
+    await api.patch(`/assets/${freshForm.asset_id}/contract`, { freshness });
+    ElMessage.success(t("gov.contractUpdated"));
+    freshOpen.value = false;
+    await loadContracts();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    saving.value = false;
   }
 }
 

@@ -5,7 +5,8 @@ from sqlalchemy.orm import sessionmaker
 from odf.db import Base
 from odf.models import Datasource
 from odf.services.crypto import encrypt_secret
-from odf.services.query_log import get_run, list_runs, record, summary
+from odf.services.query_log import (get_run, list_runs, normalize_statement,
+                                     record, summary)
 
 
 def _env(tmp_path):
@@ -88,3 +89,30 @@ def test_unknown_datasource_is_kept_as_null(tmp_path):
     walk = record(s, 1, None, "alice", "federated", 5, 1, sql="select 1")
     assert walk.datasource_id is None
     assert list_runs(s, 1)["items"][0]["datasource_name"] is None
+
+
+def test_statement_normalization_replaces_literals():
+    left = normalize_statement("SELECT * FROM orders WHERE id = 42 "
+                               "AND note = 'x'")
+    right = normalize_statement("select *   from orders where id = 7 "
+                                "and note = 'y'")
+    assert left == right
+    assert "42" not in left and "'x'" not in left
+
+
+def test_summary_groups_by_actor_and_template(tmp_path):
+    s = _env(tmp_path)
+    record(s, 1, 1, "alice", "workbench", 10, 1,
+           sql="select * from orders where id = 1")
+    record(s, 1, 1, "alice", "workbench", 30, 1,
+           sql="select * from orders where id = 2")
+    record(s, 1, 1, "bob", "workbench", 100, 0, "boom",
+           sql="select * from orders where id = 3")
+    out = summary(s, 1)
+    actors = {row["actor"]: row for row in out["by_actor"]}
+    assert actors["alice"]["count"] == 2
+    assert actors["bob"]["errors"] == 1
+    templates = out["templates"]
+    assert templates[0]["count"] == 3
+    assert templates[0]["variants"] == 3
+    assert templates[0]["avg_ms"] == 47

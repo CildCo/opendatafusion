@@ -34,8 +34,11 @@ The operations centre has a **Query performance** tab for the last 7 or 30
 days:
 
 - total, failed, average, P50 and P95 duration
-- counts, failures and average duration by source and by datasource
+- counts, failures and average duration by source, datasource and user
 - the ten slowest statements with SQL preview, user and time
+- statement templates: literals are replaced, so variants of one query group
+  together; each template shows runs, failures, average, slowest duration and
+  how many raw variants it covers
 
 The view covers workbench, federated and model-preview queries. Pipeline and
 model job durations remain in the job history.

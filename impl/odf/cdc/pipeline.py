@@ -66,12 +66,12 @@ def build_pipeline(session, project_id, source, kafka_datasource_id,
             "position": {"x": 80, "y": y},
             "config": {"datasource_id": kafka.id,
                        "table": topic_for(source, table), "pk": pk,
-                       "debezium": True}})
+                       "debezium": True, "cdc_delete": True}})
         nodes.append({
             "id": sink_id, "type": "sink", "name": "Sink " + target,
             "position": {"x": 430, "y": y},
             "config": {"datasource_id": sink.id, "table": target,
-                       "mode": "upsert", "pk": [pk]}})
+                       "mode": "cdc", "pk": [pk]}})
         edges.append({"id": "e%d" % index, "from": source_id,
                       "to": sink_id})
     content = {"nodes": nodes, "edges": edges,

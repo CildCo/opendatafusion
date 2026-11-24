@@ -54,6 +54,7 @@ class TableGovernanceIn(BaseModel):
 class ContractPatch(BaseModel):
     enforce: bool | None = None
     allow_extra: bool | None = None
+    freshness: dict | None = None
 
 
 def contract_list(session, project_id, include_missing=False):
@@ -106,6 +107,11 @@ def patch_contract(asset_id: int, body: ContractPatch,
         contract["enforce"] = body.enforce
     if body.allow_extra is not None:
         contract["allow_extra"] = body.allow_extra
+    if body.freshness is not None:
+        if body.freshness:
+            contract["freshness"] = body.freshness
+        else:
+            contract.pop("freshness", None)
     try:
         out = update_asset_governance(s, claims["project_id"], asset_id,
                                       contract=contract)

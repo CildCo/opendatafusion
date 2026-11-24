@@ -40,6 +40,10 @@ class PreviewIn(BaseModel):
     content: dict | None = None
 
 
+class InferIn(BaseModel):
+    content: dict | None = None
+
+
 class RollbackIn(BaseModel):
     version: int
 
@@ -172,6 +176,23 @@ def preview(asset_id: int, body: PreviewIn,
     except ValueError:
         raise HTTPException(400, "could not preview the model; check SQL, "
                                  "references and the datasource")
+
+
+@router.post("/models/{asset_id}/infer-columns")
+def infer(asset_id: int, body: InferIn,
+          s: Session = Depends(get_session),
+          claims: dict = Depends(require_editor)):
+    a = _asset(s, asset_id, claims)
+    content = body.content
+    if content is None:
+        content = (s.get(AssetVersion, a.draft_version_id).content_json
+                   if a.draft_version_id else empty_model())
+    try:
+        from odf.transform.lineage import infer_columns
+        return {"columns": infer_columns(s, a, content)}
+    except ValueError:
+        raise HTTPException(400, "could not infer columns; check the SQL "
+                                 "and model references")
 
 
 @router.get("/models/{asset_id}/target")

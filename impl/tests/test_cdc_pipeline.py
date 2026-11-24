@@ -46,6 +46,8 @@ def test_build_pipeline_creates_one_branch_per_table(tmp_path):
                     .AssetVersion, asset.draft_version_id).content_json
     nodes = {node["id"]: node for node in content["nodes"]}
     assert nodes["cdc_1"]["config"]["debezium"] is True
+    assert nodes["cdc_1"]["config"]["cdc_delete"] is True
+    assert nodes["sink_1"]["config"]["mode"] == "cdc"
     assert nodes["cdc_1"]["config"]["table"] == "odf.public.orders"
     assert nodes["sink_1"]["config"]["table"] == "orders"
     assert len(content["edges"]) == 2

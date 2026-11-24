@@ -8,6 +8,7 @@ from odf.models import AssetVersion, Datasource
 from odf.services.query import execute_query
 
 _TYPE_PARAMS = re.compile(r"\(.*\)")
+_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
 
 
 def _asset(session, project_id, asset_id):
@@ -38,7 +39,7 @@ def _actual_columns(session, asset, content):
         from odf.apistudio.catalog import table_column_info
         columns = table_column_info(session, datasource, table)
         return [{"name": item["name"], "type": item.get("type") or ""}
-                for item in columns], table
+                for item in columns], table, datasource
     from odf.transform.service import target_for
     datasource = session.get(Datasource, content.get("datasource_id")) \
         if isinstance(content.get("datasource_id"), int) else None
@@ -54,7 +55,7 @@ def _actual_columns(session, asset, content):
             if len(values) >= 2:
                 columns.append({"name": str(values[0]),
                                 "type": str(values[1])})
-        return columns, target
+        return columns, target, datasource
     from odf.services.connections import engine_for
     with engine_for(datasource) as engine:
         inspector = inspect(engine)
@@ -66,7 +67,7 @@ def _actual_columns(session, asset, content):
         except Exception:
             raise ValueError("model target table not found")
     return [{"name": item["name"], "type": str(item["type"])}
-            for item in columns], target
+            for item in columns], target, datasource
 
 
 def _clean_type(value):
@@ -92,10 +93,56 @@ def expected_columns(contract):
     return out
 
 
+def _as_datetime(value):
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _freshness_issues(session, datasource, target, config):
+    column = config.get("column")
+    hours = int(config.get("max_hours") or 0)
+    if not isinstance(column, str) or not _IDENT.match(column):
+        return [{"kind": "freshness", "column": str(column or ""),
+                 "expected": "", "actual": "invalid column"}]
+    from odf.apistudio.compiler import quote_ident
+    try:
+        result = execute_query(
+            session, datasource,
+            "SELECT MAX(%s) AS latest FROM %s"
+            % (quote_ident(column), target), {}, 1)
+    except ValueError:
+        return [{"kind": "freshness", "column": column,
+                 "expected": "", "actual": "column unavailable"}]
+    value = None
+    if result.get("rows"):
+        value = next(iter(result["rows"][0].values()), None)
+    latest = _as_datetime(value)
+    if latest is None:
+        return [{"kind": "stale", "column": column,
+                 "expected": "within %dh" % hours,
+                 "actual": "no data" if value is None else "not a time"}]
+    age_hours = (datetime.now(timezone.utc) - latest).total_seconds() / 3600
+    if age_hours > hours:
+        return [{"kind": "stale", "column": column,
+                 "expected": "within %dh" % hours,
+                 "actual": "%.1fh old" % age_hours}]
+    return []
+
+
 def check_asset(session, project_id, asset_id, content=None):
     asset = _asset(session, project_id, asset_id)
     content = content if content is not None else _content(session, asset)
-    actual, target = _actual_columns(session, asset, content)
+    actual, target, datasource = _actual_columns(session, asset, content)
     contract = asset.contract_json or {}
     expected = expected_columns(contract)
     actual_by_name = {item["name"].lower(): item for item in actual}
@@ -112,6 +159,10 @@ def check_asset(session, project_id, asset_id, content=None):
             issues.append({"kind": "type", "column": item["name"],
                            "expected": item["type"],
                            "actual": found["type"]})
+    freshness = contract.get("freshness")
+    if freshness:
+        issues.extend(_freshness_issues(session, datasource, target,
+                                        freshness))
     if contract.get("allow_extra") is False:
         for item in actual:
             if item["name"].lower() not in expected_names:
@@ -127,7 +178,7 @@ def check_asset(session, project_id, asset_id, content=None):
 def generate_contract(session, project_id, asset_id):
     asset = _asset(session, project_id, asset_id)
     content = _content(session, asset)
-    actual, _ = _actual_columns(session, asset, content)
+    actual, _, _ = _actual_columns(session, asset, content)
     contract = dict(asset.contract_json or {})
     contract["schema"] = [{"name": item["name"], "type": item["type"],
                            "required": False} for item in actual]
@@ -157,5 +208,6 @@ def contract_summaries(session, project_id, include_missing=False):
                     "columns": len(contract.get("schema") or []),
                     "owner": contract.get("owner") or asset.owner,
                     "sla": contract.get("sla") or "",
+                    "freshness": contract.get("freshness") or {},
                     "updated_at": asset.updated_at})
     return out

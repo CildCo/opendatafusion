@@ -18,6 +18,10 @@ def _env(tmp_path):
         c.execute(text("create table orders "
                        "(id int, city text, amount int)"))
         c.execute(text("insert into orders values (1,'a',10)"))
+        c.execute(text("create table events "
+                       "(id int, updated_at text)"))
+        c.execute(text("insert into events values "
+                       "(1,'2026-11-20T08:00:00+00:00')"))
     raw.dispose()
     e = create_engine("sqlite://")
     Base.metadata.create_all(e)
@@ -101,6 +105,47 @@ def test_model_run_fails_when_enforced_contract_breaks(tmp_path):
     with pytest.raises(ValueError) as error:
         materialize_model(s, asset.id)
     assert "contract" in str(error.value)
+
+
+def test_freshness_contract_passes_for_recent_data(tmp_path):
+    from datetime import datetime, timezone
+    s, url = _env(tmp_path)
+    now = datetime.now(timezone.utc).isoformat()
+    raw = create_engine(url)
+    with raw.begin() as c:
+        c.execute(text("update events set updated_at = :v"), {"v": now})
+    raw.dispose()
+    asset = _dataset(s, name="events", table="events")
+    update_asset_governance(
+        s, 1, asset.id,
+        contract={"freshness": {"column": "updated_at", "max_hours": 24}})
+    out = check_asset(s, 1, asset.id)
+    assert out["ok"] is True
+
+
+def test_freshness_contract_reports_stale_data(tmp_path):
+    s, _ = _env(tmp_path)
+    asset = _dataset(s, name="events", table="events")
+    update_asset_governance(
+        s, 1, asset.id,
+        contract={"freshness": {"column": "updated_at", "max_hours": 24}})
+    out = check_asset(s, 1, asset.id)
+    assert out["ok"] is False
+    assert out["issues"][0]["kind"] == "stale"
+    assert out["issues"][0]["column"] == "updated_at"
+
+
+def test_invalid_freshness_config_is_rejected(tmp_path):
+    s, _ = _env(tmp_path)
+    asset = _dataset(s, name="events", table="events")
+    with pytest.raises(ValueError):
+        update_asset_governance(
+            s, 1, asset.id,
+            contract={"freshness": {"column": "bad name", "max_hours": 24}})
+    with pytest.raises(ValueError):
+        update_asset_governance(
+            s, 1, asset.id,
+            contract={"freshness": {"column": "updated_at", "max_hours": 0}})
 
 
 def test_contract_check_rejects_unsupported_asset(tmp_path):

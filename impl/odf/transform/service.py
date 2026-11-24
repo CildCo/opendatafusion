@@ -97,6 +97,39 @@ def _drop(session, ds, statement):
         pass
 
 
+def _sibling(target, suffix):
+    index = target.rfind('"')
+    if index == -1:
+        return target + suffix
+    return target[:index] + suffix + target[index:]
+
+
+def _swap_table(session, ds, target, shadow, table_key):
+    old = _sibling(target, "__odf_old")
+    _drop(session, ds, "DROP TABLE IF EXISTS %s" % old)
+    new_name = quote_ident(table_key)
+    if not _table_exists(session, ds, target):
+        _ddl(session, ds, "ALTER TABLE %s RENAME TO %s"
+             % (shadow, target if ds.kind == "trino" else new_name))
+        return
+    if ds.kind == "trino":
+        _ddl(session, ds, "ALTER TABLE %s RENAME TO %s" % (target, old))
+        _ddl(session, ds, "ALTER TABLE %s RENAME TO %s" % (shadow, target))
+        _drop(session, ds, "DROP TABLE %s" % old)
+        return
+    if ds.kind in ("mysql", "mariadb"):
+        _ddl(session, ds, "RENAME TABLE %s TO %s, %s TO %s"
+             % (target, old, shadow, target))
+        _drop(session, ds, "DROP TABLE %s" % old)
+        return
+    from odf.services.connections import engine_for
+    with engine_for(ds) as engine:
+        with engine.begin() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS %s" % target))
+            conn.execute(text("ALTER TABLE %s RENAME TO %s"
+                              % (shadow, new_name)))
+
+
 def _resolved(session, asset, content):
     mapping = {}
     for ref in ref_assets(session, content, asset.project_id, asset.id):
@@ -267,6 +300,15 @@ def _merge_rows(session, ds, target, sql, keys, kind):
     return True
 
 
+def _save_result(session, job, out):
+    if job is None:
+        return
+    payload = dict(job.payload_json or {})
+    payload["last_result"] = out
+    job.payload_json = payload
+    session.commit()
+
+
 def materialize_model(session, asset_id, job=None):
     asset = get_asset(session, asset_id)
     if not asset or asset.type != "model":
@@ -283,6 +325,7 @@ def materialize_model(session, asset_id, job=None):
     if ds.kind == "trino":
         _ensure_schema(session, ds, schema, asset.project_id)
     merged, rebuilt = False, False
+    results, out = None, None
     if materialization == "view":
         _drop(session, ds, "DROP TABLE IF EXISTS %s" % target)
         _drop(session, ds, "DROP VIEW IF EXISTS %s" % target)
@@ -290,8 +333,19 @@ def materialize_model(session, asset_id, job=None):
     elif materialization == "table":
         execute_query(session, ds, limited(sql, ds.kind, 1), {}, 1)
         _drop(session, ds, "DROP VIEW IF EXISTS %s" % target)
-        _ddl(session, ds, "DROP TABLE IF EXISTS %s" % target)
-        _ddl(session, ds, _create_table_sql(target, sql, partition_by))
+        shadow = _sibling(target, "__odf_new")
+        _drop(session, ds, "DROP TABLE IF EXISTS %s" % shadow)
+        _ddl(session, ds, _create_table_sql(shadow, sql, partition_by))
+        results = run_tests(session, asset, content, shadow)
+        out = {"target": target, "schema": schema,
+               "materialization": materialization, "merged": False,
+               "rebuilt": False, "replaced": False, "tests": results}
+        if any(item["status"] == "fail" for item in results):
+            _drop(session, ds, "DROP TABLE IF EXISTS %s" % shadow)
+            _save_result(session, job, out)
+            raise ModelTestError(results)
+        _swap_table(session, ds, target, shadow, asset.key)
+        out["replaced"] = True
     elif materialization == "incremental":
         if not _table_exists(session, ds, target):
             _drop(session, ds, "DROP VIEW IF EXISTS %s" % target)
@@ -322,15 +376,12 @@ def materialize_model(session, asset_id, job=None):
                 _ddl(session, ds, statement)
     else:
         raise ValueError("unsupported materialization")
-    results = run_tests(session, asset, content, target)
-    out = {"target": target, "schema": schema,
-           "materialization": materialization, "merged": merged,
-           "rebuilt": rebuilt, "tests": results}
-    if job is not None:
-        payload = dict(job.payload_json or {})
-        payload["last_result"] = out
-        job.payload_json = payload
-        session.commit()
+    if results is None:
+        results = run_tests(session, asset, content, target)
+        out = {"target": target, "schema": schema,
+               "materialization": materialization, "merged": merged,
+               "rebuilt": rebuilt, "replaced": False, "tests": results}
+    _save_result(session, job, out)
     failed = [r for r in results if r["status"] == "fail"]
     if failed:
         raise ModelTestError(results)

@@ -1,7 +1,8 @@
 import json
 from datetime import date, datetime
 
-from sqlalchemy import MetaData, Table, and_, create_engine, or_, select
+from sqlalchemy import (MetaData, Table, and_, create_engine, delete, or_,
+                        select)
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -112,8 +113,22 @@ class SQLSink(Sink):
             if not isinstance(pk, list):
                 pk = [pk]
             mode = self.dag.get("mode") or "upsert"
-            if mode not in ("upsert", "append"):
+            if mode not in ("upsert", "append", "cdc"):
                 raise ValueError("unsupported sink mode: %s" % mode)
+            if mode == "cdc" and not pk:
+                raise ValueError("cdc sink needs a primary key")
+            deletes = []
+            if mode == "cdc":
+                kept = []
+                for row in rows:
+                    if row.get("__odf_op") == "delete":
+                        if any(row.get(key) is None for key in pk):
+                            raise ValueError(
+                                "cdc delete needs primary key values")
+                        deletes.append({key: row[key] for key in pk})
+                    else:
+                        kept.append(row)
+                rows = kept
             dialect = engine.dialect.name
             insert = insert_for(dialect)
             groups = {}
@@ -121,6 +136,9 @@ class SQLSink(Sink):
                 vals = {k: v for k, v in row.items() if k in tt.c}
                 groups.setdefault(tuple(sorted(vals)), []).append(vals)
             with engine.begin() as c:
+                for item in deletes:
+                    c.execute(delete(tt).where(and_(*[
+                        tt.c[key] == item[key] for key in pk])))
                 for key, payload in groups.items():
                     if not key:
                         for _ in payload:
