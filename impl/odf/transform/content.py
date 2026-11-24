@@ -170,8 +170,8 @@ def validate_model(session, content, project_id, asset_id=None):
             _refs(session, content, project_id, asset_id)
             if _cycle(session, asset_id, content, project_id):
                 errs.append(_err("sql", "model references form a cycle"))
-        except ValueError as error:
-            errs.append(_err("sql", str(error)))
+        except ValueError:
+            errs.append(_err("sql", "could not resolve model references"))
     return errs
 
 

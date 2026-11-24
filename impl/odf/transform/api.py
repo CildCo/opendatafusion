@@ -168,8 +168,9 @@ def preview(asset_id: int, body: PreviewIn,
     a = _asset(s, asset_id, claims)
     try:
         return preview_model(s, a.id, body.content, body.limit)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
+    except ValueError:
+        raise HTTPException(400, "could not preview the model; check SQL, "
+                                 "references and the datasource")
 
 
 @router.get("/models/{asset_id}/target")
@@ -180,8 +181,8 @@ def target(asset_id: int, s: Session = Depends(get_session),
         content = (s.get(AssetVersion, a.draft_version_id).content_json
                    if a.draft_version_id else empty_model())
         return model_target(s, a, content)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
+    except ValueError:
+        raise HTTPException(400, "could not resolve the model target")
 
 
 @router.post("/models/{asset_id}/run")
