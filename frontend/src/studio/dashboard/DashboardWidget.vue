@@ -33,6 +33,8 @@
                          :prop="c" :label="c" />
       </el-table>
       <ChartView v-else-if="chartOption" :option="chartOption"
+                 :geo-json="widget.type === 'map' ? mapGeo : null"
+                 :geo-name="widget.type === 'map' ? mapName : ''"
                  @click="onChartClick" />
     </div>
     <div v-if="!readonly" class="resize"
@@ -125,6 +127,24 @@ const pivot = computed(() => {
   return { rows: [...map.values()], columns: [rowDim, ...colValues] };
 });
 
+const mapName = computed(() => `odf-map-${props.widget.id}`);
+const mapGeo = computed(() => {
+  const geo = props.widget.geo_json;
+  if (!geo || !Array.isArray(geo.features)) return null;
+  const prop = props.widget.name_property || "name";
+  return {
+    ...geo,
+    features: geo.features.map((feature) => ({
+      ...feature,
+      properties: {
+        ...(feature.properties || {}),
+        name: (feature.properties || {})[prop]
+          ?? (feature.properties || {}).name,
+      },
+    })),
+  };
+});
+
 const chartOption = computed(() => {
   const rows = props.data?.rows || [];
   const dim = props.widget.dimension;
@@ -133,6 +153,24 @@ const chartOption = computed(() => {
   if (!dim || !rows.length) return null;
   const labels = rows.map((r) => r[dim]);
   const values = rows.map((r) => r[val]);
+  if (props.widget.type === "map") {
+    const data = rows.map((r) => ({ name: r[dim], value: r[val] }));
+    const numbers = values.filter((v) => typeof v === "number");
+    return {
+      tooltip: { trigger: "item" },
+      visualMap: {
+        min: numbers.length ? Math.min(...numbers) : 0,
+        max: numbers.length ? Math.max(...numbers) : 1,
+        left: 8, bottom: 8, calculable: true,
+        inRange: { color: ["#dbeafe", "#2563eb"] },
+      },
+      series: [{
+        type: "map", map: mapName.value, data,
+        emphasis: { label: { show: true } },
+        select: { disabled: true },
+      }],
+    };
+  }
   if (props.widget.type === "pie") {
     return {
       tooltip: { trigger: "item" },

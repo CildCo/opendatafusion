@@ -187,34 +187,48 @@ def process_job(session, job, worker_id):
         complete(session, job.id, False, "cancelled by user")
         return
     if job.asset_type == "pipeline":
+        from odf.lineage import openlineage
         from odf.pipeline.runner import execute_pipeline
-        batches = MAX_DRAIN_BATCHES if _pipeline_drainable(
-            session, job.asset_id) else 1
-        for _ in range(batches):
-            result = execute_pipeline(session, job.asset_id, job.id,
-                                      worker_id)
-            if not isinstance(result, dict) or not result:
-                break
-            session.refresh(job)
-            if job.cancel_requested:
-                complete(session, job.id, False, "cancelled by user")
-                return
-            if (result.get("exhausted")
-                    or result.get("source_rows", 0) == 0):
-                break
+        openlineage.emit(session, "START", job)
+        try:
+            batches = MAX_DRAIN_BATCHES if _pipeline_drainable(
+                session, job.asset_id) else 1
+            for _ in range(batches):
+                result = execute_pipeline(session, job.asset_id, job.id,
+                                          worker_id)
+                if not isinstance(result, dict) or not result:
+                    break
+                session.refresh(job)
+                if job.cancel_requested:
+                    complete(session, job.id, False, "cancelled by user")
+                    return
+                if (result.get("exhausted")
+                        or result.get("source_rows", 0) == 0):
+                    break
+        except Exception as error:
+            openlineage.emit(session, "FAIL", job, error)
+            raise
         complete(session, job.id, True)
+        openlineage.emit(session, "COMPLETE", job)
         return
     if job.asset_type == "pipeline_backfill":
+        from odf.lineage import openlineage
         from odf.pipeline.runner import execute_backfill
         payload = job.payload_json or {}
-        execute_backfill(session, job.asset_id,
-                         payload.get("start_cursor"),
-                         end_cursor=payload.get("end_cursor"),
-                         batch=payload.get("batch"),
-                         max_batches=payload.get("max_batches", 100),
-                         actor=worker_id, job_id=job.id,
-                         resume_cursors=payload.get("resume_cursors"))
+        openlineage.emit(session, "START", job)
+        try:
+            execute_backfill(session, job.asset_id,
+                             payload.get("start_cursor"),
+                             end_cursor=payload.get("end_cursor"),
+                             batch=payload.get("batch"),
+                             max_batches=payload.get("max_batches", 100),
+                             actor=worker_id, job_id=job.id,
+                             resume_cursors=payload.get("resume_cursors"))
+        except Exception as error:
+            openlineage.emit(session, "FAIL", job, error)
+            raise
         complete(session, job.id, True)
+        openlineage.emit(session, "COMPLETE", job)
         return
     if job.asset_type == "dashboard_report":
         from odf.dashboards.report import run_report
@@ -289,6 +303,7 @@ def scheduler_tick(session, now=None):
     _auto_sync_datasources(session, now)
     _scheduled_quality(session, now)
     _scheduled_reports(session, now)
+    _catalog_sync(session)
     try:
         from odf.services.audit_ops import maintenance
         maintenance(session, now)
@@ -366,6 +381,15 @@ def _scheduled_quality(session, now):
                         "quality check failed: %s" % rule.name,
                         {"rule_id": rule.id, "status": result.status,
                          "detail": result.detail_json})
+
+
+def _catalog_sync(session):
+    try:
+        from odf.lineage import catalog_sync
+        if catalog_sync.due(session):
+            catalog_sync.push(session)
+    except Exception:
+        pass
 
 
 def _scheduled_reports(session, now):

@@ -37,6 +37,7 @@ Tabs: overview, tasks, alerts, API calls, timeline and audit.
 - **Health** shows recent connectivity and metadata-sync attempts with status, duration and the failure reason.
 - **Auto sync**: set an interval in minutes on the source; the scheduler refreshes metadata and records the outcome. Zero disables it.
 - **Quick sync** creates a pipeline from a source table to a target table with a ready-to-run source and sink.
+- **Airbyte connector**: when enabled by a platform administrator, choose this type, enter an allowlisted image or local command, the runtime and the connector configuration as JSON, then Test and Sync metadata. Each discovered stream becomes an `airbyte` catalog table and can be used as a pipeline source. See [Airbyte connectors](AIRBYTE.md).
 - **SSH jump host**: SQL database types accept optional SSH host, port, user and password fields; all test, sync and query traffic then goes through that host.
 - **Sync metadata** reads the schema into the catalog. Existing datasets are updated in place; tags and quality rules survive.
 - **Tables** lists synced schemas, tables and column counts.
@@ -120,6 +121,7 @@ Datasets and metrics.
 - **Column masking** sets a classification (PII/confidential/sensitive), a mask type (redact, partial, hash, null) and exempt roles.
 - **Versions** lists history and supports rollback; the list page can delete a dataset or metric.
 - **Lineage** opens the upstream graph and column-level edges for the current dataset, metric, API or dashboard without leaving the editor.
+- **Export catalog** downloads the current project as JSON; platform administrators can also push that snapshot to an external catalog on a schedule. See [Lineage and catalog export](LINEAGE.md).
 
 ## 13. Dashboards
 
@@ -129,6 +131,7 @@ Add metric cards, line/bar/area/pie charts, pivot tables, tables and text; drag 
 - In the run view, **Export CSV** writes the rows of every data-bearing widget to one CSV file.
 - A **pivot** widget needs a metric with two dimensions; choose the row dimension, column dimension and value column, and the console renders the cross-tab.
 - **Drill-through**: click a chart point, a metric card or a metric table row to open the underlying rows in a detail drawer. Metric and widget filters, row policies and column masking apply, and the drawer exports CSV.
+- **Map**: upload a GeoJSON FeatureCollection in the widget settings, choose the metric dimension that contains region names and a value column; the widget matches dimension values to feature `properties.<name_property>`, shows a visual scale and supports drill-through.
 - **Scheduled report**: set a six-field cron (second minute hour day month weekday) in the report drawer. The scheduler writes a CSV snapshot file, sends a notification and a `report.ready` webhook event, and keeps the run history; **Run now** generates one immediately.
 - **Share** creates a read-only link with an expiry; links can be copied, embedded with the generated iframe snippet and revoked.
 - **Versions** lists history; the list page deletes dashboards and their share links.
@@ -148,6 +151,7 @@ Build pages with text, metric cards, tables and forms.
 - **Docs** shows the path, AK/SK + projectKey authentication and curl/Python examples.
 - Publish serves the API through `/openapi/{key}`; revoke takes it offline.
 - The detail panel shows the endpoint address with a copy button, SQL, parameters and a call history with caller, time and returned rows.
+- **GraphQL**: the API list opens a GraphQL viewer with the signed endpoint `/openapi/graphql`, the schema generated from this project's published APIs and a copyable query example. Send the same `projectKey`, `Date` and AK/SK signature headers as the REST gateway.
 - The list page can delete an API.
 
 ## 16. Access control
@@ -214,7 +218,7 @@ Every recorded action with actor, action, target, time and details, with paging.
 - **Maintenance returns zero tables**: check the schema field; blank uses the source default.
 - **Deleting a data source is refused**: review the dependent datasets, rules and tags, then confirm the cascade.
 - **A new user cannot sign in**: add the user to a project.
-- **An interface cannot be called**: issue AK/SK under Access control and sign requests as shown in the interface docs.
+- **An API cannot be called**: issue AK/SK under Access control and sign requests as shown in the API docs.
 
 ## 27. Platform administration
 
@@ -238,6 +242,11 @@ project members keep using the workspace.
   dashboards).
 - **Data plane**: default Spark image, Flink SQL Gateway address, SQL write
   switch, CDC topic prefix and Kafka bootstrap defaults.
+- **Airbyte connectors**: enable the connector type and set image/command
+  allowlists and a timeout. See [Airbyte connectors](AIRBYTE.md).
+- **Lineage and catalog sync**: OpenLineage endpoint, token and namespace;
+  external catalog endpoint, token and sync interval. Send a test event or
+  push the catalog immediately. See [Lineage and catalog export](LINEAGE.md).
 - **Operations**: runtime and high-availability state, MCP activity, queue
   health, feature state, audit retention and SIEM forwarding, and backup
   export/restore. Restore replaces control-plane data from a downloaded

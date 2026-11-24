@@ -104,6 +104,9 @@
                            v-model="form.values[field.key]" :min="1"
                            :max="65535" controls-position="right"
                            style="width: 100%" />
+          <el-input v-else-if="field.type === 'json'"
+                    v-model="form.values[field.key]" type="textarea"
+                    :rows="4" :placeholder="placeholderFor(field)" />
           <el-input v-else v-model="form.values[field.key]"
                     :type="field.type === 'password' ? 'password' : 'text'"
                     :show-password="field.type === 'password'"
@@ -307,7 +310,7 @@ function fieldLabel(field) {
 }
 
 function placeholderFor(field) {
-  if (field.type === "password") {
+  if (field.type === "password" || field.type === "json") {
     return form.values["has_" + field.key] ? t("ds.keepPassword") : "";
   }
   if (field.key === "port") return "";

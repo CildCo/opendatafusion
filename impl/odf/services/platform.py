@@ -55,11 +55,27 @@ DEFAULTS = {
     "alerts": {
         "webhook_url": "",
     },
+    "airbyte": {
+        "enabled": False,
+        "image_allowlist": "airbyte/source-",
+        "command_allowlist": "",
+        "timeout_s": 300,
+    },
+    "lineage": {
+        "openlineage_url": "",
+        "openlineage_token": "",
+        "namespace": "odf",
+        "catalog_sync_url": "",
+        "catalog_sync_token": "",
+        "catalog_sync_interval_minutes": 0,
+    },
 }
 
 SECRET_PATHS = (("identity", "oidc", "client_secret"),
                 ("identity", "ldap", "bind_password"),
-                ("audit", "siem_token"))
+                ("audit", "siem_token"),
+                ("lineage", "openlineage_token"),
+                ("lineage", "catalog_sync_token"))
 
 
 def _merge(base, patch):

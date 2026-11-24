@@ -5,6 +5,7 @@ renders, and how to build or parse its DSN.  The API, metadata sync, query
 paths and the console all read this registry so a type can never advertise a
 capability it does not implement.
 """
+import json
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
 from sqlalchemy.engine import make_url
@@ -63,6 +64,14 @@ FIELDS = {
              "required": False, "default": "NOSASL"},
     "auth_source": {"key": "auth_source", "label": "Auth source",
                     "type": "text", "required": False},
+    "image": {"key": "image", "label": "Connector image / command",
+              "type": "text", "required": True,
+              "placeholder": "airbyte/source-faker:6.0.0"},
+    "runtime": {"key": "runtime", "label": "Runtime", "type": "select",
+                "required": False, "default": "docker"},
+    "config": {"key": "config", "label": "Connector configuration",
+               "type": "json", "required": True, "secret": True,
+               "placeholder": "{\"api_key\": \"...\"}"},
 }
 
 
@@ -186,6 +195,11 @@ SPECS = [
     {"kind": "es", "label": "Elasticsearch", "group": "api",
      "capabilities": _caps(query=False, sink=True),
      "fields": [field("url")]},
+    {"kind": "airbyte", "label": "Airbyte connector", "group": "api",
+     "capabilities": _caps(metadata=True, query=False, source=True),
+     "fields": [field("image"),
+                field("runtime", options=["docker", "command"]),
+                field("config")]},
 ]
 
 SSH_KINDS = {"postgres", "mysql", "mariadb", "oracle", "mssql", "tidb",
@@ -302,6 +316,18 @@ def build_dsn(kind, values):
         return str(values.get("url", "")).strip()
     if kind == "kafka":
         return "kafka://" + str(values.get("bootstrap", "")).strip()
+    if kind == "airbyte":
+        config = values.get("config")
+        if isinstance(config, str):
+            try:
+                config = json.loads(config)
+            except ValueError:
+                raise ValueError("connector configuration must be JSON")
+        if not isinstance(config, dict):
+            raise ValueError("connector configuration must be a JSON object")
+        return json.dumps({"image": str(values.get("image", "")).strip(),
+                           "runtime": values.get("runtime") or "docker",
+                           "config": config}, sort_keys=True)
     if kind == "s3":
         query = ("endpoint=%s&access_key=%s&secret_key=%s&region=%s&mode=%s"
                  % (_q(values.get("endpoint", "")), _q(values["access_key"]),
@@ -405,6 +431,14 @@ def parse_dsn(kind, dsn):
     if kind == "kafka":
         return {"bootstrap": dsn[len("kafka://"):]
                 if dsn.startswith("kafka://") else dsn}
+    if kind == "airbyte":
+        try:
+            data = json.loads(dsn)
+        except ValueError:
+            return {"image": dsn, "runtime": "docker", "config": ""}
+        return {"image": data.get("image", ""),
+                "runtime": data.get("runtime") or "docker",
+                "config": data.get("config") or {}}
     if kind == "s3":
         parsed = urlparse(dsn)
         query = parse_qs(parsed.query)
@@ -488,6 +522,9 @@ def masked_config(kind, dsn):
         if item.get("secret") and values.get(item["key"]):
             values[item["key"]] = ""
             values["has_" + item["key"]] = True
+    if kind == "airbyte":
+        values["config"] = ""
+        values["has_config"] = True
     return values
 
 

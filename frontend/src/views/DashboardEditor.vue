@@ -104,7 +104,7 @@
                              @click="addFilter">{{ t("dedit.addCondition") }}</el-button>
                 </div>
               </el-form-item>
-              <el-form-item v-if="['line','bar','pie','table'].includes(selected.type)"
+              <el-form-item v-if="['line','bar','area','pie','map','table'].includes(selected.type)"
                             :label="t('dedit.clickLinkage')">
                 <div v-if="selected.emit" class="filter-row">
                   <el-select v-model="selected.emit.param" size="small"
@@ -131,7 +131,7 @@
                            @click="enableEmit">{{ t("dedit.enable") }}</el-button>
               </el-form-item>
             </template>
-            <template v-if="['card','line','bar','pie'].includes(selected.type)">
+            <template v-if="['card','line','bar','area','pie','map'].includes(selected.type)">
               <el-form-item :label="t('dedit.metric')">
                 <el-select v-model="selected.metric_id" filterable clearable
                            style="width: 100%" @change="loadMetric">
@@ -139,7 +139,7 @@
                              :label="m.name" />
                 </el-select>
               </el-form-item>
-              <el-form-item v-if="['line','bar','area','pie'].includes(selected.type)"
+              <el-form-item v-if="['line','bar','area','pie','map'].includes(selected.type)"
                             :label="t('dedit.dimension')">
                 <el-select v-model="selected.dimension" filterable
                            style="width: 100%" @change="syncEmit">
@@ -170,6 +170,23 @@
                              :label="c" />
                 </el-select>
               </el-form-item>
+              <template v-if="selected.type === 'map'">
+                <el-form-item :label="t('dedit.mapData')">
+                  <el-upload :auto-upload="false" :show-file-list="false"
+                             accept=".json,application/json"
+                             :on-change="loadGeo">
+                    <el-button size="small">{{ t("dedit.mapUpload") }}</el-button>
+                  </el-upload>
+                  <span class="map-hint">
+                    {{ selected.geo_json?.features?.length || 0 }}
+                    {{ t("dedit.mapFeatures") }}
+                  </span>
+                </el-form-item>
+                <el-form-item :label="t('dedit.mapNameProperty')">
+                  <el-input v-model="selected.name_property"
+                            placeholder="name" />
+                </el-form-item>
+              </template>
             </template>
             <template v-if="selected.type === 'table'">
               <el-form-item :label="t('dedit.dataset')">
@@ -290,6 +307,7 @@ const types = computed(() => [
   { type: "bar", label: t("dedit.typeBar") },
   { type: "area", label: t("dedit.typeArea") },
   { type: "pie", label: t("dedit.typePie") },
+  { type: "map", label: t("dedit.typeMap") },
   { type: "pivot", label: t("dedit.typePivot") },
   { type: "table", label: t("dedit.typeTable") },
   { type: "text", label: t("dedit.text") },
@@ -297,7 +315,8 @@ const types = computed(() => [
 
 const metricDims = computed(() => modelDims(metricContent.value));
 const isChart = computed(
-  () => ["line", "bar", "area", "pie"].includes(selected.value?.type));
+  () => ["line", "bar", "area", "pie", "map"].includes(
+    selected.value?.type));
 const filterColumns = computed(() => {
   const wid = selected.value?.id;
   return data.value?.[wid]?.columns || [];
@@ -354,9 +373,15 @@ function add(ty) {
     h: ty.type === "card" || ty.type === "text" ? 2 : 4,
     filters: [],
   };
-  if (["card", "line", "bar", "area", "pie"].includes(ty.type)) {
+  if (["card", "line", "bar", "area", "pie", "map"].includes(ty.type)) {
     widget.metric_id = metrics.value[0]?.id || null;
-    if (["line", "bar", "area", "pie"].includes(ty.type)) widget.dimension = "";
+    if (["line", "bar", "area", "pie", "map"].includes(ty.type)) {
+      widget.dimension = "";
+    }
+  }
+  if (ty.type === "map") {
+    widget.geo_json = null;
+    widget.name_property = "name";
   }
   if (ty.type === "pivot") {
     widget.metric_id = metrics.value[0]?.id || null;
@@ -391,6 +416,30 @@ function removeWidget() {
   delete data.value[id];
   selected.value = null;
   dirty.value = true;
+}
+
+function loadGeo(uploadFile) {
+  const file = uploadFile?.raw;
+  if (!file) return;
+  if (file.size > 1500000) {
+    ElMessage.error(t("dedit.mapTooLarge"));
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const geo = JSON.parse(String(reader.result || ""));
+      if (geo.type !== "FeatureCollection"
+          || !Array.isArray(geo.features) || !geo.features.length) {
+        throw new Error("invalid");
+      }
+      selected.value.geo_json = geo;
+      dirty.value = true;
+    } catch (e) {
+      ElMessage.error(t("dedit.mapInvalid"));
+    }
+  };
+  reader.readAsText(file);
 }
 
 async function loadMetric() {
@@ -605,4 +654,5 @@ h4 { margin: 0 0 12px; font-size: 13px; }
 .filter-list { width: 100%; }
 .filter-row { display: flex; gap: 3px; align-items: center;
               margin-bottom: 4px; flex-wrap: wrap; }
+.map-hint { margin-left: 8px; color: #6b7280; font-size: 12px; }
 </style>

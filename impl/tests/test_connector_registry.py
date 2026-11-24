@@ -12,7 +12,7 @@ def test_catalog_covers_every_console_type():
                      "mssql", "clickhouse", "trino", "file", "http", "es",
                      "duckdb", "tidb", "doris", "starrocks", "oceanbase",
                      "opengauss", "kingbase", "gaussdb", "mongodb",
-                     "kafka", "s3", "hive", "dm"}
+                     "kafka", "s3", "hive", "dm", "airbyte"}
     for row in rows["connectors"]:
         assert row["capabilities"]["test"] is True
         assert row["fields"]

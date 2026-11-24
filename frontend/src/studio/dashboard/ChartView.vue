@@ -6,13 +6,18 @@
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import * as echarts from "echarts";
 
-const props = defineProps({ option: { type: Object, required: true } });
+const props = defineProps({ option: { type: Object, required: true },
+                            geoJson: { type: Object, default: null },
+                            geoName: { type: String, default: '' } });
 const emit = defineEmits(["click"]);
 const host = ref(null);
 let chart = null;
 let observer = null;
 
 onMounted(() => {
+  if (props.geoJson && props.geoName) {
+    echarts.registerMap(props.geoName, props.geoJson);
+  }
   chart = echarts.init(host.value);
   chart.setOption(props.option);
   chart.on("click", (p) => emit("click", p));
@@ -21,6 +26,12 @@ onMounted(() => {
 });
 watch(() => props.option, (o) => chart && chart.setOption(o, true),
       { deep: true });
+watch(() => props.geoJson, (geo) => {
+  if (chart && geo && props.geoName) {
+    echarts.registerMap(props.geoName, geo);
+    chart.setOption(props.option, true);
+  }
+}, { deep: true });
 onBeforeUnmount(() => {
   if (observer) observer.disconnect();
   if (chart) chart.dispose();

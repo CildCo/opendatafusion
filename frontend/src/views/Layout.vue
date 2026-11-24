@@ -47,6 +47,10 @@
     <div class="workspace">
       <header class="topbar">
         <div class="identity">
+          <button class="mobile-menu" type="button"
+                  :aria-label="t('top.menu')" @click="mobileNav = true">
+            <el-icon><Menu /></el-icon>
+          </button>
           <span v-if="pageGroup" class="crumb-group">{{ pageGroup }} /</span>
           <h1>{{ pageTitle }}</h1>
           <div class="context">
@@ -114,6 +118,36 @@
       </main>
     </div>
   </div>
+  <el-drawer v-model="mobileNav" direction="ltr" size="82%"
+             :with-header="false" class="mobile-nav-drawer">
+    <div class="mobile-brand">
+      <span class="mark">OD</span>
+      <b>{{ portal.brand_name }}</b>
+    </div>
+    <nav class="mobile-nav">
+      <section v-for="group in menuGroups" :key="group.name">
+        <div class="nav-label">{{ t(group.key) }}</div>
+        <router-link v-for="m in group.items" :key="m.path" :to="m.path"
+                     class="mobile-nav-item"
+                     :class="{ active: activePath === m.path }"
+                     @click="mobileNav = false">
+          <el-icon><component :is="m.icon" /></el-icon>
+          <span>{{ t(m.key) }}</span>
+        </router-link>
+      </section>
+    </nav>
+    <div class="mobile-foot">
+      <router-link v-if="role === 'admin' && !platformAdmin" to="/members"
+                   @click="mobileNav = false">
+        {{ t("members.title") }}
+      </router-link>
+      <router-link v-if="platformAdmin" to="/admin/overview"
+                   @click="mobileNav = false">
+        {{ t("admin.console") }}
+      </router-link>
+      <span>v{{ appVersion }}</span>
+    </div>
+  </el-drawer>
   <el-drawer v-model="notifOpen" :title="t('notif.title')" size="420px"
              @open="loadNotifications">
     <div class="notif-actions">
@@ -140,7 +174,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onErrorCaptured, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { Bell, Search, Setting, User } from "@element-plus/icons-vue";
+import { Bell, Menu, Search, Setting, User } from "@element-plus/icons-vue";
 import { MENU_GROUPS, MENU_ITEMS } from "../menu";
 import { ElMessage } from "element-plus";
 import { api, clearSession, getPlatformAdmin, getProject, getRole,
@@ -153,6 +187,7 @@ const route = useRoute();
 const router = useRouter();
 const paletteOpen = ref(false);
 const notifOpen = ref(false);
+const mobileNav = ref(false);
 const notifications = ref([]);
 const unread = ref(0);
 const renderError = ref(false);
@@ -775,18 +810,28 @@ onBeforeUnmount(() => {
   }
 }
 
+.mobile-menu { display: none; }
+
 @media (max-width: 900px) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .rail {
-    width: 100%;
-    min-width: 0;
-    overflow: hidden;
-    border-right: 0;
-    border-bottom: 1px solid var(--odf-rule);
+    display: none;
+  }
+
+  .mobile-menu {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin-right: 6px;
+    border: 1px solid var(--odf-rule);
+    background: #fff;
+    color: var(--odf-ink);
   }
 
   .brand {
@@ -844,9 +889,17 @@ onBeforeUnmount(() => {
     padding: 0 14px;
   }
 
+  .identity { min-width: 0; }
   .identity h1 {
     font-size: 17px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
+  .top-actions { gap: 4px; }
+  .search-kbd { display: none; }
+  .topbar { padding: 0 10px; }
+  .content { padding-bottom: 20px; }
 
   .user-copy,
   .online {
@@ -857,6 +910,37 @@ onBeforeUnmount(() => {
     width: 108px;
   }
 }
+
+@media (max-width: 640px) {
+  .project-switch { display: none; }
+  .top-actions { gap: 2px; }
+  .identity h1 { font-size: 15px; }
+}
+.mobile-nav-drawer :deep(.el-drawer__body) { padding: 0; }
+.mobile-brand {
+  display: flex; align-items: center; gap: 10px; height: 56px;
+  padding: 0 16px; border-bottom: 1px solid var(--odf-rule);
+}
+.mobile-brand .mark {
+  width: 30px; height: 30px; display: grid; place-items: center;
+  background: var(--odf-ink); color: #fff; font-size: 11px;
+}
+.mobile-nav { padding: 10px 0 16px; }
+.mobile-nav section { margin-bottom: 8px; }
+.mobile-nav-item {
+  display: flex; align-items: center; gap: 10px; height: 40px;
+  padding: 0 18px; color: #374151; text-decoration: none;
+  font-size: 14px;
+}
+.mobile-nav-item.active { background: var(--odf-accent-soft);
+                           color: var(--odf-primary); }
+.mobile-foot {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 18px; border-top: 1px solid var(--odf-rule);
+  font-size: 13px;
+}
+.mobile-foot a { color: var(--odf-primary); text-decoration: none; }
+.mobile-foot span { color: #6b7280; font-size: 11px; }
 .notif-actions { display: flex; justify-content: flex-end; margin-bottom: 8px; }
 .notif-list { display: flex; flex-direction: column; gap: 6px; }
 .notif-item {

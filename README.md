@@ -94,19 +94,19 @@ Chinese from the header switch.
 
 | Area | What you get |
 | --- | --- |
-| **Data sources** | 24 connectors through one registry: PostgreSQL, MySQL/MariaDB, SQLite, Oracle, SQL Server, TiDB, Apache Doris, StarRocks, OceanBase, openGauss, KingbaseES, GaussDB, Dameng DM, ClickHouse, Trino, DuckDB, Hive/Spark Thrift, S3/MinIO, CSV/TSV/Parquet/JSON/Excel, HTTP, Elasticsearch, MongoDB and Kafka. Typed connection forms, capability scopes, pre-save tests, encrypted DSNs, metadata sync and schema-drift alerts. |
+| **Data sources** | 25 connectors through one registry: PostgreSQL, MySQL/MariaDB, SQLite, Oracle, SQL Server, TiDB, Apache Doris, StarRocks, OceanBase, openGauss, KingbaseES, GaussDB, Dameng DM, ClickHouse, Trino, DuckDB, Hive/Spark Thrift, S3/MinIO, CSV/TSV/Parquet/JSON/Excel, HTTP, Elasticsearch, MongoDB, Kafka and Airbyte-protocol sources. Typed connection forms, capability scopes, pre-save tests, encrypted DSNs, metadata sync and schema-drift alerts. |
 | **Pipeline Studio** | Visual DAGs with source, filter, select, rename, cast, join, aggregate, union, dedupe, quality and sink nodes; schema validation; per-node error policy; preview; versioned publish; cron; cursor inspection/reset; bounded backfill. |
-| **API Studio** | Visual single-table queries or guarded SQL; typed parameters; preview/test; approval-gated publish and rollback; generated docs; AK/SK-signed execution at `/openapi/{key}`. |
+| **API Studio** | Visual single-table queries or guarded SQL; typed parameters; preview/test; approval-gated publish and rollback; generated docs; AK/SK-signed execution at `/openapi/{key}`; a GraphQL gateway with schema introspection at `/openapi/graphql`. |
 | **Model Studio** | Dataset and metric assets over curated tables; SQL datasets; expression metrics; time grains and period comparison; schema; preview; approval publishing; AI read tools. |
-| **Dashboard Studio** | 12-column dashboard assets with cards, charts, tables and text; filters and parameter binding; drill-through to underlying rows; scheduled CSV reports; drag/resize editor; versioned publish; read-only runtime, expiring share links and embed snippets. |
+| **Dashboard Studio** | 12-column dashboard assets with cards, charts, tables and text; filters and parameter binding; drill-through to underlying rows; GeoJSON map widgets; scheduled CSV reports; drag/resize editor; versioned publish; read-only runtime, expiring share links and embed snippets. |
 | **App Studio** | Multi-page internal apps with parameters, metric cards, tables, row-detail drawers and audited insert/update/delete forms over published datasets. |
 | **Lakehouse** | Trino data sources over Apache Iceberg, with metadata sync, table maintenance (small-file compaction, snapshot expiry) and Iceberg catalogs registered as first-class data sources. |
 | **Compute engines** | Spark applications through the Spark Operator and Flink SQL through the SQL Gateway: submit, inspect, cancel, savepoint, and a lakehouse profile the platform applies by default. |
 | **Change data capture** | Debezium connectors for PostgreSQL, MySQL and Oracle created, paused, resumed and monitored from the platform; change events land in Kafka for Flink or Spark to consume. |
-| **Catalog & lineage** | Table and column search, tags, column-level lineage, downstream impact analysis and health events. |
+| **Catalog & lineage** | Table and column search, tags, column-level lineage, downstream impact analysis, OpenLineage events and a JSON catalog export that can be pushed to an external catalog. |
 | **Governance** | Column classification and masking, row policies, data standards, freshness/regex/enum/schema quality rules and audit-backed policy changes. |
 | **Operations** | Ops center, queue summary, job retry, alert acknowledgement, dependency-aware scheduling, Prometheus metrics, request IDs, JSON logs, backup/restore and HA guidance. |
-| **Administration** | A separate platform console for users and platform roles, projects and quotas, sign-in policy, OIDC/LDAP, branding and announcements, feature flags, engine and CDC defaults, backups and platform audit. |
+| **Administration** | A separate platform console for users and platform roles, projects and quotas, sign-in policy, OIDC/LDAP, branding and announcements, feature flags, engine, CDC, Airbyte and lineage settings, backups and platform audit. |
 | **Open API & MCP** | Management API, signed public gateway, streamable HTTP MCP server, stdio MCP entry point and approval-token-protected write tools. |
 
 ## Architecture
@@ -194,6 +194,8 @@ development, see [frontend/README.md](frontend/README.md).
 | [Testing](docs/TESTING.md) | Unit, integration, browser and full-matrix tests |
 | [Environments](docs/ENVIRONMENTS.md) | Environment labels, asset bundles and promotion |
 | [Connector SDK](docs/CONNECTOR_SDK.md) | Register an external connector package |
+| [Airbyte](docs/AIRBYTE.md) | Run Airbyte-protocol sources as pipeline inputs |
+| [Lineage and catalog export](docs/LINEAGE.md) | OpenLineage events and external catalog sync |
 | [User guide](docs/USER_GUIDE.md) | Every console page and action (also in [Chinese](docs/USER_GUIDE.zh-CN.md)) |
 
 ## Development

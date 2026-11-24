@@ -5,6 +5,7 @@
                 :prefix-icon="Search" />
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("cat.refresh") }}</el-button>
+      <el-button @click="exportCatalog">{{ t("cat.export") }}</el-button>
     </div>
 
     <div class="layout">
@@ -149,6 +150,14 @@ function openDataset(datasetId) {
 function filterNode(value, data) {
   if (!value) return true;
   return data.label.toLowerCase().includes(value.toLowerCase());
+}
+
+async function exportCatalog() {
+  try {
+    await api.download("/catalog/export", "odf-catalog.json");
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
 }
 
 async function load() {
