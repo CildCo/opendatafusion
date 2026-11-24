@@ -15,6 +15,7 @@
       <el-button size="small" @click="versionsOpen = true">{{ t("dedit.versions") }}</el-button>
       <el-button size="small" @click="lineageOpen = true">{{ t("lin.button") }}</el-button>
       <el-button size="small" @click="governanceOpen = true">{{ t("gov.button") }}</el-button>
+      <el-button size="small" @click="reportOpen = true">{{ t("report.button") }}</el-button>
       <el-button size="small" :disabled="!published"
                  @click="$router.push(`/dashboards/${id}/run`)">
         {{ t("dedit.run") }}
@@ -59,8 +60,9 @@
                        :columns="content.columns"
                        :row-height="content.row_height"
                        :selected-id="selected?.id || ''"
+                       drillable
                        @select="selectWidget" @change="dirty = true"
-                       @filter="onFilter" />
+                       @filter="onFilter" @drill="onDrill" />
       </main>
 
       <aside class="config">
@@ -181,7 +183,7 @@
               <el-form-item :label="t('dedit.metric')">
                 <el-select v-model="selected.metric_id" filterable clearable
                            style="width: 100%"
-                           @change="selected.dataset_id = null">
+                           @change="chooseTableMetric">
                   <el-option v-for="m in metrics" :key="m.id" :value="m.id"
                              :label="m.name" />
                 </el-select>
@@ -189,6 +191,14 @@
               <el-form-item :label="t('dedit.rowCount')">
                 <el-input-number v-model="selected.limit" :min="1"
                                  :max="10000" />
+              </el-form-item>
+              <el-form-item v-if="selected.metric_id"
+                            :label="t('dedit.drillDimension')">
+                <el-select v-model="selected.drill_dimension" clearable
+                           filterable style="width: 100%">
+                  <el-option v-for="d in metricDims" :key="d" :value="d"
+                             :label="d" />
+                </el-select>
               </el-form-item>
             </template>
             <el-form-item v-if="selected.type === 'text'" :label="t('dedit.text')">
@@ -226,6 +236,11 @@
     </el-drawer>
     <lineage-drawer v-model="lineageOpen" :asset-id="id" />
     <governance-drawer v-model="governanceOpen" :asset-id="id" />
+    <drill-drawer v-model="drillOpen" :asset-id="id" :widget="drill.widget"
+                  :dimension="drill.dimension" :value="drill.value"
+                  :params="paramValues" />
+    <report-drawer v-model="reportOpen" :asset-id="id"
+                   :published="published" />
   </div>
 </template>
 
@@ -237,6 +252,8 @@ import { api, errMsg } from "../api";
 import { t } from "../i18n";
 import DashboardGrid from "../studio/dashboard/DashboardGrid.vue";
 import DashboardFilters from "../studio/dashboard/DashboardFilters.vue";
+import DrillDrawer from "../studio/dashboard/DrillDrawer.vue";
+import ReportDrawer from "../studio/dashboard/ReportDrawer.vue";
 import ShareDialog from "../studio/share/ShareDialog.vue";
 import LineageDrawer from "../components/LineageDrawer.vue";
 import GovernanceDrawer from "../components/GovernanceDrawer.vue";
@@ -262,6 +279,9 @@ const versions = ref([]);
 const versionsOpen = ref(false);
 const lineageOpen = ref(false);
 const governanceOpen = ref(false);
+const drillOpen = ref(false);
+const drill = ref({ widget: null, dimension: null, value: null });
+const reportOpen = ref(false);
 const draftVersion = ref(null);
 const dirty = ref(false);
 const types = computed(() => [
@@ -275,8 +295,7 @@ const types = computed(() => [
   { type: "text", label: t("dedit.text") },
 ]);
 
-const metricDims = computed(
-  () => metricContent.value?.dimensions || []);
+const metricDims = computed(() => modelDims(metricContent.value));
 const isChart = computed(
   () => ["line", "bar", "area", "pie"].includes(selected.value?.type));
 const filterColumns = computed(() => {
@@ -287,8 +306,16 @@ const valueOptions = computed(() => {
   const m = metricContent.value;
   if (!m) return [];
   const alias = (m.measure || {}).as || "value";
-  return [...new Set([...(m.dimensions || []), alias])];
+  return [...new Set([...modelDims(m), alias])];
 });
+
+function modelDims(content) {
+  if (!content) return [];
+  const dims = [...(content.dimensions || [])];
+  const column = content.time?.column;
+  if (column && !dims.includes(column)) dims.push(column);
+  return dims;
+}
 
 async function load() {
   const a = await api.get(`/dashboards/${id}`);
@@ -352,6 +379,11 @@ function selectWidget(w) {
   loadMetric();
 }
 
+function chooseTableMetric() {
+  if (selected.value) selected.value.dataset_id = null;
+  loadMetric();
+}
+
 function removeWidget() {
   if (!selected.value) return;
   const id = selected.value.id;
@@ -365,14 +397,13 @@ async function loadMetric() {
   metricContent.value = null;
   const mid = selected.value?.metric_id;
   const wid = selected.value?.id;
-  if (!mid) return;
-  try {
+  if (!mid) return;  try {
     const m = await api.get(`/metrics/${mid}`);
     if (!selected.value || selected.value.id !== wid
         || selected.value.metric_id !== mid) return;
     const content = m.published || m.draft;
     metricContent.value = content;
-    const dims = content?.dimensions || [];
+    const dims = modelDims(content);
     const alias = (content?.measure || {}).as || "value";
     const cols = [...dims, alias];
     if (!selected.value.value_column
@@ -418,6 +449,11 @@ function onFilter({ param, value }) {
   if (!param) return;
   paramValues.value = { ...paramValues.value, [param]: value };
   refresh();
+}
+
+function onDrill(context) {
+  drill.value = context;
+  drillOpen.value = true;
 }
 
 function addParam() {

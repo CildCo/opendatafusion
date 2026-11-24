@@ -12,7 +12,7 @@ from odf.services.crypto import decrypt_secret, encrypt_secret
 from odf.settings import get_settings
 
 EVENTS = {"asset.published", "asset.rolled_back", "job.failed",
-          "alert.raised", "app.submitted", "webhook.test"}
+          "alert.raised", "app.submitted", "report.ready", "webhook.test"}
 MAX_ATTEMPTS = 5
 
 

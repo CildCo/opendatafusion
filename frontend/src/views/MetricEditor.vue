@@ -62,6 +62,26 @@
               <el-option v-for="c in columns" :key="c" :value="c" :label="c" />
             </el-select>
           </el-form-item>
+          <el-form-item :label="t('med.timeColumn')">
+            <el-select :model-value="content.time?.column || ''" clearable
+                       filterable style="width: 100%"
+                       @change="setTimeColumn">
+              <el-option v-for="c in columns" :key="c" :value="c" :label="c" />
+            </el-select>
+          </el-form-item>
+          <el-form-item v-if="content.time?.column" :label="t('med.timeGrain')">
+            <el-select v-model="content.time.grain" style="width: 100%">
+              <el-option v-for="g in grains" :key="g.value" :value="g.value"
+                         :label="g.label" />
+            </el-select>
+          </el-form-item>
+          <el-form-item :label="t('med.compare')">
+            <el-select v-model="content.compare" :disabled="!content.time?.column"
+                       style="width: 100%">
+              <el-option v-for="c in compareModes" :key="c.value"
+                         :value="c.value" :label="c.label" />
+            </el-select>
+          </el-form-item>
         </el-form>
 
         <h4>{{ t("med.filters") }}</h4>
@@ -161,12 +181,23 @@ const versionsOpen = ref(false);
 const lineageOpen = ref(false);
 const governanceOpen = ref(false);
 const aggs = ["sum", "count", "avg", "min", "max", "count_distinct"];
+const grains = computed(() => [
+  { value: "day", label: t("med.grainDay") },
+  { value: "week", label: t("med.grainWeek") },
+  { value: "month", label: t("med.grainMonth") },
+  { value: "quarter", label: t("med.grainQuarter") },
+  { value: "year", label: t("med.grainYear") },
+]);
+const compareModes = computed(() => [
+  { value: "none", label: t("med.compareNone") },
+  { value: "previous", label: t("med.comparePrevious") },
+  { value: "year", label: t("med.compareYear") },
+]);
 const measureMode = ref("agg");
 const content = ref({
   dataset_id: null,
   measure: { agg: "sum", column: "", as: "value" },
-  dimensions: [],
-  filters: [],
+  dimensions: [], filters: [], time: null, compare: "none",
   format: { type: "number", unit: "", decimals: 2 },
 });
 const publishedDatasets = computed(
@@ -187,6 +218,20 @@ function setMeasureMode(mode) {
   }
 }
 
+function setTimeColumn(column) {
+  if (!column) {
+    content.value.time = null;
+    content.value.compare = "none";
+  } else {
+    content.value.time = {
+      column,
+      grain: content.value.time?.grain || "month",
+    };
+    content.value.dimensions = (content.value.dimensions || [])
+      .filter((d) => d !== column);
+  }
+}
+
 async function load() {
   const a = await api.get(`/metrics/${id}`);
   name.value = a.name;
@@ -199,6 +244,8 @@ async function load() {
                ...(draft.measure || {}) },
     dimensions: draft.dimensions || [],
     filters: draft.filters || [],
+    time: draft.time || null,
+    compare: draft.compare || "none",
     format: { type: "number", unit: "", decimals: 2,
               ...(draft.format || {}) },
   };
@@ -265,7 +312,7 @@ async function preview() {
   querying.value = true;
   try {
     const r = await api.post(`/metrics/${id}/query`, {
-      limit: 100, content: content.value,
+      limit: 100, content: content.value, compare: content.value.compare,
     });
     rows.value = r.rows || [];
     resultColumns.value = r.columns || [];

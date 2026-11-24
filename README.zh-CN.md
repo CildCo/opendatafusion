@@ -79,8 +79,8 @@ OpenDataFusion 是一个开源自托管的数据平台，把通常分散在数�
 | **数据源** | 通过统一注册表接入 24 种数据源：PostgreSQL、MySQL/MariaDB、SQLite、Oracle、SQL Server、TiDB、Apache Doris、StarRocks、OceanBase、openGauss、KingbaseES、GaussDB、达梦 DM、ClickHouse、Trino、DuckDB、Hive/Spark Thrift、S3/MinIO、CSV/TSV/Parquet/JSON/Excel、HTTP、Elasticsearch、MongoDB 和 Kafka。按类型生成表单、能力范围、新建前测试、DSN 加密、元数据同步和 schema drift 告警。 |
 | **管道 Studio** | 可视化 DAG：source、filter、select、rename、cast、join、aggregate、union、dedupe、quality、sink；schema 校验、节点级错误策略、预览、版本化发布、cron、游标查看/重置、有界回填。 |
 | **接口 Studio** | 可视化单表查询或受控 SQL；类型化参数；预览/测试；审批发布与回滚；生成文档；AK/SK 签名调用 `/openapi/{key}`。 |
-| **模型 Studio** | 数据集和指标资产；schema、预览、审批发布；面向 AI 的读取工具。 |
-| **看板 Studio** | 12 列栅格看板，卡片、折线/柱状/饼图、表格和文本；参数与 widget 过滤器；拖拽调整；版本化发布；只读运行页和限时分享链接。 |
+| **模型 Studio** | 数据集和指标资产；SQL 数据集、表达式指标、时间粒度与同环比；schema、预览、审批发布；面向 AI 的读取工具。 |
+| **看板 Studio** | 12 列栅格看板，卡片、折线/柱状/饼图、表格和文本；参数与 widget 过滤器；明细下钻；定时 CSV 报表；拖拽调整；版本化发布；只读运行页、限时分享链接和嵌入代码。 |
 | **应用 Studio** | 多页内部应用，支持参数、指标卡、表格、行详情抽屉，以及基于已发布数据集的带审计新增/修改/删除表单。 |
 | **湖仓** | 基于 Apache Iceberg 的 Trino 数据源，支持元数据同步、表维护（小文件合并、快照过期），Iceberg 目录作为一等数据源注册。 |
 | **计算引擎** | 通过 Spark Operator 提交 Spark 应用，通过 SQL Gateway 执行 Flink SQL：提交、查看、取消、savepoint，并默认应用湖仓执行配置。 |

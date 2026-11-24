@@ -12,7 +12,13 @@
         <div class="text">{{ data?.text || widget.text }}</div>
       </template>
       <template v-else-if="widget.type === 'card'">
-        <div class="value">{{ cardValue }}</div>
+        <div class="value" @click.stop="onCardClick">
+          {{ cardValue }}
+          <span v-if="cardDelta !== null" class="delta"
+                :class="{ down: cardDelta < 0 }">
+            {{ cardDelta > 0 ? "+" : "" }}{{ cardDelta }}%
+          </span>
+        </div>
       </template>
       <template v-else-if="widget.type === 'table'">
         <el-table :data="data?.rows || []" size="small" height="100%"
@@ -37,14 +43,17 @@
 <script setup>
 import { computed } from "vue";
 import ChartView from "./ChartView.vue";
+import { t } from "../../i18n";
 
 const props = defineProps({
   widget: { type: Object, required: true },
   data: { type: Object, default: null },
   selected: Boolean,
   readonly: Boolean,
+  drillable: Boolean,
 });
-const emit = defineEmits(["select", "drag-start", "resize-start", "filter"]);
+const emit = defineEmits(["select", "drag-start", "resize-start", "filter",
+                          "drill"]);
 
 function emitFilter(value) {
   const e = props.widget.emit;
@@ -54,9 +63,24 @@ function emitFilter(value) {
 function onRowClick(row) {
   const e = props.widget.emit;
   if (e) emitFilter(row[e.from]);
+  if (!props.drillable || !props.widget.metric_id) return;
+  const dimension = props.widget.drill_dimension || e?.from || null;
+  if (!dimension) return;
+  emit("drill", { widget: props.widget, dimension,
+                  value: row[dimension] });
 }
 function onChartClick(p) {
   emitFilter(p?.name);
+  if (!props.drillable || !props.widget.metric_id
+      || !props.widget.dimension) return;
+  if (p?.seriesName === t("dash.previous")) return;
+  emit("drill", { widget: props.widget, dimension: props.widget.dimension,
+                  value: p?.name });
+}
+
+function onCardClick() {
+  if (!props.drillable || !props.widget.metric_id) return;
+  emit("drill", { widget: props.widget, dimension: null, value: null });
 }
 
 const cardValue = computed(() => {
@@ -64,6 +88,14 @@ const cardValue = computed(() => {
   const cols = props.data?.columns || [];
   const col = props.widget.value_column || cols[cols.length - 1] || "value";
   return row[col] ?? "-";
+});
+
+const cardDelta = computed(() => {
+  const row = (props.data?.rows || [])[0] || {};
+  const cols = props.data?.columns || [];
+  const col = props.widget.value_column || cols[cols.length - 1] || "value";
+  const value = row[`${col}_delta_pct`];
+  return typeof value === "number" ? value : null;
 });
 
 const pivot = computed(() => {
@@ -111,16 +143,33 @@ const chartOption = computed(() => {
     };
   }
   const series = {
+    name: t("dash.current"),
     type: props.widget.type === "area" ? "line" : props.widget.type,
     data: values, smooth: true,
   };
   if (props.widget.type === "area") series.areaStyle = {};
+  const previousKey = `${val}_previous`;
+  const hasPrevious = rows.some(
+    (r) => r[previousKey] !== null && r[previousKey] !== undefined);
+  const allSeries = [series];
+  if (hasPrevious) {
+    allSeries.push({
+      name: t("dash.previous"),
+      type: props.widget.type === "area" ? "line" : props.widget.type,
+      data: rows.map((r) => r[previousKey]),
+      smooth: true,
+      lineStyle: { type: "dashed" },
+      itemStyle: { opacity: 0.7 },
+      areaStyle: props.widget.type === "area" ? { opacity: 0.15 } : undefined,
+    });
+  }
   return {
     tooltip: { trigger: "axis" },
-    grid: { left: 40, right: 16, top: 24, bottom: 28 },
+    legend: hasPrevious ? {} : undefined,
+    grid: { left: 40, right: 16, top: hasPrevious ? 44 : 24, bottom: 28 },
     xAxis: { type: "category", data: labels },
     yAxis: { type: "value" },
-    series: [series],
+    series: allSeries,
   };
 });
 </script>
@@ -136,6 +185,8 @@ const chartOption = computed(() => {
 .type { color: #6b7280; font-weight: 400; font-size: 11px; }
 .body { flex: 1; min-height: 0; overflow: hidden; padding: 6px; }
 .value { font-size: 32px; font-weight: 700; padding: 12px; color: #0f172a; }
+.delta { font-size: 13px; font-weight: 600; margin-left: 8px; color: #15803d; }
+.delta.down { color: #b91c1c; }
 .text { padding: 10px; font-size: 13px; color: #334155; white-space: pre-wrap; }
 .resize { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px;
           cursor: nwse-resize; touch-action: none;

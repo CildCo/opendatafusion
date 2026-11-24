@@ -3,7 +3,8 @@ from odf.apistudio.compiler import OPS
 from odf.apistudio.params import (ParamError, coerce_params,
                                   validate_param_defs)
 from odf.modelstudio.content import (dataset_output_columns,
-                                     validate_dataset, validate_metric)
+                                     metric_dimensions, validate_dataset,
+                                     validate_metric)
 from odf.models import Asset, AssetVersion, Datasource
 
 TYPES = {"card", "line", "bar", "area", "pie", "table", "text", "pivot"}
@@ -36,7 +37,7 @@ def _published(session, asset_id, type_, project_id):
 
 
 def _metric_columns(content):
-    dims = content.get("dimensions") or []
+    dims = metric_dimensions(content)
     measure = content.get("measure") or {}
     return list(dims) + [measure.get("as") or "value"]
 
@@ -205,7 +206,7 @@ def validate_widget(session, content, w, project_id):
     filter_cols = dataset_output_columns(ds_content) if ds_content else cols
     errs.extend(_filter_errors(w, filter_cols, param_names))
     if typ == "pivot":
-        dims = metric_content.get("dimensions") or []
+        dims = metric_dimensions(metric_content)
         row_dim = w.get("row_dimension")
         col_dim = w.get("column_dimension")
         if row_dim not in dims or col_dim not in dims:
@@ -227,7 +228,7 @@ def validate_widget(session, content, w, project_id):
         errs.append(_err("widget.value_column", "column not in metric output"))
     if typ in CHART_TYPES:
         dim = w.get("dimension")
-        if not dim or dim not in (metric_content.get("dimensions") or []):
+        if not dim or dim not in metric_dimensions(metric_content):
             errs.append(_err("widget.dimension",
                              "dimension must be a metric dimension"))
         errs.extend(_emit_errors(w, cols, param_names, dimension=dim))

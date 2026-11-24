@@ -4,6 +4,32 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.9.0] - 2026-11-24
+
+### Added
+
+- Time grains on metrics: day, week, month, quarter and year buckets for
+  PostgreSQL-compatible, MySQL-compatible, SQLite, Oracle/DM, SQL Server,
+  ClickHouse, Trino/DuckDB and Hive engines.
+- Period comparison on metrics: previous period or the same period last year,
+  with `<measure>_previous`, `_delta` and `_delta_pct` columns. Date filters
+  move with the comparison window, and dashboards draw a dashed comparison
+  series while cards show the change.
+- Drill-through from dashboard charts, metric cards and metric tables to the
+  underlying dataset rows, respecting metric and widget filters, row policies
+  and column masking, with CSV export from the detail drawer.
+- Scheduled dashboard reports with a six-field cron, CSV snapshots stored as
+  project files, a notification, a `report.ready` webhook event, run history,
+  run-now and download from the console.
+- An embed snippet in share dialogs for read-only dashboards and apps.
+
+### Changed
+
+- Dashboard and app validation treat a metric's time column as a dimension, so
+  time-grain metrics work in charts, pivots, tables and apps without listing
+  the column twice.
+- Dashboard CSV export and scheduled reports share one renderer.
+
 ## [1.8.1] - 2026-11-24
 
 ### Fixed

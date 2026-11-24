@@ -2,6 +2,9 @@ import re
 
 from odf.apistudio.compiler import AGGREGATES, OPS
 from odf.apistudio.content import validate_content
+from odf.modelstudio.timegrain import (COMPARE_MODES, GRAINS,
+                                       TimeGrainError, supports_time_grain,
+                                       timegrain_message)
 from odf.models import Asset, AssetVersion
 
 _ALIAS = re.compile(r"^\w+$", re.UNICODE)
@@ -71,8 +74,19 @@ def empty_dataset():
 def empty_metric():
     return {"dataset_id": None,
             "measure": {"agg": "sum", "column": "", "as": "value"},
-            "dimensions": [], "filters": [],
+            "dimensions": [], "filters": [], "time": None,
+            "compare": "none",
             "format": {"type": "number", "unit": "", "decimals": 2}}
+
+
+def metric_dimensions(content):
+    dims = [d for d in content.get("dimensions") or []
+            if isinstance(d, str)]
+    time = content.get("time")
+    column = time.get("column") if isinstance(time, dict) else None
+    if isinstance(column, str) and column not in dims:
+        dims.append(column)
+    return dims
 
 
 def _err(field, message):
@@ -172,6 +186,9 @@ def validate_metric(session, content, project_id):
     if ds_errs:
         return [_err("dataset_id", "dataset is invalid")]
     names = dataset_output_columns(ds_content)
+    from odf.models import Datasource
+    query = ds_content.get("query") or {}
+    datasource = session.get(Datasource, query.get("datasource_id"))
     errs = []
     measure = content.get("measure")
     if not isinstance(measure, dict):
@@ -184,11 +201,8 @@ def validate_metric(session, content, project_id):
             compile_expression(expr, names)
         except ExpressionError as exc:
             errs.append(_err("measure.expr", expression_message(exc)))
-        ds_id = (ds_content.get("query") or {}).get("datasource_id")
-        from odf.models import Datasource
         from odf.services.masking import datasource_has_policies
-        ds = session.get(Datasource, ds_id) if ds_id else None
-        if ds and datasource_has_policies(session, ds.id):
+        if datasource and datasource_has_policies(session, datasource.id):
             errs.append(_err(
                 "measure.expr",
                 "expression metrics are disabled for governed datasources"))
@@ -215,6 +229,37 @@ def validate_metric(session, content, project_id):
                              "column not in dataset output: %s" % d))
     if alias in dims:
         errs.append(_err("measure.as", "alias conflicts with a dimension"))
+    time = content.get("time")
+    time_ok = False
+    if time is not None:
+        if not isinstance(time, dict):
+            errs.append(_err("time", "time must be an object or null"))
+        else:
+            time_col = time.get("column")
+            grain = time.get("grain")
+            if time_col not in names:
+                errs.append(_err("time.column", timegrain_message(
+                    TimeGrainError("column"))))
+            if not isinstance(grain, str) or grain not in GRAINS:
+                errs.append(_err("time.grain", timegrain_message(
+                    TimeGrainError("grain"))))
+            elif datasource and not supports_time_grain(datasource.kind):
+                errs.append(_err("time.grain", timegrain_message(
+                    TimeGrainError("dialect"))))
+            if time_col in dims:
+                errs.append(_err("time.column", timegrain_message(
+                    TimeGrainError("dimension"))))
+            if time_col == alias:
+                errs.append(_err("measure.as",
+                                 "alias conflicts with the time column"))
+            time_ok = time_col in names and grain in GRAINS
+    compare = content.get("compare") or "none"
+    if compare not in COMPARE_MODES:
+        errs.append(_err("compare", timegrain_message(
+            TimeGrainError("compare"))))
+    elif compare != "none" and not time_ok:
+        errs.append(_err("compare", timegrain_message(
+            TimeGrainError("requires_time"))))
     filters = content.get("filters") or []
     if not isinstance(filters, list):
         return [_err("filters", "filters must be an array")]

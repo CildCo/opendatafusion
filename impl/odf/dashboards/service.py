@@ -1,12 +1,24 @@
 import hashlib
 import json
+import time
 
+from odf.apistudio.catalog import table_columns
+from odf.apistudio.compiler import OPS, compile_visual, quote_ident, render_sql
 from odf.apistudio.params import ParamError, coerce_params
+from odf.apistudio.sqlguard import ensure_read_only
 from odf.assets.service import get_asset
 from odf.dashboards.content import (structural_errors, validate_widget)
 from odf.modelstudio import cache
+from odf.modelstudio.content import (_published_dataset,
+                                     dataset_output_columns,
+                                     metric_dimensions)
 from odf.modelstudio.service import preview_dataset, query_metric
-from odf.models import AssetVersion
+from odf.modelstudio.timegrain import next_bucket
+from odf.models import AssetVersion, Datasource
+from odf.services.masking import apply_masks
+from odf.services.policies import filters_for
+from odf.services.query import execute_query
+from odf.services.sqldialect import limited
 from odf.settings import get_settings
 
 
@@ -100,3 +112,122 @@ def dashboard_data(session, asset_id, params=None, content=None, limit=100,
             w.get("error") for w in widgets.values()):
         cache.put(key, result, ttl, int(s.dashboard_cache_size or 128))
     return result
+
+
+def _dataset_base(session, ds_content, project_id):
+    query = ds_content.get("query") or {}
+    datasource = session.get(Datasource, query.get("datasource_id")) \
+        if query.get("datasource_id") else None
+    if not datasource or datasource.project_id != project_id:
+        raise ValueError("dataset datasource not found")
+    if ds_content.get("mode") == "sql":
+        sql, binds = render_sql(ds_content.get("sql") or "", [], {})
+        ensure_read_only(sql)
+    else:
+        columns = table_columns(session, datasource, query["table"])
+        sql, binds = compile_visual(query, columns, {}, limit_override=0)
+    return sql.strip().rstrip(";"), binds, datasource
+
+
+def _filter_sql(filters, binds):
+    where = []
+    for index, item in enumerate(filters):
+        column = quote_ident(item["column"])
+        op = item.get("op")
+        if op in ("is null", "is not null"):
+            where.append("%s %s" % (column, op.upper()))
+            continue
+        if op not in OPS:
+            raise ValueError("unsupported filter operator")
+        if op == "in":
+            values = item.get("value")
+            values = values if isinstance(values, list) else [values]
+            if not values:
+                raise ValueError("in requires at least one value")
+            keys = []
+            for position, value in enumerate(values):
+                key = "drill_%d_%d" % (index, position)
+                binds[key] = value
+                keys.append(":" + key)
+            where.append("%s IN (%s)" % (column, ", ".join(keys)))
+            continue
+        key = "drill_%d" % index
+        binds[key] = item.get("value")
+        where.append("%s %s :%s" % (column, op, key))
+    return where
+
+
+def dashboard_drill(session, asset_id, widget_id, dimension=None, value=None,
+                    params=None, limit=100, role=None):
+    a = get_asset(session, asset_id)
+    if not a or a.type != "dashboard":
+        raise ValueError("dashboard not found")
+    version_id = a.draft_version_id or a.published_version_id
+    version = session.get(AssetVersion, version_id) if version_id else None
+    if not version:
+        raise ValueError("content not found")
+    content = version.content_json
+    errs = structural_errors(content)
+    if errs:
+        raise ValueError("invalid dashboard")
+    widget = next((w for w in content.get("widgets") or []
+                   if isinstance(w, dict) and w.get("id") == widget_id), None)
+    if not widget:
+        raise ValueError("widget not found")
+    errs = validate_widget(session, content, widget, a.project_id)
+    if errs:
+        raise ValueError("; ".join(e["message"] for e in errs))
+    metric_id = widget.get("metric_id")
+    if not isinstance(metric_id, int):
+        raise ValueError("widget has no metric")
+    metric = get_asset(session, metric_id)
+    if not metric or metric.type != "metric" \
+            or metric.project_id != a.project_id \
+            or not metric.published_version_id:
+        raise ValueError("metric not found")
+    metric_content = session.get(AssetVersion,
+                                 metric.published_version_id).content_json
+    dims = metric_dimensions(metric_content)
+    if dimension is None:
+        if widget.get("type") in ("line", "bar", "area", "pie"):
+            dimension = widget.get("dimension")
+        elif widget.get("type") == "pivot":
+            dimension = widget.get("row_dimension")
+        elif isinstance(widget.get("emit"), dict):
+            dimension = widget["emit"].get("from")
+    if dimension is not None and dimension not in dims:
+        raise ValueError("dimension is not a metric dimension")
+    values = params if isinstance(params, dict) else {}
+    filters = list(metric_content.get("filters") or [])
+    filters += _resolve_filters(widget.get("filters"), values)
+    filters += filters_for(session, metric_content.get("dataset_id"), role)
+    if dimension and value not in (None, ""):
+        time_def = metric_content.get("time") or {}
+        if dimension == time_def.get("column") and time_def.get("grain"):
+            filters.append({"column": dimension, "op": ">=", "value": value})
+            filters.append({"column": dimension, "op": "<",
+                            "value": next_bucket(value,
+                                                 time_def["grain"])})
+        else:
+            filters.append({"column": dimension, "op": "=", "value": value})
+    ds_content, error = _published_dataset(
+        session, metric_content.get("dataset_id"), a.project_id)
+    if error:
+        raise ValueError(error["message"])
+    base_sql, binds, datasource = _dataset_base(session, ds_content,
+                                                a.project_id)
+    where = _filter_sql(filters, binds)
+    sql = "SELECT * FROM (%s) AS base" % base_sql
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    max_rows = max(1, min(int(limit), get_settings().query_max_rows))
+    started = time.time()
+    result = execute_query(session, datasource,
+                           limited(sql, datasource.kind, max_rows),
+                           binds, max_rows)
+    rows = apply_masks(session, ds_content, result["rows"], role) \
+        if ds_content.get("mode") == "visual" else result["rows"]
+    return {"widget_id": widget_id, "dimension": dimension, "value": value,
+            "columns": result["columns"], "rows": rows,
+            "row_count": len(rows),
+            "ms": int((time.time() - started) * 1000), "sql": sql}

@@ -45,6 +45,7 @@ class ContentIn(BaseModel):
 class PreviewIn(BaseModel):
     limit: int = Field(100, ge=1, le=10000)
     content: dict | None = None
+    compare: str | None = None
 
 
 class RollbackIn(BaseModel):
@@ -429,7 +430,8 @@ def query_metric_route(asset_id: int, body: PreviewIn,
     a = _asset(s, asset_id, claims, "metric")
     try:
         result = query_metric(s, a.id, body.content, body.limit,
-                              role=claims_role(s, claims))
+                              role=claims_role(s, claims),
+                              compare=body.compare)
     except ValueError as e:
         raise HTTPException(400, str(e))
     write_audit(s, claims["sub"], "query_metric", str(a.id),

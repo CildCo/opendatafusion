@@ -116,6 +116,8 @@ Datasets and metrics.
 - **SQL dataset**: switch the editor to SQL, choose a datasource and write a read-only query (joins are allowed); saving derives the output columns, and metrics, dashboards and apps can use them. SQL datasets do not take parameters; use API Studio when parameters are required.
 - Metrics aggregate with sum, count, average, minimum, maximum or distinct count over the dataset output.
 - **Expression metrics** switch the definition to an aggregate expression such as `sum(amount) / nullif(count(*), 0)`; only columns from the dataset output and `sum/count/avg/min/max/coalesce/nullif/round` are accepted, and expression metrics are disabled on governed datasources.
+- **Time grain**: choose a time column and a day, week, month, quarter or year grain; the metric groups by that bucket and the column behaves as an extra dimension in dashboards, pivots, tables and apps.
+- **Comparison**: compare with the previous period or the same period last year. Preview and dashboards return `<measure>_previous`, `_delta` and `_delta_pct`; date filters on the time column move with the comparison window.
 - Validate, Save and Publish; published datasets can be used by dashboards, apps and APIs.
 - **Row policies** append filters per column, operator, value and role; admins are exempt.
 - **Column masking** sets a classification (PII/confidential/sensitive), a mask type (redact, partial, hash, null) and exempt roles.
@@ -129,7 +131,9 @@ Add metric cards, line/bar/area/pie charts, pivot tables, tables and text; drag 
 - Save, Validate, Publish and Run.
 - In the run view, **Export CSV** writes the rows of every data-bearing widget to one CSV file.
 - A **pivot** widget needs a metric with two dimensions; choose the row dimension, column dimension and value column, and the console renders the cross-tab.
-- **Share** creates a read-only link with an expiry; links can be copied and revoked.
+- **Drill-through**: click a chart point, a metric card or a metric table row to open the underlying rows in a detail drawer. Metric and widget filters, row policies and column masking apply, and the drawer exports CSV.
+- **Scheduled report**: set a six-field cron (second minute hour day month weekday) in the report drawer. The scheduler writes a CSV snapshot file, sends a notification and a `report.ready` webhook event, and keeps the run history; **Run now** generates one immediately.
+- **Share** creates a read-only link with an expiry; links can be copied, embedded with the generated iframe snippet and revoked.
 - **Versions** lists history; the list page deletes dashboards and their share links.
 
 ## 14. Apps
