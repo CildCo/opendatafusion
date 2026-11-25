@@ -442,6 +442,11 @@ def _scheduled_quality(session, now):
                         "quality check failed: %s" % rule.name,
                         {"rule_id": rule.id, "status": result.status,
                          "detail": result.detail_json})
+        from odf.services.quality import check_sla
+        try:
+            check_sla(session, rule)
+        except Exception:
+            pass
 
 
 def _lakehouse_schedules(session, now):

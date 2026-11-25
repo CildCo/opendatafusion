@@ -106,3 +106,30 @@ def test_custom_days_are_validated():
     s = _env()
     with pytest.raises(ValueError):
         prune(s, overrides={"job": -3}, apply=False)
+
+
+def test_prune_archives_rows_before_delete(tmp_path):
+    import gzip
+    import json
+    s = _env()
+    _seed(s)
+    directory = tmp_path / "archive"
+    result = prune(s, apply=True, archive_dir=str(directory))
+    assert result["query_run"]["archived"] == 1
+    path = result["query_run"]["archive"]
+    with gzip.open(path, "rt", encoding="utf-8") as handle:
+        lines = [json.loads(line) for line in handle if line.strip()]
+    assert lines[0]["table"] == "query_run"
+    assert len(lines) == 2
+    assert s.query(QueryRun).count() == 1
+
+
+def test_archive_failure_aborts_delete(tmp_path):
+    s = _env()
+    _seed(s)
+    blocker = tmp_path / "blocker"
+    blocker.write_text("x", encoding="utf-8")
+    with pytest.raises(Exception):
+        prune(s, apply=True, archive_dir=str(blocker))
+    assert s.query(QueryRun).count() == 2
+    assert s.query(Job).count() == 3

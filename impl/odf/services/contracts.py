@@ -139,6 +139,73 @@ def _freshness_issues(session, datasource, target, config):
     return []
 
 
+def _quality_issues(session, datasource, target, contract):
+    from odf.apistudio.compiler import quote_ident
+    issues = []
+    for check in contract.get("quality") or []:
+        if not isinstance(check, dict):
+            continue
+        kind = check.get("kind")
+        column = check.get("column")
+        expected = ""
+        try:
+            if kind == "not_null":
+                expected = "no nulls"
+                sql = "SELECT COUNT(*) FROM %s WHERE %s IS NULL" % (
+                    target, quote_ident(column))
+                params = {}
+            elif kind == "unique":
+                expected = "no duplicates"
+                sql = ("SELECT COUNT(*) - COUNT(DISTINCT %s) FROM %s"
+                       % (quote_ident(column), target))
+                params = {}
+            elif kind == "accepted_values":
+                expected = "accepted values"
+                binds, keys = {}, []
+                for index, value in enumerate(check.get("values") or []):
+                    key = "v%d" % index
+                    binds[key] = value
+                    keys.append(":" + key)
+                sql = ("SELECT COUNT(*) FROM %s WHERE %s IS NOT NULL "
+                       "AND %s NOT IN (%s)"
+                       % (target, quote_ident(column), quote_ident(column),
+                          ", ".join(keys)))
+                params = binds
+            elif kind == "max_null_pct":
+                limit = int(check.get("max_null_pct") or 0)
+                expected = "null rate <= %d%%" % limit
+                sql = ("SELECT COUNT(*) AS total, COUNT(%s) AS present "
+                       "FROM %s" % (quote_ident(column), target))
+                params = {}
+            elif kind == "sql":
+                expected = "custom check returns zero"
+                sql = check.get("sql") or ""
+                params = {}
+            else:
+                continue
+            result = execute_query(session, datasource, sql, params, 1)
+            row = result.get("rows") or [{}]
+            values = list(row[0].values()) if row else []
+            if kind == "max_null_pct":
+                total = int(values[0] or 0) if values else 0
+                present = int(values[1] or 0) if len(values) > 1 else 0
+                actual = 0 if total == 0 else                     round((total - present) * 100 / total)
+                if actual > int(check.get("max_null_pct") or 0):
+                    issues.append({"kind": "quality", "column": column,
+                                   "expected": expected,
+                                   "actual": "%d%%" % actual})
+                continue
+            value = int(values[0] or 0) if values else 0
+            if value > 0:
+                issues.append({"kind": "quality", "column": column,
+                               "expected": expected,
+                               "actual": "%d failing rows" % value})
+        except Exception:
+            issues.append({"kind": "quality", "column": column or "",
+                           "expected": expected, "actual": "unavailable"})
+    return issues
+
+
 def check_asset(session, project_id, asset_id, content=None):
     asset = _asset(session, project_id, asset_id)
     content = content if content is not None else _content(session, asset)
@@ -163,6 +230,7 @@ def check_asset(session, project_id, asset_id, content=None):
     if freshness:
         issues.extend(_freshness_issues(session, datasource, target,
                                         freshness))
+    issues.extend(_quality_issues(session, datasource, target, contract))
     if contract.get("allow_extra") is False:
         for item in actual:
             if item["name"].lower() not in expected_names:
@@ -273,5 +341,6 @@ def contract_summaries(session, project_id, include_missing=False):
                     "owner": contract.get("owner") or asset.owner,
                     "sla": contract.get("sla") or "",
                     "freshness": contract.get("freshness") or {},
+                    "quality": contract.get("quality") or [],
                     "updated_at": asset.updated_at})
     return out

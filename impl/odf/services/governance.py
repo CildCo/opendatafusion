@@ -2,6 +2,8 @@ import re
 from datetime import datetime, timedelta, timezone
 
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
+QUALITY_KINDS = {"not_null", "unique", "accepted_values",
+                 "max_null_pct", "sql"}
 
 
 def _domain(session, project_id, domain_id):
@@ -144,6 +146,47 @@ def delete_term(session, project_id, term_id):
     session.commit()
 
 
+def _clean_quality(item):
+    if not isinstance(item, dict):
+        raise ValueError("quality checks must be objects")
+    kind = item.get("kind")
+    if kind not in QUALITY_KINDS:
+        raise ValueError("unsupported quality check")
+    out = {"kind": kind}
+    if kind == "sql":
+        sql = item.get("sql")
+        if not isinstance(sql, str) or not sql.strip():
+            raise ValueError("SQL check needs a query")
+        head = sql.strip().lower()
+        if not head.startswith(("select", "with")):
+            raise ValueError("SQL check must be a read-only query")
+        from odf.apistudio.sqlguard import ensure_read_only
+        try:
+            ensure_read_only(sql)
+        except Exception:
+            raise ValueError("SQL check must be read-only")
+        out["sql"] = sql[:4000]
+        return out
+    column = item.get("column")
+    if not isinstance(column, str) or not _IDENT.match(column):
+        raise ValueError("quality check column must be an identifier")
+    out["column"] = column
+    if kind == "accepted_values":
+        values = item.get("values")
+        if not isinstance(values, list) or not values or len(values) > 100:
+            raise ValueError("accepted_values needs 1..100 values")
+        out["values"] = values
+    if kind == "max_null_pct":
+        try:
+            pct = int(item.get("max_null_pct"))
+        except (TypeError, ValueError):
+            raise ValueError("max_null_pct must be a number")
+        if not 0 <= pct <= 100:
+            raise ValueError("max_null_pct must be 0..100")
+        out["max_null_pct"] = pct
+    return out
+
+
 def _clean_contract(raw):
     if raw is None:
         return {}
@@ -185,28 +228,28 @@ def _clean_contract(raw):
         if not 1 <= hours <= 8760:
             raise ValueError("freshness max_hours must be 1..8760")
         out["freshness"] = {"column": column, "max_hours": hours}
-    for key in ("schema", "quality"):
-        value = raw.get(key)
-        if value is None:
-            continue
+    value = raw.get("schema")
+    if value is not None:
         if not isinstance(value, list):
-            raise ValueError("%s must be an array" % key)
+            raise ValueError("schema must be an array")
         cleaned = []
         for item in value[:200]:
-            if key == "schema":
-                if isinstance(item, str):
-                    cleaned.append({"name": item[:128]})
-                elif isinstance(item, dict) and \
-                        isinstance(item.get("name"), str):
-                    cleaned.append({
-                        "name": item["name"][:128],
-                        "type": str(item.get("type") or "")[:64],
-                        "required": bool(item.get("required"))})
-                else:
-                    raise ValueError("schema columns need a name")
+            if isinstance(item, str):
+                cleaned.append({"name": item[:128]})
+            elif isinstance(item, dict) and \
+                    isinstance(item.get("name"), str):
+                cleaned.append({
+                    "name": item["name"][:128],
+                    "type": str(item.get("type") or "")[:64],
+                    "required": bool(item.get("required"))})
             else:
-                cleaned.append(item)
-        out[key] = cleaned
+                raise ValueError("schema columns need a name")
+        out["schema"] = cleaned
+    value = raw.get("quality")
+    if value is not None:
+        if not isinstance(value, list):
+            raise ValueError("quality must be an array")
+        out["quality"] = [_clean_quality(item) for item in value[:20]]
     import json
     if len(json.dumps(out, default=str)) > 50000:
         raise ValueError("contract is too large")

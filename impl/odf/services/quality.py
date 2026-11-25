@@ -540,3 +540,32 @@ def trends(session, project_id, days=30):
     return {"days": days,
             "daily": [daily[key] for key in sorted(daily)],
             "rules": out}
+
+
+def check_sla(session, rule):
+    sla = (rule.config_json or {}).get("sla_percent")
+    if sla is None:
+        return None
+    try:
+        sla = int(sla)
+    except (TypeError, ValueError):
+        return None
+    if sla <= 0:
+        return None
+    from datetime import datetime, timedelta, timezone
+    since = datetime.now(timezone.utc) - timedelta(days=30)
+    rows = (session.query(QualityResult)
+            .filter(QualityResult.rule_id == rule.id,
+                    QualityResult.at >= since).all())
+    if not rows:
+        return None
+    passes = sum(1 for row in rows if row.status == "pass")
+    rate = int(round(passes * 100 / len(rows)))
+    if rate >= sla:
+        return None
+    from odf.services.alerts import raise_alert
+    return raise_alert(
+        session, rule.project_id, "warning",
+        "quality SLA breach: %s" % rule.name,
+        {"rule_id": rule.id, "pass_rate": rate, "sla_percent": sla,
+         "runs": len(rows)})

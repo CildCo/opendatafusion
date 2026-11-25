@@ -56,6 +56,7 @@ class ContractPatch(BaseModel):
     allow_extra: bool | None = None
     freshness: dict | None = None
     schedule: str | None = None
+    quality: list | None = None
 
 
 def contract_list(session, project_id, include_missing=False):
@@ -119,6 +120,8 @@ def patch_contract(asset_id: int, body: ContractPatch,
         contract["enforce"] = body.enforce
     if body.allow_extra is not None:
         contract["allow_extra"] = body.allow_extra
+    if body.quality is not None:
+        contract["quality"] = body.quality
     if body.schedule is not None:
         if body.schedule:
             contract["schedule"] = body.schedule

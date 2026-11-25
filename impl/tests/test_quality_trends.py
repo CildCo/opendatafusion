@@ -59,3 +59,40 @@ def test_trends_without_results():
     assert row["pass_rate"] is None
     assert row["streak"] == 0
     assert row["below_sla"] is False
+
+
+def test_sla_breach_raises_one_alert():
+    from odf.models import Alert
+    from odf.services.quality import check_sla
+    s = _env()
+    rule = _rule(s, sla=90)
+    s.add(rule)
+    s.commit()
+    now = datetime.now(timezone.utc)
+    s.add_all([
+        QualityResult(rule_id=rule.id, status="fail", detail_json={},
+                      at=now),
+        QualityResult(rule_id=rule.id, status="pass", detail_json={},
+                      at=now - timedelta(days=1)),
+    ])
+    s.commit()
+    first = check_sla(s, rule)
+    assert first is not None
+    assert s.query(Alert).filter_by(status="open").count() == 1
+    second = check_sla(s, rule)
+    assert second.id == first.id
+    assert s.query(Alert).count() == 1
+
+
+def test_sla_met_does_not_alert():
+    from odf.models import Alert
+    from odf.services.quality import check_sla
+    s = _env()
+    rule = _rule(s, sla=40)
+    s.add(rule)
+    s.commit()
+    s.add(QualityResult(rule_id=rule.id, status="pass", detail_json={},
+                        at=datetime.now(timezone.utc)))
+    s.commit()
+    assert check_sla(s, rule) is None
+    assert s.query(Alert).count() == 0
