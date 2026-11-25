@@ -94,7 +94,12 @@
         </div>
 
         <div class="section" v-if="currentPage">
-          <div class="section-head"><span>{{ t("aedit.components") }}</span></div>
+          <div class="section-head">
+            <span>{{ t("aedit.components") }}</span>
+            <el-button link size="small" @click="autoLayout">
+              {{ t("aedit.autoLayout") }}
+            </el-button>
+          </div>
           <div class="palette">
             <el-button v-for="ct in types" :key="ct.type" size="small"
                        class="add" @click="addComponent(ct.type)">
@@ -128,10 +133,21 @@
       </aside>
 
       <main class="canvas" v-loading="loadingData">
-        <AppRuntime v-if="currentPage" :key="currentPage.id"
-                    :page="currentPage" :data="data" :params="paramValues"
-                    :on-submit="submitForm"
-                    @update:params="setParams" @refresh="refresh" />
+        <div v-if="currentPage?.params?.length" class="preview-filters">
+          <div v-for="p in currentPage.params" :key="p.name" class="filter">
+            <span>{{ p.name }}</span>
+            <el-input v-model="paramValues[p.name]" size="small"
+                      style="width: 130px" :placeholder="p.example || p.type"
+                      @change="refresh" />
+          </div>
+        </div>
+        <AppCanvas v-if="currentPage" :key="currentPage.id" design
+                   :page="currentPage" :data="data" :params="paramValues"
+                   :selected-id="selectedId" :on-submit="submitForm"
+                   @select="selectComponent"
+                   @drag-start="history.pause"
+                   @change-end="onCanvasChangeEnd"
+                   @navigate="navigatePreview" @row="openPreviewRow" />
       </main>
 
       <aside class="config">
@@ -146,10 +162,47 @@
             <el-form-item :label="t('aedit.title')">
               <el-input v-model="selected.title" />
             </el-form-item>
-            <template v-if="selected.type === 'text'">
+            <template v-if="['text', 'heading'].includes(selected.type)">
               <el-form-item :label="t('aedit.text')">
                 <el-input v-model="selected.text" type="textarea"
-                          :rows="6" />
+                          :rows="selected.type === 'heading' ? 2 : 6" />
+              </el-form-item>
+              <p class="hint">{{ t("aedit.bindingHint") }}</p>
+            </template>
+            <template v-if="selected.type === 'image'">
+              <el-form-item :label="t('aedit.imageUrl')">
+                <el-input v-model="selected.url" placeholder="https://..." />
+              </el-form-item>
+              <el-form-item :label="t('aedit.imageAlt')">
+                <el-input v-model="selected.alt" />
+              </el-form-item>
+            </template>
+            <template v-if="selected.type === 'button'">
+              <el-form-item :label="t('aedit.buttonLabel')">
+                <el-input v-model="selected.label" />
+              </el-form-item>
+              <el-form-item :label="t('aedit.buttonTarget')">
+                <el-select v-model="selected.target_page" clearable
+                           style="width: 100%">
+                  <el-option v-for="p in content.pages" :key="p.id"
+                             :value="p.id" :label="p.title || p.id" />
+                </el-select>
+              </el-form-item>
+              <el-form-item :label="t('aedit.buttonUrl')">
+                <el-input v-model="selected.url" placeholder="https://..." />
+              </el-form-item>
+            </template>
+            <template v-if="selected.type === 'progress'">
+              <el-form-item :label="t('aedit.progressValue')">
+                <el-input-number v-model="selected.value" :min="0"
+                                 :max="100" />
+              </el-form-item>
+              <el-form-item :label="t('aedit.progressParam')">
+                <el-select v-model="selected.value_param" clearable
+                           style="width: 100%">
+                  <el-option v-for="p in currentPage.params || []"
+                             :key="p.name" :value="p.name" :label="p.name" />
+                </el-select>
               </el-form-item>
             </template>
             <template v-if="selected.type === 'metric'">
@@ -276,6 +329,45 @@
               </el-form-item>
             </template>
           </el-form>
+          <div v-if="selected.layout" class="layout-box">
+            <h4>{{ t("aedit.layout") }}</h4>
+            <div class="layout-grid">
+              <el-input-number v-model="selected.layout.x" :min="0" :max="11"
+                               size="small" :controls="false"
+                               :aria-label="t('aedit.layoutX')" />
+              <el-input-number v-model="selected.layout.y" :min="0"
+                               size="small" :controls="false"
+                               :aria-label="t('aedit.layoutY')" />
+              <el-input-number v-model="selected.layout.w" :min="1" :max="12"
+                               size="small" :controls="false"
+                               :aria-label="t('aedit.layoutW')" />
+              <el-input-number v-model="selected.layout.h" :min="1"
+                               size="small" :controls="false"
+                               :aria-label="t('aedit.layoutH')" />
+            </div>
+            <p class="hint">{{ t("aedit.layoutHint") }}</p>
+          </div>
+          <div v-if="currentPage.params?.length" class="visibility-box">
+            <h4>{{ t("aedit.visibility") }}</h4>
+            <el-select :model-value="selected.visible_when?.param || ''"
+                       clearable size="small" style="width: 100%"
+                       :placeholder="t('aedit.visibilityNone')"
+                       @update:model-value="setVisibleParam">
+              <el-option v-for="p in currentPage.params" :key="p.name"
+                         :value="p.name" :label="p.name" />
+            </el-select>
+            <div v-if="selected.visible_when?.param" class="vis-row">
+              <el-select v-model="selected.visible_when.op" size="small"
+                         style="width: 88px">
+                <el-option value="=" label="=" />
+                <el-option value="!=" label="!=" />
+                <el-option value="in" :label="t('aedit.visibilityIn')" />
+              </el-select>
+              <el-input v-model="visibleValueText" size="small"
+                        :placeholder="t('aedit.visibilityValue')" />
+            </div>
+            <p class="hint">{{ t("aedit.visibilityHint") }}</p>
+          </div>
           <p class="hint">{{ t("aedit.configHint") }}</p>
         </template>
         <el-empty v-else :description="t('aedit.selectComponent')"
@@ -300,6 +392,13 @@
       </el-table>
     </el-drawer>
     <governance-drawer v-model="governanceOpen" :asset-id="id" />
+    <el-drawer v-model="previewRowOpen" :title="t('acomp.detail')"
+               size="420px">
+      <el-descriptions :column="1" border>
+        <el-descriptions-item v-for="(v, k) in previewRow" :key="k"
+                              :label="k">{{ v }}</el-descriptions-item>
+      </el-descriptions>
+    </el-drawer>
   </div>
 </template>
 
@@ -309,7 +408,10 @@ import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
-import AppRuntime from "../studio/app/AppRuntime.vue";
+import AppCanvas from "../studio/app/AppCanvas.vue";
+import { normalizeLayouts, nextLayout } from "../studio/app/bindings";
+import HistoryControls from "../components/HistoryControls.vue";
+import { bindHistoryKeys, useHistory } from "../composables/useHistory";
 import ShareDialog from "../studio/share/ShareDialog.vue";
 import GovernanceDrawer from "../components/GovernanceDrawer.vue";
 import { useDraftSafety } from "../draftSafety";
@@ -327,6 +429,8 @@ bindHistoryKeys(history);
 const currentId = ref("");
 const selectedId = ref("");
 const dragFrom = ref(-1);
+const previewRow = ref({});
+const previewRowOpen = ref(false);
 
 function moveComponent(index, delta) {
   const list = currentPage.value?.components;
@@ -359,6 +463,11 @@ const modelColumns = ref([]);
 const paramTypes = ["string", "number", "date", "bool"];
 const types = [
   { type: "text", labelKey: "aedit.compText" },
+  { type: "heading", labelKey: "aedit.compHheading" },
+  { type: "divider", labelKey: "aedit.compDivider" },
+  { type: "image", labelKey: "aedit.compImage" },
+  { type: "button", labelKey: "aedit.compButton" },
+  { type: "progress", labelKey: "aedit.compProgress" },
   { type: "metric", labelKey: "aedit.compMetric" },
   { type: "table", labelKey: "aedit.compTable" },
   { type: "form", labelKey: "aedit.compForm" },
@@ -402,7 +511,8 @@ async function load() {
   name.value = a.name;
   draftVersion.value = a.draft_version;
   published.value = Boolean(a.published_version);
-  content.value = a.draft || { start_page: "p1", pages: [] };
+  content.value = normalizeLayouts(a.draft || { start_page: "p1",
+                                                  pages: [] });
   if (!content.value.pages?.length) {
     content.value = {
       start_page: "p1",
@@ -419,6 +529,7 @@ async function load() {
   resetParams();
   if (currentPage.value?.components.length) await refresh();
   await loadModel();
+  history.reset();
   draftGuard.reset();
 }
 
@@ -436,11 +547,6 @@ watch(currentId, async () => {
   modelColumns.value = [];
   if (currentPage.value?.components.length) await refresh();
 });
-
-function setParams(p) {
-  paramValues.value = { ...p };
-  refresh();
-}
 
 async function refresh() {
   if (!currentPage.value) return;
@@ -516,8 +622,19 @@ async function addComponent(type) {
       .toString(36).slice(2, 5)}`,
     type,
     title: typeLabel(type),
+    layout: nextLayout(currentPage.value.components, type),
   };
   if (type === "text") c.text = t("aedit.defaultText");
+  if (type === "heading") c.text = t("aedit.defaultHeading");
+  if (type === "image") {
+    c.url = "";
+    c.alt = t("aedit.imageAlt");
+  }
+  if (type === "button") {
+    c.label = t("acomp.open");
+    c.target_page = "";
+  }
+  if (type === "progress") c.value = 50;
   if (type === "metric") {
     c.metric_id = metrics.value[0]?.id || null;
     c.value_column = "";
@@ -542,6 +659,60 @@ async function addComponent(type) {
   if (type === "form" && c.dataset_id) await loadFormSchema(c.dataset_id);
   await refresh();
 }
+
+function onCanvasChangeEnd() {
+  history.commit();
+  history.resume();
+}
+
+function navigatePreview(pageId) {
+  if (content.value.pages.some((p) => p.id === pageId)) {
+    currentId.value = pageId;
+  }
+}
+
+function openPreviewRow(row) {
+  previewRow.value = row;
+  previewRowOpen.value = true;
+}
+
+function autoLayout() {
+  const list = currentPage.value?.components || [];
+  let y = 0;
+  for (const c of list) {
+    const size = nextLayout([], c.type);
+    c.layout = { ...size, y };
+    y += size.h;
+  }
+  history.commit();
+}
+
+function setVisibleParam(name) {
+  if (!selected.value) return;
+  if (!name) {
+    delete selected.value.visible_when;
+    return;
+  }
+  selected.value.visible_when = {
+    param: name,
+    op: selected.value.visible_when?.op || "=",
+    value: selected.value.visible_when?.value ?? "",
+  };
+}
+
+const visibleValueText = computed({
+  get: () => {
+    const value = selected.value?.visible_when?.value;
+    return Array.isArray(value) ? value.join(",") : (value ?? "");
+  },
+  set: (text) => {
+    const rule = selected.value?.visible_when;
+    if (!rule) return;
+    rule.value = rule.op === "in"
+      ? String(text || "").split(",").map((x) => x.trim()).filter(Boolean)
+      : text;
+  },
+});
 
 function selectComponent(cid) {
   selectedId.value = cid;
@@ -817,6 +988,18 @@ onMounted(load);
 .comp-type { color: #6b7280; font-size: 11px; }
 .hint { color: #6b7280; font-size: 11px; margin: 8px 0 0; }
 .canvas { overflow: auto; padding: 14px; }
+.preview-filters { display: flex; gap: 10px; align-items: flex-end;
+                   flex-wrap: wrap; margin-bottom: 10px; padding: 8px 10px;
+                   background: #fff; border: 1px solid #e5e7eb;
+                   border-radius: 6px; }
+.filter { display: flex; flex-direction: column; gap: 3px;
+          font-size: 11px; color: #475569; }
+.layout-box, .visibility-box { border-top: 1px solid #eef2f7;
+                               margin-top: 10px; padding-top: 10px; }
+.layout-grid { display: grid; grid-template-columns: repeat(4, 1fr);
+               gap: 4px; }
+.layout-grid :deep(.el-input-number) { width: 100%; }
+.vis-row { display: flex; gap: 6px; margin-top: 6px; }
 .config { background: #fff; border-left: 1px solid #e5e7eb; overflow: auto;
           padding: 12px; }
 .config-head { display: flex; justify-content: space-between; align-items: center; }

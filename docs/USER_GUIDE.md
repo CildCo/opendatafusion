@@ -369,3 +369,24 @@ See [Operations](OPERATIONS.md).
 - Backfill has **Preview impact** before anything is queued.
 - The operations centre adds a **Run matrix** by asset and day.
 
+
+## 35. Low-code application canvas
+
+The **Apps** editor uses a 12-column free-form canvas:
+
+- Drag a component title bar to move it and the lower-right corner to resize;
+  overlapping components are pushed down.
+- The property panel accepts column, row, width and height directly, and
+  **Tidy layout** reflows components in order.
+- Components include text, heading, divider, image, button, progress, metric,
+  table and form.
+- Text and headings interpolate page parameters with `{{name}}`; buttons open
+  another page or an external link.
+- **Visibility** uses `=`, `!=` or `in` page-parameter conditions to show or
+  hide a component at runtime.
+- Parameter filters preview data in the editor; validation checks grid bounds,
+  undefined parameters, image URLs and button targets.
+- A drag or resize is one undo step.
+
+The editing shortcuts apply to the transform-model editor as well; all editors
+share one history stack.

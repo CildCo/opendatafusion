@@ -44,3 +44,18 @@ The operations centre has a **Run matrix** tab: assets are rows, days are
 columns, and each cell shows the number of runs with the worst status of that
 day (failed, running, queued, success, skipped). The window can be 7, 14 or
 30 days.
+
+## Application canvas
+
+- Pages use a 12-column grid. Drag a component's title bar to move it and the
+  lower-right corner to resize; overlapping components are pushed down.
+- The property panel edits column, row, width and height numerically. **Tidy
+  layout** reflows components in their current order.
+- Text and heading content interpolates page parameters with `{{name}}`.
+- A **visibility** rule hides a component when the selected page parameter
+  does not satisfy `=`, `!=` or `in`.
+- A drag or resize is one undo step: history pauses during the gesture and
+  commits when the pointer is released.
+- The editor preview reacts to parameter changes, and validation reports grid
+  bounds, undefined bindings, visibility parameters, image URLs and button
+  targets.
