@@ -20,12 +20,14 @@ class RuleIn(BaseModel):
     config: dict = {}
     schedule_cron: str | None = None
     alert_on_fail: bool = False
+    sla_percent: int | None = None
 
 
 class RuleUpdateIn(BaseModel):
     schedule_cron: str | None = None
     alert_on_fail: bool | None = None
     enabled: bool | None = None
+    sla_percent: int | None = None
 
 
 @router.get("/quality/rules")
@@ -50,6 +52,11 @@ def create(body: RuleIn, s: Session = Depends(get_session),
                         body.kind, body.column_name, body.config)
         r.schedule_cron = (body.schedule_cron or None)
         r.alert_on_fail = bool(body.alert_on_fail)
+        if body.sla_percent is not None:
+            if not 0 <= int(body.sla_percent) <= 100:
+                raise HTTPException(400, "sla_percent must be 0..100")
+            r.config_json = {**(r.config_json or {}),
+                             "sla_percent": int(body.sla_percent)}
         s.commit()
     except ValueError as e:
         raise HTTPException(404, str(e))
@@ -74,10 +81,23 @@ def update(rule_id: int, body: RuleUpdateIn,
         rule.alert_on_fail = bool(body.alert_on_fail)
     if body.enabled is not None:
         rule.enabled = bool(body.enabled)
+    if body.sla_percent is not None:
+        if not 0 <= int(body.sla_percent) <= 100:
+            raise HTTPException(400, "sla_percent must be 0..100")
+        rule.config_json = {**(rule.config_json or {}),
+                            "sla_percent": int(body.sla_percent)}
     s.commit()
     return {"id": rule.id, "schedule_cron": rule.schedule_cron,
             "alert_on_fail": bool(rule.alert_on_fail),
-            "enabled": bool(rule.enabled)}
+            "enabled": bool(rule.enabled),
+            "sla_percent": (rule.config_json or {}).get("sla_percent")}
+
+
+@router.get("/quality/trends")
+def trends(days: int = 30, s: Session = Depends(get_session),
+           claims: dict = Depends(require_user)):
+    from odf.services.quality import trends as quality_trends
+    return quality_trends(s, claims["project_id"], days)
 
 
 @router.delete("/quality/rules/{rule_id}", status_code=204)

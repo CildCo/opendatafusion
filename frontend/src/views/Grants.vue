@@ -17,6 +17,13 @@
                     :empty-text="t('grants.emptyCatalog')">
             <el-table-column prop="name" :label="t('grants.colInterface')"
                              min-width="180" />
+            <el-table-column :label="t('grants.colType')" width="120">
+              <template #default="{ row }">
+                <el-tag size="small" effect="plain">
+                  {{ typeLabel(row.asset_type) }}
+                </el-tag>
+              </template>
+            </el-table-column>
             <el-table-column prop="key" label="Key" min-width="220">
               <template #default="{ row }">
                 <span class="mono">{{ row.key }}</span>
@@ -31,6 +38,39 @@
                   {{ t("grants.requestAccess") }}
                 </el-button>
                 <span v-else class="hint">{{ t("grants.thisProject") }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane :label="t('grants.tabShared')" name="shared">
+          <el-table :data="shared" size="small"
+                    :empty-text="t('grants.emptyShared')">
+            <el-table-column prop="name" :label="t('grants.colInterface')"
+                             min-width="180" />
+            <el-table-column :label="t('grants.colType')" width="120">
+              <template #default="{ row }">
+                <el-tag size="small" effect="plain">
+                  {{ typeLabel(row.asset_type) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="key" label="Key" min-width="220">
+              <template #default="{ row }">
+                <span class="mono">{{ row.key }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="owner_project"
+                             :label="t('grants.colProject')" width="150" />
+            <el-table-column :label="t('grants.colAction')" width="190">
+              <template #default="{ row }">
+                <el-button link @click="openShared(row)">
+                  {{ t("grants.view") }}
+                </el-button>
+                <el-button v-if="row.asset_type === 'dataset'" link
+                           type="primary" @click="previewShared(row)">
+                  {{ t("grants.preview") }}
+                </el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -158,6 +198,65 @@
       </el-tabs>
     </el-card>
 
+    <el-dialog v-model="sharedOpen" :title="t('grants.sharedDetail')"
+               width="560px">
+      <el-descriptions :column="1" border size="small"
+                       v-loading="sharedLoading">
+        <el-descriptions-item :label="t('grants.colInterface')">
+          {{ sharedDetail.name }} · <span class="mono">{{ sharedDetail.key }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('grants.colType')">
+          {{ typeLabel(sharedDetail.asset_type) }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('grants.colProject')">
+          {{ sharedDetail.owner_project }}
+        </el-descriptions-item>
+        <el-descriptions-item v-if="sharedDetail.layer"
+                              :label="t('grants.layer')">
+          {{ sharedDetail.layer }}
+        </el-descriptions-item>
+        <el-descriptions-item v-if="sharedDetail.materialization"
+                              :label="t('grants.materialization')">
+          {{ sharedDetail.materialization }}
+        </el-descriptions-item>
+        <el-descriptions-item v-if="sharedDetail.target"
+                              :label="t('grants.targetTable')">
+          <span class="mono">{{ sharedDetail.target }}</span>
+        </el-descriptions-item>
+      </el-descriptions>
+      <el-table :data="sharedDetail.columns || []" size="small"
+                style="margin-top: 10px">
+        <el-table-column prop="name" :label="t('quality.column')" />
+        <el-table-column prop="type" :label="t('grants.colType')" />
+      </el-table>
+      <el-table v-if="sharedDetail.params && sharedDetail.params.length"
+                :data="sharedDetail.params" size="small"
+                style="margin-top: 10px">
+        <el-table-column prop="name" :label="t('grants.params')" />
+        <el-table-column prop="type" :label="t('grants.colType')" />
+      </el-table>
+      <template #footer>
+        <el-button @click="sharedOpen = false">{{ t("common.close") }}</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="sharedPreviewOpen"
+               :title="t('grants.previewTitle')" width="760px">
+      <el-table v-if="sharedPreview.rows && sharedPreview.rows.length"
+                :data="sharedPreview.rows" size="small" height="380" border>
+        <el-table-column v-for="c in sharedPreview.columns" :key="c"
+                         :prop="c" :label="c" min-width="130"
+                         show-overflow-tooltip />
+      </el-table>
+      <el-empty v-else :description="t('grants.noPreview')"
+                :image-size="60" />
+      <template #footer>
+        <el-button @click="sharedPreviewOpen = false">
+          {{ t("common.close") }}
+        </el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="requestOpen" :title="t('grants.dialogTitle')"
                width="480px">
       <p class="hint">
@@ -179,7 +278,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getProject } from "../api";
 import { fmtDate, t } from "../i18n";
@@ -195,6 +294,12 @@ const catalog = ref([]);
 const outgoing = ref([]);
 const incoming = ref([]);
 const grants = ref([]);
+const shared = ref([]);
+const sharedOpen = ref(false);
+const sharedLoading = ref(false);
+const sharedDetail = reactive({ columns: [], params: [] });
+const sharedPreviewOpen = ref(false);
+const sharedPreview = ref({ columns: [], rows: [] });
 const loading = ref(false);
 const saving = ref(false);
 const requestOpen = ref(false);
@@ -250,6 +355,38 @@ function fmt(v) {
   if (!v) return "-";
   return fmtDate(v);
 }
+function typeLabel(type) {
+  return {
+    api: t("grants.typeApi"), dataset: t("grants.typeDataset"),
+    model: t("grants.typeModel"),
+  }[type] || type;
+}
+
+async function openShared(row) {
+  sharedLoading.value = true;
+  sharedOpen.value = true;
+  try {
+    const data = await api.get(`/shared-assets/${row.asset_id}`);
+    Object.assign(sharedDetail, { columns: [], params: [], ...data });
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    sharedLoading.value = false;
+  }
+}
+
+async function previewShared(row) {
+  try {
+    const data = await api.get(
+      `/shared-assets/${row.asset_id}/preview?limit=50`);
+    sharedPreview.value = { columns: data.columns || [],
+                            rows: data.rows || [] };
+    sharedPreviewOpen.value = true;
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
 function statusTone(s) {
   return { approved: "success", pending: "warning",
            rejected: "danger" }[s] || "info";
@@ -258,16 +395,18 @@ function statusTone(s) {
 async function loadAll() {
   loading.value = true;
   try {
-    const [c, o, i, g] = await Promise.all([
-      api.get("/api-catalog"),
-      api.get("/api-requests?direction=outgoing"),
-      api.get("/api-requests?direction=incoming"),
-      api.get("/api-grants"),
+    const [c, o, i, g, sh] = await Promise.all([
+      api.get("/asset-catalog"),
+      api.get("/asset-requests?direction=outgoing"),
+      api.get("/asset-requests?direction=incoming"),
+      api.get("/asset-grants"),
+      api.get("/shared-assets"),
     ]);
     catalog.value = c;
     outgoing.value = o;
     incoming.value = i;
     grants.value = g;
+    shared.value = sh;
     await loadKeys();
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -285,7 +424,7 @@ function openRequest(row) {
 async function submitRequest() {
   saving.value = true;
   try {
-    await api.post("/api-requests", {
+    await api.post("/asset-requests", {
       asset_id: target.value.id, note: note.value,
     });
     ElMessage.success(t("grants.requestSubmitted"));
@@ -306,7 +445,7 @@ async function decide(row, approve) {
         asset: row.asset_name,
         project: row.grantee_project,
       }), t("grants.decideTitle"));
-    await api.post(`/api-requests/${row.id}/${approve ? "approve"
+    await api.post(`/asset-requests/${row.id}/${approve ? "approve"
       : "reject"}`);
     ElMessage.success(t(approve ? "grants.approvedMsg" : "grants.rejectedMsg"));
     await loadAll();
@@ -321,7 +460,7 @@ async function revoke(row) {
       tr("grants.revokeConfirm", {
         project: row.grantee_project, asset: row.asset_name,
       }), t("grants.revokeGrantTitle"));
-    await api.del(`/api-grants/${row.id}`);
+    await api.del(`/asset-grants/${row.id}`);
     ElMessage.success(t("grants.grantRevoked"));
     await loadAll();
   } catch (e) {

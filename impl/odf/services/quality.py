@@ -477,6 +477,7 @@ def rule_summaries(session, project_id: int):
             "enabled": rule.enabled,
             "schedule_cron": rule.schedule_cron,
             "alert_on_fail": bool(rule.alert_on_fail),
+            "sla_percent": (rule.config_json or {}).get("sla_percent"),
             "last_run_at": (rule.last_run_at.isoformat()
                             if rule.last_run_at else None),
             "last_status": last.status if last else None,
@@ -485,3 +486,57 @@ def rule_summaries(session, project_id: int):
                           if results else None),
         })
     return out
+
+
+def trends(session, project_id, days=30):
+    from datetime import datetime, timedelta, timezone
+    days = max(1, min(int(days or 30), 180))
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    rules = (session.query(QualityRule)
+             .filter_by(project_id=project_id)
+             .order_by(QualityRule.id).all())
+    daily = {}
+    out = []
+    for rule in rules:
+        results = (session.query(QualityResult)
+                   .filter(QualityResult.rule_id == rule.id,
+                           QualityResult.at >= since)
+                   .order_by(QualityResult.at.desc(),
+                             QualityResult.id.desc()).all())
+        passes = sum(1 for row in results if row.status == "pass")
+        fails = len(results) - passes
+        buckets = {}
+        for row in results:
+            day = row.at.date().isoformat() if row.at else ""
+            bucket = buckets.setdefault(day, {"day": day, "pass": 0,
+                                              "fail": 0})
+            if row.status == "pass":
+                bucket["pass"] += 1
+            else:
+                bucket["fail"] += 1
+            overall = daily.setdefault(day, {"day": day, "pass": 0,
+                                             "fail": 0})
+            if row.status == "pass":
+                overall["pass"] += 1
+            else:
+                overall["fail"] += 1
+        streak = 0
+        for row in results:
+            if row.status == "pass":
+                break
+            streak += 1
+        sla = (rule.config_json or {}).get("sla_percent")
+        rate = int(round(passes * 100 / len(results))) if results else None
+        out.append({
+            "id": rule.id, "name": rule.name,
+            "dataset_id": rule.dataset_id, "kind": rule.kind,
+            "runs": len(results), "passes": passes, "fails": fails,
+            "pass_rate": rate, "streak": streak,
+            "sla_percent": sla,
+            "below_sla": bool(sla is not None and rate is not None
+                              and rate < int(sla)),
+            "last_status": results[0].status if results else None,
+            "series": [buckets[key] for key in sorted(buckets)]})
+    return {"days": days,
+            "daily": [daily[key] for key in sorted(daily)],
+            "rules": out}

@@ -149,7 +149,7 @@ test("wave N: quick sync, health, quality schedule, governance and backup",
 
   await page.goto("/ui/#/admin/operations");
   await expect(page.locator(".admin-content")).toContainText("运行状态");
-  await expect(page.locator(".admin-content")).toContainText("2.5.0");
+  await expect(page.locator(".admin-content")).toContainText("2.6.0");
   const download = page.waitForEvent("download", { timeout: 20000 });
   await page.getByRole("button", { name: "导出备份" }).click();
   const file = await download;

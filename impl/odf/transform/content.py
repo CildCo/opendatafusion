@@ -5,7 +5,7 @@ from odf.apistudio.sqlguard import ensure_read_only
 REF = re.compile(r"\{\{\s*ref\(\s*['\"]([^'\"]+)['\"]\s*\)\s*\}\}")
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
 MATERIALIZATIONS = ("view", "table", "incremental")
-INCREMENTAL_STRATEGIES = ("append", "merge")
+INCREMENTAL_STRATEGIES = ("append", "merge", "partition")
 LAYERS = ("raw", "staging", "intermediate", "mart")
 TEST_KINDS = ("not_null", "unique", "accepted_values", "relationships", "sql")
 
@@ -139,6 +139,9 @@ def validate_model(session, content, project_id, asset_id=None):
     elif strategy == "merge" and isinstance(key, list) and not key:
         errs.append(_err("incremental_strategy",
                          "merge requires at least one unique_key column"))
+    elif strategy == "partition" and materialization != "incremental":
+        errs.append(_err("incremental_strategy",
+                         "partition replace needs an incremental model"))
     partition = content.get("partition_by") or []
     if not isinstance(partition, list) or any(
             not isinstance(x, str) or not IDENT.match(x) for x in partition):
@@ -154,6 +157,9 @@ def validate_model(session, content, project_id, asset_id=None):
     elif partition and ds and ds.kind != "trino":
         errs.append(_err("partition_by",
                          "partitioning requires a Trino datasource"))
+    elif strategy == "partition" and isinstance(partition, list)             and not partition:
+        errs.append(_err("incremental_strategy",
+                         "partition replace requires partition columns"))
     columns = content.get("columns") or []
     if not isinstance(columns, list):
         errs.append(_err("columns", "columns must be an array"))

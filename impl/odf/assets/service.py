@@ -2,9 +2,9 @@ import secrets
 
 from sqlalchemy import and_, or_
 
-from odf.models import (ApiCallStat, Asset, AssetVersion, InterfaceGrant,
-                        InterfaceRequest, Job, LineageEdge,
-                        PipelineNodeRun, ShareLink)
+from odf.models import (ApiCallStat, Asset, AssetGrant, AssetRequest,
+                        AssetVersion, Job, LineageEdge, PipelineNodeRun,
+                        ShareLink)
 
 
 def _next_version(session, asset_id):
@@ -58,8 +58,8 @@ def delete_asset(session, asset_id, project_id):
         session.query(Job).filter(Job.asset_id == asset_id).delete(
             synchronize_session=False)
     for model, column in ((ShareLink, ShareLink.asset_id),
-                          (InterfaceGrant, InterfaceGrant.interface_asset_id),
-                          (InterfaceRequest, InterfaceRequest.interface_asset_id),
+                          (AssetGrant, AssetGrant.asset_id),
+                          (AssetRequest, AssetRequest.asset_id),
                           (ApiCallStat, ApiCallStat.api_id)):
         session.query(model).filter(column == asset_id).delete(
             synchronize_session=False)

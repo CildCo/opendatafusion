@@ -29,8 +29,9 @@ machinery; there is no separate scheduler or lineage store.
   schema.
 - `unique_key`: used by incremental models to insert only keys that do not
   exist in the target table. Without it, incremental appends every row.
-- `incremental_strategy`: `append` (default) or `merge`. Merge requires at
-  least one `unique_key` column.
+- `incremental_strategy`: `append` (default), `merge` or `partition`.
+  Merge requires at least one `unique_key` column; `partition` replaces the
+  partitions present in the source and requires Trino partition columns.
 - `partition_by`: up to four columns, Trino / Iceberg tables only. Views
   cannot be partitioned.
 
@@ -70,6 +71,9 @@ group by city
 - Partitioning is available for Trino / Iceberg table and incremental models.
   The table is created with `format = 'PARQUET'` and the selected partition
   columns.
+- `partition` replace reads the distinct partition values from the source,
+  deletes those partitions from the target and inserts the source rows. It is
+  capped at 10,000 partitions and falls back to a full rebuild above that.
 
 Trino models use the datasource catalog and create the project schema when
 needed. Other SQL datasources use the configured schema.

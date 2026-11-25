@@ -60,6 +60,8 @@
                        style="width: 100%">
               <el-option value="append" :label="t('tm.strategyAppend')" />
               <el-option value="merge" :label="t('tm.strategyMerge')" />
+              <el-option value="partition"
+                         :label="t('tm.strategyPartition')" />
             </el-select>
           </el-form-item>
           <el-form-item v-if="content.materialization !== 'view'"

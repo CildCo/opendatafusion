@@ -140,3 +140,33 @@ on the next publish. A manually created policy is never overwritten.
 
 Checking a Trino model uses `DESCRIBE <catalog>.<schema>.<table>`. Other SQL
 datasources use SQLAlchemy column inspection.
+
+
+## Asset sharing across projects
+
+Published APIs, datasets and models can be requested by another project:
+
+- `POST /api/v1/asset-requests` with an asset id, or `by-key` with an asset
+  key; `GET` lists outgoing or incoming requests.
+- Approvers decide through `POST /asset-requests/{id}/approve|reject`.
+- Active grants are listed by `GET /asset-grants` and revoked with `DELETE`.
+- `GET /shared-assets` lists assets granted to the current project.
+
+The receiving project gets read-only access:
+
+- APIs keep the existing AK/SK gateway path.
+- Datasets can be previewed from their published version with column masking
+  applied; `/shared-assets/{id}/preview` strips the generated SQL.
+- Models expose layer, materialization, physical target and declared columns
+  only; SQL and editing stay with the owner project.
+
+Migrations rename `interface_grant`/`interface_request` to
+`asset_grant`/`asset_request` and add `asset_type`; existing rows become
+`api`. The old `/api-*` routes remain as API-only aliases.
+
+## Quality SLA and trends
+
+`GET /api/v1/quality/trends?days=30` returns per-rule runs, pass rate,
+failure streak, SLA percentage and daily pass/fail buckets. The SLA is stored
+in the rule configuration as `sla_percent`; the console marks rules whose
+recent pass rate is below it.
