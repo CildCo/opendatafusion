@@ -1,3 +1,5 @@
+import re
+
 from odf.apistudio.catalog import table_columns
 from odf.apistudio.params import (ParamError, coerce_params,
                                   validate_param_defs)
@@ -6,7 +8,8 @@ from odf.modelstudio.content import (dataset_output_columns,
                                      validate_metric)
 from odf.models import Asset, AssetVersion, Datasource
 
-TYPES = {"text", "metric", "table", "form"}
+TYPES = {"text", "heading", "divider", "image", "button", "progress",
+         "metric", "table", "form"}
 FORM_WIDGETS = {"input", "textarea", "number", "date", "select", "checkbox"}
 FORM_ROLES = {"viewer", "editor", "approver", "admin"}
 
@@ -15,6 +18,54 @@ def empty_app():
     return {"start_page": "p1", "pages": [{
         "id": "p1", "title": "页面 1", "params": [],
         "components": []}]}
+
+
+BINDING = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
+
+
+def _layout_errors(comp):
+    layout = comp.get("layout")
+    if layout is None:
+        return []
+    if not isinstance(layout, dict):
+        return [_err("component.layout", "layout must be an object")]
+    errs = []
+    values = {}
+    for key in ("x", "y", "w", "h"):
+        value = layout.get(key)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            errs.append(_err("component.layout",
+                             "layout %s must be a non-negative integer" % key))
+            continue
+        values[key] = value
+    if len(values) == 4:
+        if values["w"] < 1 or values["h"] < 1:
+            errs.append(_err("component.layout", "layout size must be positive"))
+        if values["x"] + values["w"] > 12:
+            errs.append(_err("component.layout", "layout exceeds 12 columns"))
+    return errs
+
+
+def _visible_errors(comp, page_params):
+    value = comp.get("visible_when")
+    if value is None:
+        return []
+    if not isinstance(value, dict):
+        return [_err("component.visible_when", "visible_when must be an object")]
+    param = value.get("param")
+    if not isinstance(param, str) or param not in page_params:
+        return [_err("component.visible_when", "visibility param not found")]
+    if value.get("op") not in ("=", "!=", "in"):
+        return [_err("component.visible_when", "unsupported visibility operator")]
+    return []
+
+
+def _binding_errors(text, page_params, field):
+    if not isinstance(text, str):
+        return []
+    names = set(BINDING.findall(text))
+    return [_err(field, "binding param not found: %s" % name)
+            for name in sorted(names) if name not in page_params]
 
 
 def _err(field, message):
@@ -225,8 +276,18 @@ def structural_errors(content):
                     or any(not isinstance(x, str) for x in cols)):
                 errs.append(_err("component.columns",
                                  "columns must be an array of names"))
+            errs.extend(_layout_errors(c))
     if not isinstance(start, str) or start not in ids:
         errs.append(_err("start_page", "start page does not exist"))
+    for page in pages if isinstance(pages, list) else []:
+        if not isinstance(page, dict):
+            continue
+        for comp in page.get("components") or []:
+            if isinstance(comp, dict) and comp.get("type") == "button":
+                target = comp.get("target_page")
+                if target and target not in ids:
+                    errs.append(_err("component.target_page",
+                                     "target page does not exist"))
     return errs
 
 
@@ -245,15 +306,51 @@ def validate_component(session, page, comp, project_id):
                                            else [])
                    if isinstance(p, dict)}
     typ = comp.get("type")
+    errs = _visible_errors(comp, page_params)
     if typ == "form":
-        return _form_errors(session, comp, project_id)
+        return errs + _form_errors(session, comp, project_id)
     col_errs = _column_errors(comp)
     if col_errs:
-        return col_errs
-    if typ == "text":
+        return errs + col_errs
+    if typ in ("text", "heading"):
         if not isinstance(comp.get("text"), str) or not comp["text"].strip():
-            return [_err("component.text", "text is required")]
-        return []
+            return errs + [_err("component.text", "text is required")]
+        return errs + _binding_errors(comp.get("text"), page_params,
+                                      "component.text")
+    if typ == "divider":
+        return errs
+    if typ == "image":
+        url = comp.get("url")
+        if not isinstance(url, str) or not url.strip():
+            return errs + [_err("component.url", "image url is required")]
+        if not (url.startswith("http://") or url.startswith("https://")
+                or url.startswith("/")):
+            return errs + [_err("component.url", "image url is not supported")]
+        return errs
+    if typ == "button":
+        if not isinstance(comp.get("label") or comp.get("text") or "",
+                          str):
+            return errs + [_err("component.label", "button label is invalid")]
+        url = comp.get("url")
+        if url and not (str(url).startswith("http://")
+                        or str(url).startswith("https://")
+                        or str(url).startswith("/")):
+            return errs + [_err("component.url", "button url is not supported")]
+        return errs
+    if typ == "progress":
+        value = comp.get("value")
+        if value is None and not comp.get("value_param"):
+            return errs + [_err("component.value", "progress value is required")]
+        if value is not None and (not isinstance(value, (int, float))
+                                  or isinstance(value, bool)
+                                  or not 0 <= value <= 100):
+            return errs + [_err("component.value",
+                                "progress value must be 0..100")]
+        param = comp.get("value_param")
+        if param and param not in page_params:
+            return errs + [_err("component.value_param",
+                                "progress param not found")]
+        return errs
     if typ == "table" and comp.get("dataset_id") and comp.get("metric_id"):
         return [_err("component.table", "choose a dataset or a metric")]
     if typ == "table":

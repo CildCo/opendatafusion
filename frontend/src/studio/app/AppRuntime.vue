@@ -20,32 +20,22 @@
         {{ t("acomp.query") }}
       </el-button>
     </div>
-    <div v-for="c in page.components" :key="c.id" class="component">
-      <div class="title">{{ c.title || c.type }}</div>
-      <el-alert v-if="data?.[c.id]?.error" :title="data[c.id].error"
-                type="error" :closable="false" />
-      <template v-else-if="c.type === 'form'">
-        <AppForm :component="c" :on-submit="onSubmit" />
-      </template>
-      <template v-else-if="c.type === 'text'">
-        <div class="text">{{ data?.[c.id]?.text ?? c.text }}</div>
-      </template>
-      <template v-else-if="c.type === 'metric'">
-        <div class="value">{{ metricValue(c) }}</div>
-      </template>
-      <template v-else-if="c.type === 'table'">
-        <el-table :data="data?.[c.id]?.rows || []" size="small"
-                  border stripe @row-click="openDetail">
-          <el-table-column v-for="col in tableColumns(c)" :key="col"
-                           :prop="col" :label="col" min-width="110"
-                           show-overflow-tooltip />
-        </el-table>
-        <div class="count">
-          {{ t("acomp.total") }} {{ data?.[c.id]?.row_count || 0 }}
-          {{ t("acomp.rows") }}
-        </div>
-      </template>
-    </div>
+
+    <AppCanvas v-if="hasLayout" :page="page" :data="data" :params="values"
+               :on-submit="onSubmit" @navigate="$emit('navigate', $event)"
+               @row="openDetail" />
+
+    <template v-else>
+      <div v-for="c in page.components" v-show="visible(c)" :key="c.id"
+           class="component">
+        <div class="title">{{ c.title || c.type }}</div>
+        <AppComponent :component="c" :entry="data?.[c.id]" :params="values"
+                      :on-submit="onSubmit"
+                      @navigate="$emit('navigate', $event)"
+                      @row="openDetail" />
+      </div>
+    </template>
+
     <el-empty v-if="!page.components?.length"
               :description="t('acomp.noComponents')" />
     <el-drawer v-model="detailOpen" :title="t('acomp.detail')" size="420px">
@@ -58,9 +48,11 @@
 </template>
 
 <script setup>
-import { reactive, ref, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { t } from "../../i18n";
-import AppForm from "./AppForm.vue";
+import AppCanvas from "./AppCanvas.vue";
+import AppComponent from "./AppComponent.vue";
+import { isVisible } from "./bindings";
 
 const props = defineProps({
   page: { type: Object, required: true },
@@ -68,30 +60,22 @@ const props = defineProps({
   params: { type: Object, default: () => ({}) },
   onSubmit: { type: Function, default: null },
 });
-defineEmits(["update:params", "refresh"]);
+defineEmits(["update:params", "refresh", "navigate"]);
 const values = reactive({ ...props.params });
 const detailOpen = ref(false);
 const detailRow = ref({});
+const hasLayout = computed(() =>
+  (props.page?.components || []).some((c) => c.layout));
 
 watch(() => props.params, (next) => {
   Object.keys(values).forEach((k) => delete values[k]);
   Object.assign(values, next || {});
 }, { deep: true });
 
-function metricValue(c) {
-  const d = props.data?.[c.id];
-  const row = d?.rows?.[0] || {};
-  const cols = d?.columns || [];
-  const col = c.value_column || cols[cols.length - 1] || "value";
-  const value = row[col];
-  if (value === null || value === undefined) return "-";
-  return typeof value === "number"
-    ? value.toLocaleString("zh-CN") : value;
+function visible(c) {
+  return isVisible(c, values);
 }
-function tableColumns(c) {
-  return c.columns?.length ? c.columns
-    : (props.data?.[c.id]?.columns || []);
-}
+
 function openDetail(row) {
   detailRow.value = row;
   detailOpen.value = true;
@@ -109,7 +93,4 @@ function openDetail(row) {
              border-radius: 0; padding: 12px; margin-bottom: 12px; }
 .title { font-weight: 600; font-size: 13px; margin-bottom: 8px;
          color: #0f172a; }
-.value { font-size: 30px; font-weight: 700; color: #0f172a; }
-.text { font-size: 13px; color: #334155; white-space: pre-wrap; }
-.count { font-size: 11px; color: #6b7280; margin-top: 6px; }
 </style>

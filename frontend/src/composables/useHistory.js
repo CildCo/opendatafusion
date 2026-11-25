@@ -5,6 +5,7 @@ export function useHistory(source, { limit = 80, debounce = 350 } = {}) {
   const future = ref([]);
   let last = JSON.stringify(source.value);
   let applying = false;
+  let paused = false;
   let timer = null;
 
   function commit() {
@@ -21,10 +22,22 @@ export function useHistory(source, { limit = 80, debounce = 350 } = {}) {
   }
 
   watch(source, () => {
-    if (applying) return;
+    if (applying || paused) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(commit, debounce);
   }, { deep: true });
+
+  function pause() {
+    paused = true;
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  }
+
+  function resume() {
+    paused = false;
+  }
 
   function apply(value) {
     applying = true;
@@ -63,7 +76,7 @@ export function useHistory(source, { limit = 80, debounce = 350 } = {}) {
 
   const canUndo = computed(() => past.value.length > 0);
   const canRedo = computed(() => future.value.length > 0);
-  return { undo, redo, reset, commit, canUndo, canRedo };
+  return { undo, redo, reset, commit, pause, resume, canUndo, canRedo };
 }
 
 export function bindHistoryKeys(history) {

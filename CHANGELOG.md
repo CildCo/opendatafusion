@@ -4,6 +4,26 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [2.9.0] - 2026-11-25
+
+### Added
+
+- Application pages use a 12-column free-form canvas: drag a component title
+  bar to move it, drag the lower-right corner to resize, and overlapping
+  components are pushed down. Position and size can also be entered in the
+  property panel.
+- New application components: heading, divider, image, button and progress.
+  Buttons open another page or an external link; progress reads a fixed value
+  or a page parameter.
+- Text and headings interpolate page parameters with `{{name}}`; components
+  support `visible_when` conditions (`=`, `!=`, `in`) that hide them at
+  runtime when the condition is not met.
+- The application editor previews parameter changes, offers **Tidy layout**,
+  and validates layout bounds, bindings, visibility parameters and button
+  targets. Drag operations are a single undo step.
+- The transform-model editor imports the shared history stack, so undo and
+  redo work there as in the other editors.
+
 ## [2.8.0] - 2026-11-25
 
 ### Added

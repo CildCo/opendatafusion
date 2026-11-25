@@ -130,3 +130,71 @@ def test_invalid_param_default_is_rejected(tmp_path):
         "params": [{"name": "n", "type": "number", "default": "abc"}],
         "components": []}]}
     assert validate_app(s, content, 1)
+
+
+def _page(components, params=None):
+    return {"start_page": "p1", "pages": [{
+        "id": "p1", "title": "P", "params": params or [],
+        "components": components}]}
+
+
+def test_layout_components_are_valid(tmp_path):
+    s = _env(tmp_path)
+    content = _page([
+        {"id": "h", "type": "heading", "text": "Sales {{city}}",
+         "layout": {"x": 0, "y": 0, "w": 12, "h": 1}},
+        {"id": "r", "type": "divider", "layout": {"x": 0, "y": 1, "w": 12,
+                                                  "h": 1}},
+        {"id": "i", "type": "image", "url": "https://example.com/a.png",
+         "layout": {"x": 0, "y": 2, "w": 4, "h": 2}},
+        {"id": "b", "type": "button", "label": "Details",
+         "target_page": "p1", "layout": {"x": 4, "y": 2, "w": 2, "h": 1}},
+        {"id": "p", "type": "progress", "value": 60,
+         "layout": {"x": 6, "y": 2, "w": 6, "h": 1}},
+    ], [{"name": "city", "type": "string"}])
+    assert validate_app(s, content, 1) == []
+
+
+def test_layout_out_of_grid_is_rejected(tmp_path):
+    s = _env(tmp_path)
+    errs = validate_app(s, _page([
+        {"id": "h", "type": "heading", "text": "x",
+         "layout": {"x": 10, "y": 0, "w": 4, "h": 1}}]), 1)
+    assert any("12 columns" in e["message"] for e in errs)
+
+
+def test_visibility_requires_a_page_param(tmp_path):
+    s = _env(tmp_path)
+    errs = validate_app(s, _page([
+        {"id": "t", "type": "text", "text": "x",
+         "visible_when": {"param": "missing", "op": "=", "value": "1"}}]), 1)
+    assert any(e["field"] == "component.visible_when" for e in errs)
+
+
+def test_binding_requires_a_page_param(tmp_path):
+    s = _env(tmp_path)
+    errs = validate_app(s, _page([
+        {"id": "h", "type": "heading", "text": "Hello {{who}}"}]), 1)
+    assert any("binding param not found" in e["message"] for e in errs)
+
+
+def test_button_target_page_must_exist(tmp_path):
+    s = _env(tmp_path)
+    errs = validate_app(s, _page([
+        {"id": "b", "type": "button", "label": "Go",
+         "target_page": "missing"}]), 1)
+    assert any(e["field"] == "component.target_page" for e in errs)
+
+
+def test_progress_value_must_be_percentage(tmp_path):
+    s = _env(tmp_path)
+    errs = validate_app(s, _page([
+        {"id": "p", "type": "progress", "value": 140}]), 1)
+    assert any(e["field"] == "component.value" for e in errs)
+
+
+def test_image_requires_an_allowed_url(tmp_path):
+    s = _env(tmp_path)
+    errs = validate_app(s, _page([
+        {"id": "i", "type": "image", "url": "javascript:alert(1)"}]), 1)
+    assert any(e["field"] == "component.url" for e in errs)

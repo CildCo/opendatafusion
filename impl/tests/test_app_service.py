@@ -148,3 +148,20 @@ def test_form_is_not_executed_as_a_metric(tmp_path):
     out = app_data(s, a.id)
     assert "f" not in out["components"]
     assert out["components"]["ok"]["text"] == "ok"
+
+
+def test_static_components_do_not_query_metrics(tmp_path):
+    s = _env(tmp_path)
+    content = {"start_page": "p1", "pages": [{
+        "id": "p1", "title": "P", "params": [], "components": [
+            {"id": "h", "type": "heading", "text": "Hello",
+             "layout": {"x": 0, "y": 0, "w": 12, "h": 1}},
+            {"id": "r", "type": "divider"},
+            {"id": "i", "type": "image", "url": "https://example.com/a.png"},
+            {"id": "b", "type": "button", "label": "Go"},
+            {"id": "p", "type": "progress", "value": 40}]}]}
+    a = create_asset(s, 1, "app", "A", content, "admin", enabled=False)
+    out = app_data(s, a.id)
+    assert out["components"]["h"]["text"] == "Hello"
+    for key in ("r", "i", "b", "p"):
+        assert out["components"][key]["error"] is None

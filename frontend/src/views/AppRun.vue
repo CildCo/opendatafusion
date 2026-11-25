@@ -34,7 +34,8 @@
         <AppRuntime v-if="currentPage" :key="currentPage.id"
                     :page="currentPage" :data="data" :params="paramValues"
                     :on-submit="submitForm"
-                    @update:params="setParams" @refresh="refresh" />
+                    @update:params="setParams" @refresh="refresh"
+                    @navigate="navigate" />
       </main>
     </template>
   </div>
@@ -83,6 +84,12 @@ async function load() {
     }
   } catch (e) {
     ElMessage.error(errMsg(e));
+  }
+}
+
+function navigate(pageId) {
+  if (content.value?.pages?.some((p) => p.id === pageId)) {
+    currentId.value = pageId;
   }
 }
 

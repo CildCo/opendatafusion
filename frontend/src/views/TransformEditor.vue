@@ -183,6 +183,8 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getProject, getRole } from "../api";
 import { t } from "../i18n";
 import SqlEditor from "../studio/api/SqlEditor.vue";
+import HistoryControls from "../components/HistoryControls.vue";
+import { bindHistoryKeys, useHistory } from "../composables/useHistory";
 import LineageDrawer from "../components/LineageDrawer.vue";
 import GovernanceDrawer from "../components/GovernanceDrawer.vue";
 import { useDraftSafety } from "../draftSafety";
