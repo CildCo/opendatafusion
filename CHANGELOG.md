@@ -4,6 +4,25 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [3.0.0] - 2026-11-25
+
+### Added
+
+- Catalog detail pages have a summary header and a governance rail showing the
+  domain, quality state, classified columns, glossary terms, open comments and
+  recent activity.
+- The catalog tree can group by source or by business domain; glossary terms
+  filter the tree to their domain, and search matches table names, schemas,
+  column names and tags with the matched columns and tags shown inline.
+- A column drawer shows type, classification, masking and per-column quality
+  rules; the field list filters by name, type or classification.
+- Catalog comments: any project member can comment, resolve and reopen a
+  thread; comments appear in the activity history and in the summary counts.
+- The lineage explorer adds upstream / downstream / both directions, a depth
+  limit, click-to-focus, column-lineage filtering, highlighted paths and JSON
+  or CSV export. It replaces the static lineage lists in the catalog and the
+  impact tab.
+
 ## [2.9.0] - 2026-11-25
 
 ### Added

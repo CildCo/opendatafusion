@@ -28,7 +28,56 @@
     <el-alert v-if="notFound" :title="t('catd.notFound')" type="warning"
               :closable="false" />
 
-    <el-card v-else shadow="never" class="card">
+    <div v-else class="detail-layout">
+    <el-card shadow="never" class="card">
+      <div class="summary">
+        <div class="summary-main">
+          <div class="summary-title">
+            {{ detail.schema }}.{{ detail.table }}
+            <el-tag v-if="detail.domain_name" size="small" type="success">
+              {{ detail.domain_name }}
+            </el-tag>
+          </div>
+          <div class="summary-sub">
+            {{ detail.datasource_name || "-" }}
+            <span v-if="detail.datasource_kind">· {{ detail.datasource_kind }}</span>
+          </div>
+          <div class="meta">
+            <el-tag v-for="tag in detail.tags || []" :key="tag" size="small"
+                    type="info" closable @close="detachTag(tag)">
+              {{ tag }}
+            </el-tag>
+            <span v-if="!(detail.tags || []).length" class="muted">
+              {{ t("cat.noTags") }}
+            </span>
+          </div>
+        </div>
+        <div class="summary-stats">
+          <div class="stat">
+            <b>{{ stats.column_count }}</b><span>{{ t("catd.columnCount") }}</span>
+          </div>
+          <div class="stat">
+            <b>{{ stats.rule_count }}</b><span>{{ t("catd.ruleCount") }}</span>
+          </div>
+          <div class="stat">
+            <b>{{ (detail.metrics || []).length }}</b>
+            <span>{{ t("catd.metricsUsedBy") }}</span>
+          </div>
+          <div class="stat">
+            <b>{{ detail.comments?.open || 0 }}</b>
+            <span>{{ t("catd.openComments") }}</span>
+          </div>
+          <div class="stat">
+            <el-tag v-if="stats.last_quality" size="small"
+                    :type="stats.last_quality.status === 'pass'
+                      ? 'success' : 'danger'">
+              {{ stats.last_quality.status === "pass"
+                ? t("catd.pass") : t("catd.fail") }}
+            </el-tag>
+            <span>{{ t("catd.lastQuality") }}</span>
+          </div>
+        </div>
+      </div>
       <el-tabs v-model="tab">
         <el-tab-pane :label="t('catd.overview')" name="overview">
           <el-descriptions :column="2" border>
@@ -195,9 +244,44 @@
         </el-tab-pane>
 
         <el-tab-pane :label="t('catd.fields')" name="fields">
-          <el-table :data="detail.columns || []" size="small">
+          <div class="preview-bar">
+            <el-input v-model="columnQuery" size="small" clearable
+                      style="width: 260px"
+                      :placeholder="t('catd.columnFilter')" />
+            <span class="muted">
+              {{ filteredColumns.length }} / {{ (detail.columns || []).length }}
+            </span>
+          </div>
+          <el-table :data="filteredColumns" size="small"
+                    @row-click="openColumn">
             <el-table-column prop="name" :label="t('cat.columns')" />
             <el-table-column prop="type" :label="t('cat.type')" width="200" />
+            <el-table-column :label="t('catd.classification')" width="130">
+              <template #default="{ row }">
+                <el-tag v-if="row.classification" size="small" type="warning">
+                  {{ row.classification }}
+                </el-tag>
+                <span v-else class="muted">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('catd.maskType')" width="130">
+              <template #default="{ row }">
+                <span v-if="row.mask_type">{{ row.mask_type }}</span>
+                <span v-else class="muted">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('catd.columnRules')" width="110">
+              <template #default="{ row }">
+                {{ rulesFor(row.name).length }}
+              </template>
+            </el-table-column>
+            <el-table-column width="80">
+              <template #default="{ row }">
+                <el-button link @click.stop="openColumn(row)">
+                  {{ t("catd.viewColumn") }}
+                </el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </el-tab-pane>
 
@@ -228,29 +312,7 @@
         </el-tab-pane>
 
         <el-tab-pane :label="t('catd.impact')" name="impact">
-          <graph-canvas v-if="impact.edges.length" :nodes="impactNodes"
-                        :edges="impact.edges" :height="320" />
-          <div v-if="impact.edges.length">
-            <div class="muted" style="margin-bottom: 8px">
-              {{ tr("catd.downstream", { n: impact.edges.length }) }}
-            </div>
-            <div v-for="(e, i) in impact.edges" :key="'i' + i" class="edge">
-              <span class="node-tag">{{ e.from }}</span>
-              <el-icon><Right /></el-icon>
-              <span class="node-tag dst">{{ e.to }}</span>
-            </div>
-            <div v-if="impact.column_edges.length" class="muted"
-                 style="margin: 12px 0 6px">
-              {{ tr("cat.columnImpact", { n: impact.column_edges.length }) }}
-            </div>
-            <div v-for="(e, i) in impact.column_edges" :key="'c' + i"
-                 class="col-edge">
-              <span>{{ e.from }}.{{ e.from_column }}</span>
-              <el-icon><Right /></el-icon>
-              <span>{{ e.to }}.{{ e.to_column }}</span>
-            </div>
-          </div>
-          <el-empty v-else :description="t('catd.noImpact')" :image-size="70" />
+          <lineage-explorer :focus-ref="lineageRef" :height="340" />
         </el-tab-pane>
 
         <el-tab-pane :label="t('catd.history')" name="history">
@@ -270,8 +332,145 @@
           <el-empty v-if="!history.length" :description="t('catd.emptyHistory')"
                     :image-size="60" />
         </el-tab-pane>
+        <el-tab-pane :label="t('catd.comments')" name="comments">
+          <div class="comment-box">
+            <el-input v-model="newComment" type="textarea" :rows="3"
+                      :placeholder="t('catd.commentPlaceholder')" />
+            <el-button type="primary" :loading="commentSaving"
+                       :disabled="!newComment.trim()" @click="submitComment">
+              {{ t("catd.commentSubmit") }}
+            </el-button>
+          </div>
+          <div class="preview-bar">
+            <el-radio-group v-model="commentFilter" size="small"
+                            @change="loadComments">
+              <el-radio-button value="open">
+                {{ t("catd.open") }}
+              </el-radio-button>
+              <el-radio-button value="resolved">
+                {{ t("catd.resolved") }}
+              </el-radio-button>
+              <el-radio-button value="">{{ t("catd.allComments") }}</el-radio-button>
+            </el-radio-group>
+          </div>
+          <div v-for="row in comments" :key="row.id" class="comment"
+               :class="{ resolved: row.status === 'resolved' }">
+            <div class="comment-head">
+              <b>{{ row.actor }}</b>
+              <span class="muted">{{ fmt(row.created_at) }}</span>
+              <el-tag v-if="row.status === 'resolved'" size="small"
+                      type="success">{{ t("catd.resolved") }}</el-tag>
+              <div class="spacer" />
+              <el-button link size="small" @click="toggleComment(row)">
+                {{ row.status === "resolved"
+                  ? t("catd.reopen") : t("catd.resolve") }}
+              </el-button>
+            </div>
+            <div class="comment-body">{{ row.body }}</div>
+          </div>
+          <el-empty v-if="!comments.length"
+                    :description="t('catd.noComments')" :image-size="60" />
+        </el-tab-pane>
       </el-tabs>
     </el-card>
+
+    <aside class="rail">
+      <section class="rail-card">
+        <h4>{{ t("catd.governance") }}</h4>
+        <div class="rail-row">
+          <span>{{ t("gov.domain") }}</span>
+          <b>{{ detail.domain_name || t("cat.ungrouped") }}</b>
+        </div>
+        <div class="rail-row">
+          <span>{{ t("catd.ruleCount") }}</span><b>{{ stats.rule_count }}</b>
+        </div>
+        <div class="rail-row">
+          <span>{{ t("catd.classified") }}</span>
+          <b>{{ classifiedColumns.length }}</b>
+        </div>
+        <div class="rail-row">
+          <span>{{ t("catd.lastQuality") }}</span>
+          <el-tag v-if="stats.last_quality" size="small"
+                  :type="stats.last_quality.status === 'pass'
+                    ? 'success' : 'danger'">
+            {{ stats.last_quality.status === "pass"
+              ? t("catd.pass") : t("catd.fail") }}
+          </el-tag>
+          <span v-else class="muted">{{ t("catd.never") }}</span>
+        </div>
+        <el-button size="small" style="width: 100%; margin-top: 8px"
+                   @click="$router.push('/quality')">
+          {{ t("catd.goQuality") }}
+        </el-button>
+      </section>
+
+      <section class="rail-card">
+        <h4>{{ t("cat.glossary") }}</h4>
+        <div v-for="term in relatedTerms" :key="term.id" class="rail-term">
+          <b>{{ term.term }}</b>
+          <p>{{ term.definition || t("cat.noDefinition") }}</p>
+        </div>
+        <p v-if="!relatedTerms.length" class="muted">
+          {{ t("cat.glossaryEmpty") }}
+        </p>
+      </section>
+
+      <section class="rail-card">
+        <h4>{{ t("catd.collaboration") }}</h4>
+        <div class="rail-row">
+          <span>{{ t("catd.openComments") }}</span>
+          <b>{{ detail.comments?.open || 0 }}</b>
+        </div>
+        <div class="rail-row">
+          <span>{{ t("catd.allComments") }}</span>
+          <b>{{ detail.comments?.total || 0 }}</b>
+        </div>
+        <div class="rail-row">
+          <span>{{ t("catd.lastActivity") }}</span>
+          <span class="muted">{{ stats.last_activity_at
+            ? fmt(stats.last_activity_at) : t("catd.never") }}</span>
+        </div>
+        <el-button size="small" style="width: 100%; margin-top: 8px"
+                   @click="tab = 'comments'">
+          {{ t("catd.goComments") }}
+        </el-button>
+      </section>
+    </aside>
+    </div>
+
+    <el-drawer v-model="columnOpen" :title="selectedColumn?.name"
+               size="440px">
+      <template v-if="selectedColumn">
+        <el-descriptions :column="1" border>
+          <el-descriptions-item :label="t('cat.columns')">
+            {{ selectedColumn.name }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('cat.type')">
+            {{ selectedColumn.type || "-" }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('catd.classification')">
+            {{ selectedColumn.classification || "-" }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('catd.maskType')">
+            {{ selectedColumn.mask_type || "-" }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('catd.exemptRoles')">
+            {{ (selectedColumn.exempt_roles || []).join(", ") || "-" }}
+          </el-descriptions-item>
+        </el-descriptions>
+        <h4 class="drawer-head">{{ t("catd.columnRules") }}</h4>
+        <el-table :data="rulesFor(selectedColumn.name)" size="small">
+          <el-table-column prop="name" :label="t('quality.name')" />
+          <el-table-column prop="kind" :label="t('quality.kind')" width="140" />
+        </el-table>
+        <el-empty v-if="!rulesFor(selectedColumn.name).length"
+                  :description="t('catd.noColumnRules')" :image-size="50" />
+        <el-button size="small" style="margin-top: 12px"
+                   @click="$router.push('/quality')">
+          {{ t("catd.goQuality") }}
+        </el-button>
+      </template>
+    </el-drawer>
 
     <el-dialog v-model="pii.open" :title="t('cat.piiTitle')" width="640px">
       <p class="hint">
@@ -324,10 +523,9 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
-import { Right } from "@element-plus/icons-vue";
 import { api, canWrite, errMsg, getProject } from "../api";
 import { fmtDate, t } from "../i18n";
-import GraphCanvas from "../components/GraphCanvas.vue";
+import LineageExplorer from "../components/LineageExplorer.vue";
 import JsonView from "../components/JsonView.vue";
 import PropertyEditor from "../components/PropertyEditor.vue";
 import GovernanceDrawer from "../components/GovernanceDrawer.vue";
@@ -348,24 +546,34 @@ const governanceOpen = ref(false);
 const loading = ref(false);
 const rules = ref([]);
 const history = ref([]);
-const impact = reactive({ edges: [], column_edges: [] });
+const terms = ref([]);
+const comments = ref([]);
+const commentFilter = ref("open");
+const newComment = ref("");
+const commentSaving = ref(false);
+const columnQuery = ref("");
+const columnOpen = ref(false);
+const selectedColumn = ref(null);
 
-const impactNodes = computed(() => {
-  const nodes = new Map();
-  const add = (ref, type) => {
-    if (ref && !nodes.has(ref)) {
-      nodes.set(ref, { id: ref, name: ref, type: type || "table" });
-    }
-  };
-  for (const edge of impact.edges) {
-    add(edge.from, edge.from_type);
-    add(edge.to, edge.to_type);
-  }
-  for (const edge of impact.column_edges) {
-    add(edge.from, "table");
-    add(edge.to, "table");
-  }
-  return [...nodes.values()];
+const lineageRef = computed(() => detail.value.datasource_id
+  ? `${detail.value.datasource_id}:${detail.value.table}` : "");
+
+const filteredColumns = computed(() => {
+  const needle = columnQuery.value.trim().toLowerCase();
+  const rows = detail.value.columns || [];
+  if (!needle) return rows;
+  return rows.filter((row) =>
+    `${row.name} ${row.type || ""} ${row.classification || ""}`
+      .toLowerCase().includes(needle));
+});
+
+const classifiedColumns = computed(() =>
+  (detail.value.columns || []).filter((row) => row.classification));
+
+const relatedTerms = computed(() => {
+  const domain = detail.value.domain_id;
+  if (!domain) return terms.value;
+  return terms.value.filter((row) => row.domain_id === domain);
 });
 
 const limit = ref(20);
@@ -472,17 +680,63 @@ async function loadRules() {
   }
 }
 
-async function loadImpact() {
-  impact.edges = [];
-  impact.column_edges = [];
-  if (!detail.value.datasource_id || !detail.value.table) return;
+function rulesFor(name) {
+  return rules.value.filter((row) => row.column === name);
+}
+
+function openColumn(row) {
+  selectedColumn.value = row;
+  columnOpen.value = true;
+  if (!rules.value.length) loadRules();
+}
+
+async function loadComments() {
   try {
-    const ref = `${detail.value.datasource_id}:${detail.value.table}`;
-    const r = await api.get(`/catalog/impact?ref=${encodeURIComponent(ref)}`);
-    impact.edges = r.edges || [];
-    impact.column_edges = r.column_edges || [];
+    const status = commentFilter.value
+      ? `?status=${commentFilter.value}` : "";
+    comments.value = await api.get(
+      `/catalog/datasets/${datasetId.value}/comments${status}`);
   } catch {
-    /* impact is advisory */
+    comments.value = [];
+  }
+}
+
+async function submitComment() {
+  if (!newComment.value.trim()) return;
+  commentSaving.value = true;
+  try {
+    await api.post(`/catalog/datasets/${datasetId.value}/comments`,
+                   { body: newComment.value });
+    newComment.value = "";
+    await loadComments();
+    await load();
+    ElMessage.success(t("catd.commentAdded"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    commentSaving.value = false;
+  }
+}
+
+async function toggleComment(row) {
+  try {
+    await api.patch(`/catalog/comments/${row.id}`, {
+      status: row.status === "resolved" ? "open" : "resolved",
+    });
+    await loadComments();
+    await load();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function loadTerms() {
+  try {
+    const out = await api.get(
+      `/governance/terms?project_id=${getProject() || 1}`);
+    terms.value = out.items || [];
+  } catch {
+    terms.value = [];
   }
 }
 
@@ -499,8 +753,8 @@ watch(tab, (name) => {
   if (loaded[name]) return;
   loaded[name] = true;
   if (name === "profile") loaded.profile = true;
-  if (name === "quality") loadRules();
-  if (name === "impact") loadImpact();
+  if (name === "quality" || name === "fields") loadRules();
+  if (name === "comments") loadComments();
   if (name === "history") loadHistory();
 });
 
@@ -604,6 +858,7 @@ async function saveProperties() {
 onMounted(async () => {
   await load();
   await loadTags();
+  await loadTerms();
 });
 </script>
 
@@ -675,5 +930,43 @@ onMounted(async () => {
   gap: 8px;
   align-items: center;
   margin-bottom: 8px;
+}
+
+.detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px;
+                 gap: 16px; align-items: start; }
+.summary { display: flex; justify-content: space-between; gap: 20px;
+           padding: 4px 4px 16px; border-bottom: 1px solid #eef2f7;
+           margin-bottom: 8px; flex-wrap: wrap; }
+.summary-title { font-size: 18px; font-weight: 700; color: #0f172a;
+                 display: flex; align-items: center; gap: 8px; }
+.summary-sub { color: #64748b; font-size: 12px; margin: 4px 0 8px; }
+.summary-stats { display: flex; gap: 18px; flex-wrap: wrap; }
+.stat { display: flex; flex-direction: column; gap: 3px; min-width: 66px; }
+.stat b { font-size: 20px; color: #0f172a; }
+.stat span { font-size: 11px; color: #64748b; }
+.rail { display: flex; flex-direction: column; gap: 12px; }
+.rail-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+             padding: 12px; }
+.rail-card h4 { margin: 0 0 8px; font-size: 12px; color: #334155; }
+.rail-row { display: flex; justify-content: space-between; gap: 10px;
+            align-items: center; font-size: 12px; color: #475569;
+            padding: 4px 0; }
+.rail-row b { color: #0f172a; }
+.rail-term { padding: 5px 0; border-top: 1px dashed #eef2f7; }
+.rail-term b { font-size: 12px; color: #0f172a; }
+.rail-term p { margin: 2px 0 0; font-size: 11px; color: #64748b; }
+.comment-box { display: flex; flex-direction: column; gap: 8px;
+               align-items: flex-end; margin-bottom: 12px; }
+.comment-box :deep(.el-textarea) { width: 100%; }
+.comment { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px;
+           margin-bottom: 8px; }
+.comment.resolved { background: #f8fafc; opacity: 0.85; }
+.comment-head { display: flex; align-items: center; gap: 8px;
+                font-size: 12px; }
+.comment-body { margin-top: 6px; font-size: 13px; color: #334155;
+                white-space: pre-wrap; }
+.drawer-head { margin: 16px 0 8px; font-size: 13px; }
+@media (max-width: 1100px) {
+  .detail-layout { grid-template-columns: 1fr; }
 }
 </style>

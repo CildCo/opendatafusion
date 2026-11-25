@@ -24,9 +24,9 @@ test("datasources and catalog search work", async ({ page }) => {
   await expect(page.getByText("demo file")).toBeVisible();
 
   await page.goto("/ui/#/catalog");
-  await page.getByPlaceholder("搜索表名").fill("demo_src");
-  await expect(page.locator(".el-tag.hit", { hasText: "main.demo_src" }))
-    .toBeVisible();
+  await page.getByPlaceholder("搜索表、字段或标签").fill("demo_src");
+  await expect(page.locator(".search-row", { hasText: "main.demo_src" })
+    .first()).toBeVisible();
   await expect(page.getByText("列级血缘")).toBeVisible({ timeout: 10000 });
 });
 

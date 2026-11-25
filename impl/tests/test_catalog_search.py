@@ -42,7 +42,8 @@ def test_search_matches_tables_and_columns_scoped_to_project():
     assert [t["table"] for t in out["tables"]] == ["sales_order"]
     assert out["columns"] == []
     out = search_catalog(s, 1, "amount")
-    assert out["tables"] == []
+    assert [t["table"] for t in out["tables"]] == ["sales_order"]
+    assert out["tables"][0]["matched_columns"] == ["amount"]
     assert len(out["columns"]) == 1
     assert out["columns"][0]["table"] == "sales_order"
     assert out["columns"][0]["column"] == "amount"
@@ -57,5 +58,6 @@ def test_search_is_case_insensitive_and_limited():
     out = search_catalog(s, 1, "CUSTOMER")
     assert [t["table"] for t in out["tables"]] == ["customers"]
     assert out["columns"][0]["column"] == "customer_name"
-    assert search_catalog(s, 1, "  ") == {"tables": [], "columns": []}
+    assert search_catalog(s, 1, "  ") == {
+        "tables": [], "columns": [], "tags": []}
     assert len(search_catalog(s, 1, "a", limit=1)["columns"]) == 1

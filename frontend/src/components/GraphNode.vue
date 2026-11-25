@@ -1,5 +1,5 @@
 <template>
-  <div class="graph-node" :class="{ active }">
+  <div class="graph-node" :class="{ active, highlight: data.highlight }">
     <handle type="target" :position="Position.Left" />
     <entity-icon :type="data.type" :size="22" />
     <div class="text">
@@ -36,6 +36,7 @@ defineProps({
   color: #0f172a;
 }
 .graph-node.active { border-color: #1d4ed8; box-shadow: 0 0 0 2px #eff4ff; }
+.graph-node.highlight { border-color: #2563eb; border-width: 2px; }
 .text { min-width: 0; }
 .name {
   font-weight: 600;

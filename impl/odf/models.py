@@ -253,6 +253,26 @@ class GlossaryTerm(Base):
                                                  default=now)
 
 
+class CatalogComment(Base):
+    __tablename__ = "catalog_comment"
+    __table_args__ = (Index("ix_catalog_comment_dataset_created",
+                            "dataset_id", "created_at"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"),
+                                            index=True)
+    dataset_id: Mapped[int] = mapped_column(ForeignKey("dataset.id"),
+                                            index=True)
+    actor: Mapped[str] = mapped_column(String(64))
+    body: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(16), default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now, index=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    resolved_by: Mapped[str | None] = mapped_column(String(64),
+                                                    nullable=True)
+
+
 class SavedQuery(Base):
     __tablename__ = "saved_query"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

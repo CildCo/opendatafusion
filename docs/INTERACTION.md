@@ -59,3 +59,19 @@ day (failed, running, queued, success, skipped). The window can be 7, 14 or
 - The editor preview reacts to parameter changes, and validation reports grid
   bounds, undefined bindings, visibility parameters, image URLs and button
   targets.
+
+## Catalog discovery and collaboration
+
+- The catalog tree switches between source grouping and business-domain
+  grouping. Glossary terms filter the tree to their domain.
+- Search returns table, column and tag matches; a column match brings its table
+  into the table list with the matched columns shown inline.
+- The detail page keeps a summary header and a governance rail beside the
+  tabs, so quality, domain, glossary and comment state stay visible.
+- The field list filters by name, type or classification and opens a column
+  drawer with classification, masking, exempt roles and column rules.
+- Comments are a normal activity: posting, resolving and reopening update the
+  summary count and the dataset history.
+- The lineage explorer focuses on a ref, follows upstream / downstream / both
+  up to the chosen depth, highlights the focused node and its edges, filters
+  column lineage and exports JSON or CSV.

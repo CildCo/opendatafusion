@@ -3,11 +3,14 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from odf.db import get_session
+from odf.models import User
 from odf.services.auth import claims_role, require_editor, require_user
-from odf.services.catalog import (create_tag, dataset_detail, dataset_history,
-                                  dataset_profile, dataset_sample, impact,
-                                  lineage, list_datasets, list_tags,
-                                  search_catalog, tag_dataset, untag_dataset)
+from odf.services.catalog import (add_comment, create_tag, dataset_detail,
+                                  dataset_history, dataset_profile,
+                                  dataset_sample, impact, lineage,
+                                  list_comments, list_datasets, list_tags,
+                                  search_catalog, set_comment_status,
+                                  tag_dataset, untag_dataset)
 
 router = APIRouter()
 
@@ -20,6 +23,14 @@ class TagIn(BaseModel):
 class TagDatasetIn(BaseModel):
     dataset_id: int
     tag_id: int
+
+
+class CommentIn(BaseModel):
+    body: str
+
+
+class CommentStatusIn(BaseModel):
+    status: str
 
 
 @router.get("/catalog/datasets")
@@ -110,6 +121,45 @@ def history(dataset_id: int, limit: int = 50,
         raise HTTPException(404, str(e))
 
 
+@router.get("/catalog/datasets/{dataset_id}/comments")
+def comments(dataset_id: int, status: str | None = None, limit: int = 100,
+             s: Session = Depends(get_session),
+             claims: dict = Depends(require_user)):
+    try:
+        return list_comments(s, claims["project_id"], dataset_id, status,
+                             limit)
+    except ValueError as e:
+        raise HTTPException(404 if str(e) == "dataset not found" else 400,
+                            str(e))
+
+
+@router.post("/catalog/datasets/{dataset_id}/comments", status_code=201)
+def add_comment_(dataset_id: int, body: CommentIn,
+                 s: Session = Depends(get_session),
+                 claims: dict = Depends(require_user)):
+    user = s.get(User, int(claims["sub"]))
+    actor = user.username if user else claims["sub"]
+    try:
+        return add_comment(s, claims["project_id"], dataset_id,
+                           actor, body.body)
+    except ValueError as e:
+        raise HTTPException(404 if str(e) == "dataset not found" else 400,
+                            str(e))
+
+
+@router.patch("/catalog/comments/{comment_id}")
+def update_comment(comment_id: int, body: CommentStatusIn,
+                   s: Session = Depends(get_session),
+                   claims: dict = Depends(require_user)):
+    user = s.get(User, int(claims["sub"]))
+    actor = user.username if user else claims["sub"]
+    try:
+        return set_comment_status(s, claims["project_id"], comment_id,
+                                  actor, body.status)
+    except ValueError as e:
+        raise HTTPException(404 if "not found" in str(e) else 400, str(e))
+
+
 @router.get("/catalog/search")
 def search(q: str, limit: int = 50, s: Session = Depends(get_session),
            claims: dict = Depends(require_user)):
@@ -117,9 +167,11 @@ def search(q: str, limit: int = 50, s: Session = Depends(get_session),
 
 
 @router.get("/catalog/lineage")
-def lineage_view(s: Session = Depends(get_session),
+def lineage_view(ref: str | None = None, depth: int = 5,
+                 direction: str = "both",
+                 s: Session = Depends(get_session),
                  claims: dict = Depends(require_user)):
-    return lineage(s, claims["project_id"])
+    return lineage(s, claims["project_id"], ref, depth, direction)
 
 
 @router.get("/catalog/impact")

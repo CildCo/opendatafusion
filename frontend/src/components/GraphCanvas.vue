@@ -26,6 +26,7 @@ const props = defineProps({
   edges: { type: Array, default: () => [] },
   height: { type: Number, default: 380 },
   emptyText: { type: String, default: "" },
+  highlight: { type: String, default: "" },
 });
 const emit = defineEmits(["select"]);
 
@@ -92,6 +93,7 @@ const flowNodes = computed(() => {
       label: node.name || node.label || node.id,
       type: node.type || "table",
       subtitle: node.subtitle ?? (node.type || ""),
+      highlight: Boolean(props.highlight) && node.id === props.highlight,
     },
   }));
 });
@@ -109,9 +111,21 @@ const flowEdges = computed(() => {
       target: edge.to,
       type: "smoothstep",
       animated: false,
-      style: { stroke: "#94a3b8", strokeWidth: 1.4 },
-      markerEnd: { type: MarkerType.ArrowClosed, color: "#94a3b8",
-                   width: 16, height: 16 },
+      style: {
+        stroke: props.highlight
+          && (edge.from === props.highlight || edge.to === props.highlight)
+          ? "#2563eb" : "#94a3b8",
+        strokeWidth: props.highlight
+          && (edge.from === props.highlight || edge.to === props.highlight)
+          ? 2.2 : 1.4,
+      },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: props.highlight
+          && (edge.from === props.highlight || edge.to === props.highlight)
+          ? "#2563eb" : "#94a3b8",
+        width: 16, height: 16,
+      },
     });
   }
   return out;

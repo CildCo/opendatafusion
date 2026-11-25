@@ -29,8 +29,8 @@ test("acceptance: datasource and catalog", async ({ page }) => {
   await page.goto("/ui/#/datasources");
   await expect(page.getByText(/accept-source-/).first()).toBeVisible();
   await page.goto("/ui/#/catalog");
-  await page.getByPlaceholder("搜索表名").fill("accept_source");
-  await expect(page.locator(".el-tag.hit", { hasText: "main.accept_source" })
+  await page.getByPlaceholder("搜索表、字段或标签").fill("accept_source");
+  await expect(page.locator(".search-row", { hasText: "main.accept_source" })
     .first()).toBeVisible();
   await expect(page.getByText("列级血缘")).toBeVisible({ timeout: 10000 });
 });

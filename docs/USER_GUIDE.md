@@ -390,3 +390,20 @@ The **Apps** editor uses a 12-column free-form canvas:
 
 The editing shortcuts apply to the transform-model editor as well; all editors
 share one history stack.
+
+## 36. Catalog collaboration
+
+- The catalog tree groups by source or business domain; the glossary panel
+  filters the tree to the selected term's domain.
+- Search matches table names, schemas, column names and tags, and shows the
+  matched columns and tags inline.
+- The detail header summarises columns, rules, metrics, open comments and the
+  latest quality status; the governance rail shows the domain, classified
+  columns, glossary terms, comments and recent activity.
+- **Fields** filters by name, type or classification; opening a column shows
+  its classification, masking, exempt roles and quality rules.
+- **Comments** supports posting, resolving and reopening threads; counts appear
+  in the summary and the activity history.
+- **Impact** uses the lineage explorer: choose upstream, downstream or both,
+  set a depth, click a node to focus, filter column lineage and export JSON or
+  CSV.

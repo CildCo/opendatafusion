@@ -112,8 +112,8 @@ test("wave N: quick sync, health, quality schedule, governance and backup",
 
   // PII scan from the catalog detail
   await page.goto("/ui/#/catalog");
-  await page.getByPlaceholder("搜索表名").fill("demo");
-  const hit = page.locator(".el-tag.hit").first();
+  await page.getByPlaceholder("搜索表、字段或标签").fill("demo");
+  const hit = page.locator(".search-row").first();
   await expect(hit).toBeVisible({ timeout: 15000 });
   await hit.click();
   await expect(page).toHaveURL(/catalog\/\d+/, { timeout: 10000 });
