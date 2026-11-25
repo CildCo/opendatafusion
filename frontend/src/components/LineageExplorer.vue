@@ -1,7 +1,8 @@
 <template>
   <div class="lineage-explorer" v-loading="loading">
     <div class="controls">
-      <el-radio-group v-model="direction" size="small" @change="load">
+      <el-radio-group v-model="direction" size="small" :disabled="!focus"
+                      @change="load">
         <el-radio-button value="upstream">{{ t("line.upstream") }}</el-radio-button>
         <el-radio-button value="downstream">
           {{ t("line.downstream") }}
@@ -9,7 +10,7 @@
         <el-radio-button value="both">{{ t("line.both") }}</el-radio-button>
       </el-radio-group>
       <el-select v-model="depth" size="small" style="width: 108px"
-                 @change="load">
+                 :disabled="!focus" @change="load">
         <el-option v-for="n in depths" :key="n" :value="n"
                    :label="tr('line.depth', { n })" />
       </el-select>
@@ -19,6 +20,7 @@
       <el-button v-if="focus" size="small" @click="clearFocus">
         {{ t("line.clearFocus") }}
       </el-button>
+      <span v-if="!focus" class="muted">{{ t("line.focusFirst") }}</span>
       <div class="spacer" />
       <el-button size="small" @click="exportJson" :disabled="!data.nodes.length">
         {{ t("line.exportJson") }}
