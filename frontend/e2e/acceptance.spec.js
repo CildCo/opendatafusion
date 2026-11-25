@@ -1,7 +1,11 @@
 import { expect, test } from "@playwright/test";
 
 const USER = process.env.ODF_ACCEPTANCE_USER || "acceptance";
-const PASS = process.env.ODF_ACCEPTANCE_PASSWORD || "AcceptPassw0rd!";
+const PASS = process.env.ODF_ACCEPTANCE_PASSWORD;
+
+test.beforeEach(() => {
+  test.skip(!PASS, "ODF_ACCEPTANCE_PASSWORD is not set");
+});
 
 async function login(page) {
   await page.addInitScript(() => localStorage.setItem("odf_locale", "zh"));
