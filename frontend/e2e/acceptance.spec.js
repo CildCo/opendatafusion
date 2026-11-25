@@ -1,11 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const USER = process.env.ODF_ACCEPTANCE_USER || "acceptance";
-const PASS = process.env.ODF_ACCEPTANCE_PASSWORD;
-
-test.beforeEach(() => {
-  test.skip(!PASS, "ODF_ACCEPTANCE_PASSWORD is not set");
-});
+const PASS = process.env.ODF_ACCEPTANCE_PASSWORD || "AcceptPassw0rd!";
 
 async function login(page) {
   await page.addInitScript(() => localStorage.setItem("odf_locale", "zh"));
@@ -29,8 +25,8 @@ test("acceptance: datasource and catalog", async ({ page }) => {
   await page.goto("/ui/#/datasources");
   await expect(page.getByText(/accept-source-/).first()).toBeVisible();
   await page.goto("/ui/#/catalog");
-  await page.getByPlaceholder("搜索表名").fill("accept_source");
-  await expect(page.locator(".el-tag.hit", { hasText: "main.accept_source" })
+  await page.getByPlaceholder("搜索表、字段或标签").fill("accept_source");
+  await expect(page.locator(".search-row", { hasText: "main.accept_source" })
     .first()).toBeVisible();
   await expect(page.getByText("列级血缘")).toBeVisible({ timeout: 10000 });
 });
