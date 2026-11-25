@@ -6,7 +6,10 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+import os
+
 from odf.db import get_session
+from odf.settings import get_settings
 from odf.services.auth import require_platform_admin
 from odf.services.platform import (get_doc, overview, public_doc, update_doc)
 
@@ -15,6 +18,7 @@ router = APIRouter()
 
 class RetentionIn(BaseModel):
     apply: bool = False
+    archive: bool = False
     days: dict = {}
 
 
@@ -50,8 +54,14 @@ def retention_prune(body: RetentionIn, s: Session = Depends(get_session),
                     claims: dict = Depends(require_platform_admin)):
     from odf.services.audit import write_audit
     from odf.services.retention import prune
+    archive_dir = None
+    if body.apply and body.archive:
+        settings = get_settings()
+        archive_dir = settings.retention_archive_dir or os.path.join(
+            settings.file_dir or ".", "archive")
     try:
-        result = prune(s, body.days, apply=bool(body.apply))
+        result = prune(s, body.days, apply=bool(body.apply),
+                       archive_dir=archive_dir)
     except ValueError as error:
         raise HTTPException(400, str(error))
     if body.apply:

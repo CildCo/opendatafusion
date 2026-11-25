@@ -66,6 +66,8 @@ class Settings(BaseSettings):
     retention_alert_days: int = 180
     retention_webhook_delivery_days: int = 30
     retention_contract_check_days: int = 90
+    retention_archive: bool = False
+    retention_archive_dir: str = ""
     file_dir: str = "./data/files"
     file_max_mb: int = 20
     file_source_roots: str = ""

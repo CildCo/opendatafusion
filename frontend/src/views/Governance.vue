@@ -209,6 +209,31 @@
                     placeholder="0 0 6 * * *" />
         </el-form-item>
       </el-form>
+      <el-divider>{{ t("gov.qualityChecks") }}</el-divider>
+      <div v-for="(check, i) in freshForm.quality" :key="i"
+           class="quality-row">
+        <el-select v-model="check.kind" size="small" style="width: 132px">
+          <el-option v-for="kind in qualityKinds" :key="kind" :value="kind"
+                     :label="kind" />
+        </el-select>
+        <template v-if="check.kind !== 'sql'">
+          <el-input v-model="check.column" size="small" style="width: 100px"
+                    :placeholder="t('gov.qualityColumn')" />
+          <el-input v-if="check.kind === 'accepted_values'"
+                    v-model="check.valuesText" size="small"
+                    style="width: 120px" :placeholder="t('tm.values')" />
+          <el-input-number v-if="check.kind === 'max_null_pct'"
+                           v-model="check.max_null_pct" :min="0" :max="100"
+                           size="small" :controls="false" style="width: 80px" />
+        </template>
+        <el-input v-else v-model="check.sql" size="small"
+                  style="width: 200px" :placeholder="t('gov.qualitySql')" />
+        <el-button link type="danger" @click="freshForm.quality.splice(i, 1)"
+                   :aria-label="t('common.remove')">×</el-button>
+      </div>
+      <el-button link type="primary" @click="addQualityCheck">
+        {{ t("gov.addQualityCheck") }}
+      </el-button>
       <p class="muted">{{ t("gov.freshnessHint") }}</p>
       <template #footer>
         <el-button @click="freshOpen = false">{{ t("common.cancel") }}</el-button>
@@ -294,7 +319,14 @@ const contractOpen = ref(false);
 const contractResult = ref({});
 const freshOpen = ref(false);
 const freshForm = reactive({ asset_id: null, column: "", max_hours: 24,
-                            schedule: "" });
+                            schedule: "", quality: [] });
+const qualityKinds = ["not_null", "unique", "accepted_values",
+                      "max_null_pct", "sql"];
+
+function addQualityCheck() {
+  freshForm.quality.push({ kind: "not_null", column: "", valuesText: "",
+                           max_null_pct: 10, sql: "" });
+}
 const checkOpen = ref(false);
 const checkRows = ref([]);
 
@@ -350,6 +382,13 @@ function openFreshness(row) {
   freshForm.column = (row.freshness && row.freshness.column) || "";
   freshForm.max_hours = (row.freshness && row.freshness.max_hours) || 24;
   freshForm.schedule = row.schedule || "";
+  freshForm.quality = (row.quality || []).map((check) => ({
+    kind: check.kind || "not_null",
+    column: check.column || "",
+    valuesText: (check.values || []).join(","),
+    max_null_pct: check.max_null_pct ?? 10,
+    sql: check.sql || "",
+  }));
   freshOpen.value = true;
 }
 
@@ -360,9 +399,24 @@ async function saveFreshness() {
       ? { column: freshForm.column.trim(),
           max_hours: freshForm.max_hours }
       : {};
+    const quality = freshForm.quality.map((check) => {
+      if (check.kind === "sql") {
+        return { kind: "sql", sql: check.sql };
+      }
+      const out = { kind: check.kind, column: check.column };
+      if (check.kind === "accepted_values") {
+        out.values = String(check.valuesText || "").split(",")
+          .map((item) => item.trim()).filter(Boolean);
+      }
+      if (check.kind === "max_null_pct") {
+        out.max_null_pct = check.max_null_pct ?? 0;
+      }
+      return out;
+    });
     await api.patch(`/assets/${freshForm.asset_id}/contract`, {
       freshness,
       schedule: freshForm.schedule.trim(),
+      quality,
     });
     ElMessage.success(t("gov.contractUpdated"));
     freshOpen.value = false;

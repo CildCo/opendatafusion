@@ -60,6 +60,7 @@ def main():
     pd.add_argument("--apply", action="store_true")
     pd.add_argument("--days", action="append", default=[],
                     metavar="KEY=N")
+    pd.add_argument("--archive-dir")
 
     sub.add_parser("doctor")
 
@@ -128,7 +129,8 @@ def main():
                 key, value = item.split("=", 1)
                 overrides[key] = value
             try:
-                result = prune_data(s, overrides, apply=args.apply)
+                result = prune_data(s, overrides, apply=args.apply,
+                                    archive_dir=args.archive_dir)
             except ValueError as error:
                 parser.error(str(error))
             for key, row in result.items():

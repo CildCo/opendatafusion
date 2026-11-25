@@ -1,3 +1,6 @@
+import gzip
+import json
+import os
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
@@ -92,6 +95,32 @@ def counts(session, overrides=None):
     return {key: _count(session, key, rules[key]) for key in POLICY_KEYS}
 
 
+MODELS = {"query_run": QueryRun, "job": Job, "notification": Notification,
+          "alert": Alert, "webhook_delivery": WebhookDelivery,
+          "contract_check": ContractCheck}
+
+
+def _row(row):
+    return {column.name: getattr(row, column.name)
+            for column in row.__table__.columns}
+
+
+def _archive(session, key, policy, directory):
+    os.makedirs(directory, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    path = os.path.join(directory, "%s-%s.json.gz" % (key, stamp))
+    model = MODELS[key]
+    count = 0
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        handle.write(json.dumps({"table": key, "days": policy,
+                                 "created_at": stamp}) + "\n")
+        for row in (session.query(model).filter(CONDITIONS[key](policy))
+                    .yield_per(500)):
+            handle.write(json.dumps(_row(row), default=str) + "\n")
+            count += 1
+    return {"path": path, "rows": count}
+
+
 def _delete(session, key, policy):
     condition = CONDITIONS[key](policy)
     if key == "job":
@@ -111,17 +140,27 @@ def _delete(session, key, policy):
     return session.execute(delete(model).where(condition)).rowcount
 
 
-def prune(session, overrides=None, apply=False):
+def prune(session, overrides=None, apply=False, archive_dir=None):
     rules = policies(overrides)
     out = {}
     for key in POLICY_KEYS:
         policy = rules[key]
         matched = _count(session, key, policy)
-        removed = 0
-        if apply and matched:
-            removed = int(_delete(session, key, policy) or 0)
-        out[key] = {"days": policy, "matched": matched, "removed": removed}
+        out[key] = {"days": policy, "matched": matched, "removed": 0}
+    archives = {}
+    if apply and archive_dir:
+        for key in POLICY_KEYS:
+            if out[key]["matched"]:
+                archives[key] = _archive(session, key, rules[key],
+                                         archive_dir)
     if apply:
+        for key in POLICY_KEYS:
+            if out[key]["matched"]:
+                out[key]["removed"] = int(
+                    _delete(session, key, rules[key]) or 0)
+            if key in archives:
+                out[key]["archive"] = archives[key]["path"]
+                out[key]["archived"] = archives[key]["rows"]
         session.commit()
     return out
 
@@ -136,7 +175,12 @@ def run_daily(session, now=None):
     if _last_run == day:
         return None
     _last_run = day
-    result = prune(session, apply=True)
+    settings = get_settings()
+    archive_dir = None
+    if settings.retention_archive:
+        archive_dir = settings.retention_archive_dir or os.path.join(
+            settings.file_dir or ".", "archive")
+    result = prune(session, apply=True, archive_dir=archive_dir)
     removed = {key: value["removed"] for key, value in result.items()
                if value["removed"]}
     if removed:

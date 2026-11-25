@@ -18,6 +18,8 @@ def _env(tmp_path):
         c.execute(text("create table orders "
                        "(id int, city text, amount int)"))
         c.execute(text("insert into orders values (1,'a',10)"))
+        c.execute(text("create table q (id int, city text)"))
+        c.execute(text("insert into q values (1,'a'),(2,'a'),(3,null)"))
         c.execute(text("create table events "
                        "(id int, updated_at text)"))
         c.execute(text("insert into events values "
@@ -146,6 +148,62 @@ def test_invalid_freshness_config_is_rejected(tmp_path):
         update_asset_governance(
             s, 1, asset.id,
             contract={"freshness": {"column": "updated_at", "max_hours": 0}})
+
+
+def _quality_dataset(s, table="q", name="q"):
+    return create_asset(
+        s, 1, "dataset", name,
+        {"query": {"datasource_id": 1, "table": table}}, "admin")
+
+
+def test_quality_not_null_and_unique(tmp_path):
+    s, _ = _env(tmp_path)
+    asset = _quality_dataset(s)
+    update_asset_governance(s, 1, asset.id, contract={
+        "quality": [{"kind": "not_null", "column": "city"},
+                    {"kind": "unique", "column": "city"}]})
+    out = check_asset(s, 1, asset.id)
+    assert out["ok"] is False
+    kinds = {(item["kind"], item["column"]) for item in out["issues"]}
+    assert ("quality", "city") in kinds
+    assert len(out["issues"]) == 2
+
+
+def test_quality_accepted_values_and_null_pct(tmp_path):
+    s, _ = _env(tmp_path)
+    asset = _quality_dataset(s)
+    update_asset_governance(s, 1, asset.id, contract={
+        "quality": [{"kind": "accepted_values", "column": "city",
+                     "values": ["b"]},
+                    {"kind": "max_null_pct", "column": "city",
+                     "max_null_pct": 10}]})
+    out = check_asset(s, 1, asset.id)
+    assert out["ok"] is False
+    assert len(out["issues"]) == 2
+
+
+def test_quality_custom_sql(tmp_path):
+    s, _ = _env(tmp_path)
+    asset = _quality_dataset(s)
+    update_asset_governance(s, 1, asset.id, contract={
+        "quality": [{"kind": "sql",
+                     "sql": "select count(*) from q where id > 100"}]})
+    assert check_asset(s, 1, asset.id)["ok"] is True
+    update_asset_governance(s, 1, asset.id, contract={
+        "quality": [{"kind": "sql",
+                     "sql": "select count(*) from q where id > 1"}]})
+    assert check_asset(s, 1, asset.id)["ok"] is False
+
+
+def test_invalid_quality_check_is_rejected(tmp_path):
+    s, _ = _env(tmp_path)
+    asset = _quality_dataset(s)
+    with pytest.raises(ValueError):
+        update_asset_governance(s, 1, asset.id, contract={
+            "quality": [{"kind": "sql", "sql": "delete from q"}]})
+    with pytest.raises(ValueError):
+        update_asset_governance(s, 1, asset.id, contract={
+            "quality": [{"kind": "unknown", "column": "id"}]})
 
 
 def test_contract_check_rejects_unsupported_asset(tmp_path):

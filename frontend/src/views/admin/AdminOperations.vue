@@ -75,6 +75,9 @@ python -m odf.cli rotate-fernet --old-key ... --new-key ...</pre>
           <el-button type="primary" @click="pruneRetention(true)">
             {{ t("adm.retentionApply") }}
           </el-button>
+          <el-button @click="pruneRetention(true, true)">
+            {{ t("adm.retentionArchive") }}
+          </el-button>
         </div>
       </el-card>
 
@@ -226,7 +229,7 @@ async function loadDoctor() {
   }
 }
 
-async function pruneRetention(apply) {
+async function pruneRetention(apply, archive = false) {
   try {
     if (apply) {
       await ElMessageBox.confirm(t("adm.retentionConfirm"),
@@ -234,7 +237,7 @@ async function pruneRetention(apply) {
                                  { type: "warning" });
     }
     const result = await api.post("/platform/retention/prune",
-                                  { apply });
+                                  { apply, archive });
     const removed = Object.values(result).reduce(
       (sum, row) => sum + (row.removed || 0), 0);
     const matched = Object.values(result).reduce(

@@ -120,6 +120,9 @@ Shape:
 - **Freshness** queries `MAX(<column>)` on the live table and reports an issue
   when it is older than `max_hours`, empty or not a time value. Leave the
   column blank to disable it.
+- **Quality checks** run against the live table: `not_null`, `unique`,
+  `accepted_values`, `max_null_pct` and a read-only `sql` check whose first
+  value must be zero. The console edits them per contract.
 - **Schedule** runs the check on a six-field cron (`sec min hour dom mon
   dow`). The scheduler queues a `contract` job through the normal queue;
   results are stored in `contract_check` and the history is available in the
@@ -170,3 +173,7 @@ Migrations rename `interface_grant`/`interface_request` to
 failure streak, SLA percentage and daily pass/fail buckets. The SLA is stored
 in the rule configuration as `sla_percent`; the console marks rules whose
 recent pass rate is below it.
+
+After a scheduled or manual run, a rule whose 30-day pass rate is below its
+SLA raises a `quality SLA breach` alert through the normal alert path. Open
+alerts are deduplicated by title.

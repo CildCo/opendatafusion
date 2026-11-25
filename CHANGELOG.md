@@ -4,6 +4,20 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [2.7.0] - 2026-11-25
+
+### Added
+
+- Contract quality checks: `not_null`, `unique`, `accepted_values`,
+  `max_null_pct` and read-only SQL assertions run with the manual, scheduled
+  and model-run contract checks; the console edits them per contract.
+- Quality SLA alerts: after a scheduled or manual rule run, a 30-day pass rate
+  below the rule's SLA raises an alert through the normal alert path, with
+  deduplication of open alerts.
+- Retention archive: `prune-data --archive-dir`, the console's **Archive and
+  prune**, and `ODF_RETENTION_ARCHIVE` write gzip JSON lines before deletion;
+  a failed archive aborts the prune.
+
 ## [2.6.0] - 2026-11-25
 
 ### Added

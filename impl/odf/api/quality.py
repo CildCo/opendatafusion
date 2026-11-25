@@ -120,6 +120,14 @@ def run(rule_id: int, s: Session = Depends(get_session),
         raise HTTPException(404, str(e))
     write_audit(s, claims["sub"], "run_quality_rule", str(rule_id),
                 {"result_id": result.id, "status": result.status})
+    try:
+        from odf.models import QualityRule
+        from odf.services.quality import check_sla
+        rule = s.get(QualityRule, rule_id)
+        if rule:
+            check_sla(s, rule)
+    except Exception:
+        pass
     return {"id": result.id, "status": result.status,
             "detail": result.detail_json}
 

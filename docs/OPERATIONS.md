@@ -21,6 +21,12 @@ window; `0` disables a class.
 - Removing jobs also removes their pipeline node runs; removing notifications
   removes their read receipts.
 - Audit retention stays separate (`prune-audit`).
+- **Archive before delete**: pass `--archive-dir <dir>` to `prune-data` or use
+  **Archive and prune** in the console. Each class is written to
+  `<class>-<timestamp>.json.gz` with a metadata line followed by one JSON row
+  per line. If any archive fails, nothing is deleted. The scheduler archives
+  automatically when `ODF_RETENTION_ARCHIVE=true`; the directory defaults to
+  `<ODF_FILE_DIR>/archive` or `ODF_RETENTION_ARCHIVE_DIR`.
 
 ## Dead letters and replay
 

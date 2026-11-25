@@ -181,7 +181,7 @@ Create a subscription with name, callback URL, events (blank means all) and sign
 
 Create rules by dataset, kind (not null, unique, range, freshness, schema and more), column and configuration. Run a rule and inspect Results; deleting a rule deletes its results. Creating, running and deleting a rule is written to the audit log, searchable by `quality_rule`.
 
-The Schedule dialog also stores an SLA percentage. The list marks rules whose recent pass rate is below SLA, and Results shows the last 30 days as a daily pass/fail table plus the current failure streak.
+The Schedule dialog also stores an SLA percentage. The list marks rules whose recent pass rate is below SLA, and Results shows the last 30 days as a daily pass/fail table plus the current failure streak. A rule below SLA raises a deduplicated alert after a scheduled or manual run.
 
 The list shows the last result and the pass rate over recent runs. Results summarises that trend and links to the dataset page. A rule can carry a cron schedule; the scheduler runs it automatically, and when alert-on-failure is enabled a failed run raises an alert.
 
@@ -308,6 +308,8 @@ their contract.
   or non-time values.
 - **Check schedule** runs the check on a six-field cron through the normal job
   queue; **Check history** lists stored results.
+- **Quality checks** add not-null, unique, accepted-values, null-rate and
+  read-only SQL assertions to the contract.
 - Publishing a model copies column classifications from its source table or
   parent models to the model's physical target; manual policies are never
   overwritten.
@@ -346,7 +348,8 @@ See [Templates](TEMPLATES.md).
 
 - **Data retention** prunes terminal jobs, query history, notifications,
   closed alerts, webhook deliveries and contract checks on daily windows;
-  administration shows counts and a manual prune action.
+  administration shows counts, a manual prune action and an archive-and-prune
+  action that writes gzip JSON before deleting.
 - **System check** reports database reachability, migration revision and disk
   headroom; `python -m odf.cli doctor` prints the same report.
 - `python -m odf.cli backup-check --path <file>` validates a backup file.
