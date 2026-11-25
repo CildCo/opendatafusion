@@ -201,6 +201,7 @@ development, see [frontend/README.md](frontend/README.md).
 | [Query workbench and performance](docs/QUERY.md) | Query history, execution plans and P50/P95 analysis |
 | [Change data capture](docs/STREAMING.md) | Debezium sources and generated CDC pipelines |
 | [Templates](docs/TEMPLATES.md) | Model and pipeline starting points |
+| [Operations](docs/OPERATIONS.md) | Retention, dead letters, datasource limits, system check and HA smoke tests |
 | [User guide](docs/USER_GUIDE.md) | Every console page and action (also in [Chinese](docs/USER_GUIDE.zh-CN.md)) |
 
 ## Development

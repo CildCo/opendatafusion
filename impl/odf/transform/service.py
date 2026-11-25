@@ -159,6 +159,8 @@ def preview_model(session, asset_id, content=None, limit=100, role=None,
         content = _version(session, asset, published=False)
     sql, mapping = compile_model(session, asset, content)
     ds = _datasource(session, content, asset.project_id)
+    from odf.services.limits import check_query_rate
+    check_query_rate(session, ds)
     max_rows = max(1, min(int(limit), 10000))
     started = time.time()
     from odf.services.query_log import record as record_query
@@ -265,10 +267,47 @@ def _create_table_sql(target, sql, partition_by=None):
 
 
 MERGE_KEY_CAP = 50000
+
+
+def merge_sql(target, source_sql, keys, columns):
+    key_set = set(keys)
+    on = " AND ".join(
+        "t.%s = s.%s" % (quote_ident(key), quote_ident(key))
+        for key in keys)
+    updates = [column for column in columns if column not in key_set]
+    parts = ["MERGE INTO %s t USING (%s) s ON (%s)"
+             % (target, source_sql, on)]
+    if updates:
+        parts.append("WHEN MATCHED THEN UPDATE SET " + ", ".join(
+            "%s = s.%s" % (quote_ident(column), quote_ident(column))
+            for column in updates))
+    parts.append("WHEN NOT MATCHED THEN INSERT (%s) VALUES (%s)" % (
+        ", ".join(quote_ident(column) for column in columns),
+        ", ".join("s.%s" % quote_ident(column) for column in columns)))
+    return " ".join(parts)
+
+
+def _trino_columns(session, ds, target):
+    result = execute_query(session, ds, "DESCRIBE " + target, {}, 500)
+    columns = []
+    for row in result["rows"]:
+        values = list(row.values())
+        if values:
+            columns.append(str(values[0]))
+    return columns
 MERGE_BATCH = 200
 
 
 def _merge_rows(session, ds, target, sql, keys, kind):
+    if kind == "trino":
+        target_columns = _trino_columns(session, ds, target)
+        source = execute_query(session, ds,
+                               limited(sql, kind, 1), {}, 1)
+        source_columns = list(source.get("columns") or [])
+        if target_columns and set(target_columns) == set(source_columns):
+            _ddl(session, ds, merge_sql(target, sql, keys,
+                                        target_columns))
+            return True
     selected = ", ".join(quote_ident(key) for key in keys)
     count = execute_query(
         session, ds, limited("SELECT %s FROM (%s) s" % (selected, sql),
@@ -423,6 +462,8 @@ def sync_model_graph(session, asset, content):
             from_ref="model:%d" % ref.id,
             to_type="model", to_id=str(asset.id),
             to_ref="model:%d" % asset.id))
+    from odf.services.classification import propagate_model_policies
+    propagate_model_policies(session, asset, content)
     session.commit()
 
 

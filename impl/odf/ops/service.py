@@ -169,3 +169,32 @@ def timeline(session, project_id, limit=50):
 def search_audit(session, actor=None, action=None, q=None, limit=100):
     from odf.services.audit import list_audit
     return list_audit(session, limit, actor, action, q)
+
+
+def dead_letters(session, project_id, asset_type=None, since=None,
+                 limit=100):
+    q = _job_query(session, project_id).filter(Job.status == "failed")
+    if asset_type:
+        q = q.filter(Job.asset_type == asset_type)
+    if since is not None:
+        q = q.filter(Job.finished_at >= since)
+    return [_job_dict(session, j) for j in
+            q.order_by(Job.finished_at.desc(), Job.id.desc())
+            .limit(_limit(limit, 500)).all()]
+
+
+def replay_jobs(session, project_id, job_ids, actor):
+    if not isinstance(job_ids, list) or not job_ids:
+        raise ValueError("job_ids must be a non-empty list")
+    if len(job_ids) > 100:
+        raise ValueError("at most 100 jobs can be replayed at once")
+    replayed, skipped = [], []
+    for job_id in job_ids:
+        try:
+            replayed.append(retry_job(session, project_id, int(job_id),
+                                      actor)["id"])
+        except (ValueError, TypeError) as error:
+            skipped.append({"id": job_id, "reason": str(error)[:200]})
+    write_audit(session, actor, "replay_dead_letters", "ops",
+                {"replayed": replayed, "skipped": skipped})
+    return {"replayed": replayed, "skipped": skipped}

@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     http_timeout_s: int = 30
     http_max_response_mb: int = 10
     audit_retention_days: int = 0
+    retention_query_run_days: int = 30
+    retention_job_days: int = 90
+    retention_notification_days: int = 30
+    retention_alert_days: int = 180
+    retention_webhook_delivery_days: int = 30
+    retention_contract_check_days: int = 90
     file_dir: str = "./data/files"
     file_max_mb: int = 20
     file_source_roots: str = ""

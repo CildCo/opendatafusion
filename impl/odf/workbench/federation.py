@@ -63,6 +63,8 @@ def _snapshot(session, project_id, source, settings):
         raise ValueError("datasource not found")
     if ds.kind not in SQL_KINDS:
         raise ValueError("federation requires a SQL datasource")
+    from odf.services.limits import check_query_rate
+    check_query_rate(session, ds)
     engine = _engine(ds)
     try:
         try:

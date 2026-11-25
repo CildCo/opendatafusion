@@ -55,6 +55,7 @@ class ContractPatch(BaseModel):
     enforce: bool | None = None
     allow_extra: bool | None = None
     freshness: dict | None = None
+    schedule: str | None = None
 
 
 def contract_list(session, project_id, include_missing=False):
@@ -78,6 +79,17 @@ def check_contract(asset_id: int, s: Session = Depends(get_session),
         return check_asset(s, claims["project_id"], asset_id)
     except ValueError as error:
         raise HTTPException(400, str(error))
+
+
+@router.get("/assets/{asset_id}/contract/checks")
+def contract_checks(asset_id: int, limit: int = 20,
+                    s: Session = Depends(get_session),
+                    claims: dict = Depends(require_user)):
+    from odf.services.contracts import checks
+    try:
+        return {"items": checks(s, claims["project_id"], asset_id, limit)}
+    except ValueError as error:
+        raise HTTPException(404, str(error))
 
 
 @router.post("/assets/{asset_id}/contract/generate")
@@ -107,6 +119,11 @@ def patch_contract(asset_id: int, body: ContractPatch,
         contract["enforce"] = body.enforce
     if body.allow_extra is not None:
         contract["allow_extra"] = body.allow_extra
+    if body.schedule is not None:
+        if body.schedule:
+            contract["schedule"] = body.schedule
+        else:
+            contract.pop("schedule", None)
     if body.freshness is not None:
         if body.freshness:
             contract["freshness"] = body.freshness

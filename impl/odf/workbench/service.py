@@ -35,6 +35,8 @@ def run_query(session, project_id, datasource_id, sql, limit=1000,
         raise ValueError(
             "workbench is disabled for governed datasources")
     ensure_read_only(sql)
+    from odf.services.limits import check_query_rate
+    check_query_rate(session, ds)
     max_rows = _max_rows(limit)
     started = time.time()
     wrapped = limited(sql, ds.kind, max_rows + 1)
@@ -78,6 +80,8 @@ def explain_query(session, project_id, datasource_id, sql, actor=""):
         raise ValueError(
             "execution plans are not available for this datasource")
     ensure_read_only(sql)
+    from odf.services.limits import check_query_rate
+    check_query_rate(session, ds)
     max_rows = _max_rows(500)
     started = time.time()
     try:

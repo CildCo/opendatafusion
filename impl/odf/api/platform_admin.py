@@ -13,6 +13,11 @@ from odf.services.platform import (get_doc, overview, public_doc, update_doc)
 router = APIRouter()
 
 
+class RetentionIn(BaseModel):
+    apply: bool = False
+    days: dict = {}
+
+
 @router.get("/platform/public")
 def public(s: Session = Depends(get_session)):
     return public_doc(s)
@@ -31,6 +36,37 @@ def save(body: dict, s: Session = Depends(get_session),
         return update_doc(s, body, claims.get("sub", ""))
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+
+@router.get("/platform/retention")
+def retention(s: Session = Depends(get_session),
+              claims: dict = Depends(require_platform_admin)):
+    from odf.services.retention import counts, policies
+    return {"policies": policies(), "counts": counts(s)}
+
+
+@router.post("/platform/retention/prune")
+def retention_prune(body: RetentionIn, s: Session = Depends(get_session),
+                    claims: dict = Depends(require_platform_admin)):
+    from odf.services.audit import write_audit
+    from odf.services.retention import prune
+    try:
+        result = prune(s, body.days, apply=bool(body.apply))
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    if body.apply:
+        removed = {k: v["removed"] for k, v in result.items()
+                   if v["removed"]}
+        write_audit(s, claims["sub"], "retention_prune", "retention",
+                    {"removed": removed})
+    return result
+
+
+@router.get("/platform/doctor")
+def doctor(s: Session = Depends(get_session),
+           claims: dict = Depends(require_platform_admin)):
+    from odf.services.doctor import check
+    return check(s)
 
 
 @router.get("/platform/overview")

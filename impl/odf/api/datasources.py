@@ -33,6 +33,11 @@ class DsUpdateIn(BaseModel):
     auto_sync_minutes: int | None = None
 
 
+class LimitsIn(BaseModel):
+    max_queries_per_min: int = 0
+    max_running_jobs: int = 0
+
+
 class DsTestIn(BaseModel):
     kind: str
     dsn: str | None = None
@@ -189,6 +194,40 @@ def remove(datasource_id: int, force: bool = False,
     write_audit(s, claims["sub"], "delete_datasource", str(datasource_id),
                 blockers)
     return None
+
+
+def _owned_datasource(s, datasource_id, claims):
+    ds = s.get(Datasource, datasource_id)
+    if not ds or ds.project_id != claims["project_id"]:
+        raise HTTPException(404, "datasource not found")
+    return ds
+
+
+@router.get("/datasources/{datasource_id}/limits")
+def get_limits(datasource_id: int, s: Session = Depends(get_session),
+               claims: dict = Depends(require_user)):
+    from odf.services.limits import limits_of, usage
+    ds = _owned_datasource(s, datasource_id, claims)
+    return {**limits_of(ds), "usage": usage(s, ds.id)}
+
+
+@router.put("/datasources/{datasource_id}/limits")
+def set_limits(datasource_id: int, body: LimitsIn,
+               s: Session = Depends(get_session),
+               claims: dict = Depends(require_editor)):
+    from odf.services.limits import limits_of, usage
+    ds = _owned_datasource(s, datasource_id, claims)
+    values = {}
+    for key in ("max_queries_per_min", "max_running_jobs"):
+        value = int(getattr(body, key) or 0)
+        if not 0 <= value <= 100000:
+            raise HTTPException(400, "limits must be between 0 and 100000")
+        values[key] = value
+    ds.limit_json = values
+    s.commit()
+    write_audit(s, claims["sub"], "set_datasource_limits", str(ds.id),
+                values)
+    return {**limits_of(ds), "usage": usage(s, ds.id)}
 
 
 @router.get("/datasources/{datasource_id}/health")

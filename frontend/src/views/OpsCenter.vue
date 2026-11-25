@@ -254,6 +254,41 @@
           </el-table>
         </el-tab-pane>
 
+        <el-tab-pane :label="t('ops.tabDead')" name="dead">
+          <div class="filters">
+            <el-select v-model="deadType" clearable size="small"
+                       style="width: 170px" @change="loadDead"
+                       :placeholder="t('ops.allTypes')">
+              <el-option v-for="type in deadTypes" :key="type"
+                         :value="type" :label="type" />
+            </el-select>
+            <span class="updated">{{ t("ops.deadIntro") }}</span>
+            <div class="spacer" />
+            <el-button size="small" type="primary"
+                       :disabled="!deadSelected.length" @click="replayDead">
+              {{ t("ops.deadSelected").replace("{n}", deadSelected.length) }}
+            </el-button>
+            <el-button size="small" @click="loadDead">{{ t("ops.refresh") }}</el-button>
+          </div>
+          <el-table :data="deadJobs" size="small"
+                    :empty-text="t('ops.deadEmpty')"
+                    @selection-change="deadSelected = $event">
+            <el-table-column type="selection" width="42" />
+            <el-table-column prop="id" :label="t('ops.job')" width="80" />
+            <el-table-column prop="target_name" :label="t('ops.target')"
+                             min-width="180" />
+            <el-table-column prop="asset_type" :label="t('ops.assetType')"
+                             width="120" />
+            <el-table-column prop="attempts" :label="t('ops.attempts')"
+                             width="90" />
+            <el-table-column prop="last_error" :label="t('ops.error')"
+                             min-width="240" show-overflow-tooltip />
+            <el-table-column :label="t('ops.finishedAt')" width="180">
+              <template #default="{ row }">{{ fmt(row.finished_at) }}</template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
         <el-tab-pane :label="t('ops.tabTimeline')" name="timeline">
           <el-timeline v-if="timeline.length">
             <el-timeline-item v-for="(x, i) in timeline" :key="i"
@@ -344,6 +379,11 @@ const alerts = ref([]);
 const timeline = ref([]);
 const apiStats = ref([]);
 const perf = ref({});
+const deadJobs = ref([]);
+const deadSelected = ref([]);
+const deadType = ref("");
+const deadTypes = ["pipeline", "model", "pipeline_backfill",
+                   "dashboard_report", "lakehouse_maintenance"];
 const perfDays = ref(7);
 const audit = ref([]);
 const dependencyBlocked = ref([]);
@@ -432,6 +472,37 @@ async function loadTimeline() {
 async function loadApiStats() {
   apiStats.value = await api.get("/api-stats");
 }
+async function loadDead() {
+  try {
+    const query = deadType.value
+      ? `?asset_type=${encodeURIComponent(deadType.value)}` : "";
+    deadJobs.value = await api.get("/ops/dead-letters" + query);
+    deadSelected.value = [];
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function replayDead() {
+  try {
+    await ElMessageBox.confirm(
+      t("ops.deadSelected").replace("{n}", deadSelected.value.length),
+      t("ops.tabDead"));
+    const result = await api.post("/ops/dead-letters/replay",
+      { ids: deadSelected.value.map((row) => row.id) });
+    ElMessage.success(
+      t("ops.deadReplayed").replace("{n}", result.replayed.length));
+    if (result.skipped.length) {
+      ElMessage.warning(
+        t("ops.deadSkipped").replace("{n}", result.skipped.length));
+    }
+    await loadDead();
+    await loadSummary();
+  } catch (e) {
+    if (e !== "cancel") ElMessage.error(errMsg(e));
+  }
+}
+
 async function loadPerf() {
   try {
     perf.value = await api.get(`/query-runs/summary?days=${perfDays.value}`);
@@ -535,6 +606,7 @@ watch(auto, (on) => {
 watch(tab, (name) => {
   if (name === "audit") loadAudit();
   if (name === "perf") loadPerf();
+  if (name === "dead") loadDead();
 });
 
 onMounted(load);

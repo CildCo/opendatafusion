@@ -62,6 +62,7 @@ class Datasource(Base):
     kind: Mapped[str] = mapped_column(String(32))
     dsn_encrypted: Mapped[str] = mapped_column(Text)
     auto_sync_minutes: Mapped[int] = mapped_column(Integer, default=0)
+    limit_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     last_sync_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True)
     last_sync_status: Mapped[str | None] = mapped_column(
@@ -291,6 +292,21 @@ class QueryRun(Base):
     ms: Mapped[int] = mapped_column(Integer, default=0)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now, index=True)
+
+
+class ContractCheck(Base):
+    __tablename__ = "contract_check"
+    __table_args__ = (Index("ix_contract_check_asset_checked",
+                            "asset_id", "checked_at"),)
+    id: Mapped[int] = mapped_column(BigIntPK, primary_key=True,
+                                    autoincrement=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"),
+                                            index=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey("asset.id"), index=True)
+    status: Mapped[str] = mapped_column(String(16), default="ok")
+    issues_json: Mapped[list] = mapped_column(JSON, default=list)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  default=now, index=True)
 
 

@@ -61,9 +61,12 @@ group by city
   later runs. With `unique_key`, rows whose key already exists are skipped.
   With `incremental_strategy: merge`, existing rows for the selected keys are
   deleted and reinserted, so updates and deletes in the source are reflected.
-- Merge runs the model query once to collect keys and once to insert. Above
-  50,000 keys the run rebuilds the table instead, so very large merges stay
-  correct at the cost of a full rewrite.
+- On Trino / Iceberg, merge uses a native `MERGE INTO` statement when the
+  source and target columns match. Other datasources, or a column mismatch,
+  use the portable delete-and-insert path.
+- The portable merge runs the model query once to collect keys and once to
+  insert. Above 50,000 keys the run rebuilds the table instead, so very large
+  merges stay correct at the cost of a full rewrite.
 - Partitioning is available for Trino / Iceberg table and incremental models.
   The table is created with `format = 'PARQUET'` and the selected partition
   columns.

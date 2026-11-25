@@ -2,7 +2,7 @@ import json
 from datetime import date, datetime
 
 from sqlalchemy import (MetaData, Table, and_, create_engine, delete, or_,
-                        select)
+                        select, text)
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -32,6 +32,48 @@ def _coerce(column, value):
     except Exception:
         return value
     return value
+
+
+def _infer_type(values):
+    present = [value for value in values if value is not None]
+    if not present:
+        return "TEXT"
+    if all(isinstance(value, bool) for value in present):
+        return "BOOLEAN"
+    if all(isinstance(value, int) and not isinstance(value, bool)
+           for value in present):
+        return "BIGINT"
+    if all(isinstance(value, (int, float)) and not isinstance(value, bool)
+           for value in present):
+        return "DOUBLE PRECISION"
+    if all(isinstance(value, (datetime, date)) for value in present):
+        return "TIMESTAMP"
+    return "TEXT"
+
+
+def _evolve_columns(engine, table, rows, dialect):
+    missing = []
+    for row in rows:
+        for key in row:
+            if key == "__odf_op" or key in table.c or key in missing:
+                continue
+            missing.append(key)
+    if not missing:
+        return table
+    preparer = engine.dialect.identifier_preparer
+    if table.schema:
+        name = preparer.quote_schema(table.schema) + "." +             preparer.quote(table.name)
+    else:
+        name = preparer.quote(table.name)
+    with engine.begin() as conn:
+        for key in missing:
+            values = [row.get(key) for row in rows]
+            sql_type = _infer_type(values)
+            conn.execute(text(
+                "ALTER TABLE %s ADD COLUMN %s %s"
+                % (name, preparer.quote(key), sql_type)))
+    return table_for(table.name if not table.schema
+                     else "%s.%s" % (table.schema, table.name), engine)
 
 
 def engine_for(ds):
@@ -117,6 +159,8 @@ class SQLSink(Sink):
                 raise ValueError("unsupported sink mode: %s" % mode)
             if mode == "cdc" and not pk:
                 raise ValueError("cdc sink needs a primary key")
+            if self.dag.get("evolve") and mode in ("cdc", "upsert"):
+                tt = _evolve_columns(engine, tt, rows, engine.dialect.name)
             deletes = []
             if mode == "cdc":
                 kept = []

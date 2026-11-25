@@ -19,13 +19,17 @@ Cards summarise data sources, flows, interfaces, quality rules, 24-hour runs and
 
 ## 3. Operations centre
 
-Tabs: overview, tasks, alerts, API calls, timeline and audit.
+Tabs: overview, tasks, alerts, API calls, query performance, dead letters,
+timeline and audit.
 
 - **Tasks**: retry a failed task or cancel a running one.
 - **API calls**: calls, errors and average latency per interface and access key.
 - Rows in tasks and recent failures link to the related object; the alerts tab links to the alert page.
 - **Timeline**: alerts in time order.
 - **Dependency skips**: runs skipped in the last 24 hours because an upstream dependency had not succeeded are listed in the Tasks tab. `scripts/check_dependency_health.py` reports the same state and exits non-zero when any exist.
+- **Query performance**: total, failures, P50/P95, breakdowns, slowest
+  statements and normalized templates.
+- **Dead letters**: final failed jobs, filtered by type and replayed in bulk.
 - **Audit**: the same records as the Audit page.
 
 ## 4. Data sources
@@ -41,6 +45,9 @@ Tabs: overview, tasks, alerts, API calls, timeline and audit.
 - **SSH jump host**: SQL database types accept optional SSH host, port, user and password fields; all test, sync and query traffic then goes through that host.
 - **Sync metadata** reads the schema into the catalog. Existing datasets are updated in place; tags and quality rules survive.
 - **Tables** lists synced schemas, tables and column counts.
+- **Limits** sets queries per minute (workbench, execution plans, model
+  preview, federated queries) and concurrent model/lakehouse jobs; 0 means
+  unlimited and the dialog shows current usage.
 - **Edit** renames the source; leave the connection string blank to keep it.
 - **Delete** removes the source; when datasets, tags or quality rules depend on it the console reports the counts and asks before cascading.
 - **Lakehouse maintenance** (Trino sources): schema (blank uses the source default), table list (blank covers the whole schema), compaction, snapshot expiry and retention, then Run. The result lists each table.
@@ -250,8 +257,8 @@ project members keep using the workspace.
   external catalog endpoint, token and sync interval. Send a test event or
   push the catalog immediately. See [Lineage and catalog export](LINEAGE.md).
 - **Operations**: runtime and high-availability state, MCP activity, queue
-  health, feature state, audit retention and SIEM forwarding, and backup
-  export/restore. Restore replaces control-plane data from a downloaded
+  health, feature state, data retention with a manual prune action, system
+  check, audit retention and SIEM forwarding, and backup export/restore. Restore replaces control-plane data from a downloaded
   archive and requires typing `RESTORE` to confirm.
 - **Platform audit**: every administrative action, filterable and exportable.
 
@@ -294,6 +301,11 @@ their contract.
 - **No extra columns** also rejects columns that the contract does not list.
 - **Freshness** sets a time column and maximum age; checks report stale, empty
   or non-time values.
+- **Check schedule** runs the check on a six-field cron through the normal job
+  queue; **Check history** lists stored results.
+- Publishing a model copies column classifications from its source table or
+  parent models to the model's physical target; manual policies are never
+  overwritten.
 
 See [Data contracts](GOVERNANCE.md#data-contracts).
 
@@ -308,6 +320,8 @@ source.
 - The source node unwraps `payload.after` and, with **Propagate deletes**,
   sends `payload.before` delete rows.
 - Sinks run in `cdc` mode: delete rows remove by primary key, others upsert.
+- Generated sinks evolve the target: new source columns are added with an
+  inferred type before writing.
 - Target tables must exist first; validation reports missing tables.
 
 See [Change data capture](STREAMING.md).
@@ -322,3 +336,15 @@ Model and pipeline lists have a **Templates** button.
 - Choose a datasource and table; the draft opens in the normal editor.
 
 See [Templates](TEMPLATES.md).
+
+## 33. Operations and retention
+
+- **Data retention** prunes terminal jobs, query history, notifications,
+  closed alerts, webhook deliveries and contract checks on daily windows;
+  administration shows counts and a manual prune action.
+- **System check** reports database reachability, migration revision and disk
+  headroom; `python -m odf.cli doctor` prints the same report.
+- `python -m odf.cli backup-check --path <file>` validates a backup file.
+- `scripts/ha_smoke.py` checks every API replica's `/livez` and `/readyz`.
+
+See [Operations](OPERATIONS.md).

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import inspect
 
 from odf.assets.service import get_asset
-from odf.models import AssetVersion, Datasource
+from odf.models import Asset, AssetVersion, ContractCheck, Datasource
 from odf.services.query import execute_query
 
 _TYPE_PARAMS = re.compile(r"\(.*\)")
@@ -189,6 +189,63 @@ def generate_contract(session, project_id, asset_id):
     return asset.contract_json
 
 
+def schedule_of(contract):
+    value = (contract or {}).get("schedule")
+    return value.strip() if isinstance(value, str) and value.strip() else ""
+
+
+def due_schedules(session, now):
+    from odf.services.scheduler import cron_to_trigger
+    assets = (session.query(Asset)
+              .filter(Asset.type.in_(("dataset", "model")),
+                      Asset.contract_json.isnot(None)).all())
+    out = []
+    for asset in assets:
+        schedule = schedule_of(asset.contract_json)
+        if not schedule:
+            continue
+        try:
+            trigger = cron_to_trigger(schedule)
+        except Exception:
+            continue
+        last = (session.query(ContractCheck)
+                .filter_by(asset_id=asset.id)
+                .order_by(ContractCheck.checked_at.desc()).first())
+        if last and last.checked_at:
+            stamp = last.checked_at
+            if stamp.tzinfo is None:
+                stamp = stamp.replace(tzinfo=timezone.utc)
+            nxt = trigger.get_next_fire_time(None, stamp)
+            if nxt is not None:
+                if nxt.tzinfo is None:
+                    nxt = nxt.replace(tzinfo=timezone.utc)
+                if nxt > now:
+                    continue
+        out.append(asset)
+    return out
+
+
+def save_check(session, asset, result):
+    row = ContractCheck(
+        project_id=asset.project_id, asset_id=asset.id,
+        status="ok" if result.get("ok") else "failed",
+        issues_json=result.get("issues") or [])
+    session.add(row)
+    session.commit()
+    return row
+
+
+def checks(session, project_id, asset_id, limit=20):
+    asset = _asset(session, project_id, asset_id)
+    limit = max(1, min(int(limit or 20), 100))
+    rows = (session.query(ContractCheck)
+            .filter_by(asset_id=asset.id)
+            .order_by(ContractCheck.id.desc()).limit(limit).all())
+    return [{"id": row.id, "status": row.status,
+             "issues": row.issues_json or [],
+             "checked_at": row.checked_at} for row in rows]
+
+
 def contract_summaries(session, project_id, include_missing=False):
     from odf.models import Asset
     rows = (session.query(Asset)
@@ -200,7 +257,14 @@ def contract_summaries(session, project_id, include_missing=False):
         contract = asset.contract_json or {}
         if not contract and not include_missing:
             continue
+        last = (session.query(ContractCheck)
+                .filter_by(asset_id=asset.id)
+                .order_by(ContractCheck.id.desc()).first())
         out.append({"asset_id": asset.id, "asset_type": asset.type,
+                    "schedule": schedule_of(contract),
+                    "last_check": {"status": last.status,
+                                   "checked_at": last.checked_at}
+                    if last else None,
                     "name": asset.name, "key": asset.key,
                     "has_contract": bool(contract),
                     "enforce": bool(contract.get("enforce")),

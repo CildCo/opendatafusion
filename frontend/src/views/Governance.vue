@@ -92,6 +92,18 @@
             </el-table-column>
             <el-table-column prop="columns" :label="t('gov.contractColumns')"
                              width="110" />
+            <el-table-column :label="t('gov.lastCheck')" width="170">
+              <template #default="{ row }">
+                <template v-if="row.last_check">
+                  <el-tag size="small"
+                          :type="row.last_check.status === 'ok' ? 'success' : 'danger'">
+                    {{ row.last_check.status }}
+                  </el-tag>
+                  <div class="muted">{{ fmtTime(row.last_check.checked_at) }}</div>
+                </template>
+                <span v-else class="muted">-</span>
+              </template>
+            </el-table-column>
             <el-table-column :label="t('gov.contractEnforce')" width="110">
               <template #default="{ row }">
                 <el-switch :model-value="row.enforce" :disabled="!canEdit"
@@ -104,13 +116,16 @@
                            @change="setContract(row, { allow_extra: !$event })" />
               </template>
             </el-table-column>
-            <el-table-column :label="t('gov.actions')" width="300">
+            <el-table-column :label="t('gov.actions')" width="380">
               <template #default="{ row }">
                 <el-button link @click="checkContract(row)">
                   {{ t("gov.check") }}
                 </el-button>
                 <el-button v-if="canEdit" link @click="openFreshness(row)">
                   {{ t("gov.freshness") }}
+                </el-button>
+                <el-button link @click="openChecks(row)">
+                  {{ t("gov.checkHistory") }}
                 </el-button>
                 <el-button v-if="canEdit" link type="primary"
                            @click="genContract(row)">
@@ -178,7 +193,8 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="freshOpen" :title="t('gov.freshness')" width="460px">
+    <el-dialog v-model="freshOpen" :title="t('gov.contractSettings')"
+               width="500px">
       <el-form label-width="120px">
         <el-form-item :label="t('gov.freshnessColumn')">
           <el-input v-model="freshForm.column"
@@ -188,12 +204,39 @@
           <el-input-number v-model="freshForm.max_hours" :min="1"
                            :max="8760" />
         </el-form-item>
+        <el-form-item :label="t('gov.schedule')">
+          <el-input v-model="freshForm.schedule"
+                    placeholder="0 0 6 * * *" />
+        </el-form-item>
       </el-form>
       <p class="muted">{{ t("gov.freshnessHint") }}</p>
       <template #footer>
         <el-button @click="freshOpen = false">{{ t("common.cancel") }}</el-button>
         <el-button type="primary" :loading="saving"
                    @click="saveFreshness">{{ t("gov.save") }}</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="checkOpen" :title="t('gov.checkHistory')"
+               width="620px">
+      <el-table :data="checkRows" size="small"
+                :empty-text="t('gov.noChecks')">
+        <el-table-column prop="status" :label="t('gov.checkStatus')"
+                         width="110" />
+        <el-table-column :label="t('gov.checkTime')" width="190">
+          <template #default="{ row }">{{ fmtTime(row.checked_at) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('gov.checkIssues')" min-width="260">
+          <template #default="{ row }">
+            <span v-if="!row.issues.length">-</span>
+            <span v-else class="mono">
+              {{ row.issues.map((i) => `${i.kind}:${i.column}`).join(", ") }}
+            </span>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="checkOpen = false">{{ t("common.close") }}</el-button>
       </template>
     </el-dialog>
 
@@ -250,7 +293,25 @@ const contracts = ref([]);
 const contractOpen = ref(false);
 const contractResult = ref({});
 const freshOpen = ref(false);
-const freshForm = reactive({ asset_id: null, column: "", max_hours: 24 });
+const freshForm = reactive({ asset_id: null, column: "", max_hours: 24,
+                            schedule: "" });
+const checkOpen = ref(false);
+const checkRows = ref([]);
+
+function fmtTime(value) {
+  return value ? new Date(value).toLocaleString() : "-";
+}
+
+async function openChecks(row) {
+  try {
+    const result = await api.get(
+      `/assets/${row.asset_id}/contract/checks`);
+    checkRows.value = result.items || [];
+    checkOpen.value = true;
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
 
 async function loadContracts() {
   loading.value = true;
@@ -288,6 +349,7 @@ function openFreshness(row) {
   freshForm.asset_id = row.asset_id;
   freshForm.column = (row.freshness && row.freshness.column) || "";
   freshForm.max_hours = (row.freshness && row.freshness.max_hours) || 24;
+  freshForm.schedule = row.schedule || "";
   freshOpen.value = true;
 }
 
@@ -298,7 +360,10 @@ async function saveFreshness() {
       ? { column: freshForm.column.trim(),
           max_hours: freshForm.max_hours }
       : {};
-    await api.patch(`/assets/${freshForm.asset_id}/contract`, { freshness });
+    await api.patch(`/assets/${freshForm.asset_id}/contract`, {
+      freshness,
+      schedule: freshForm.schedule.trim(),
+    });
     ElMessage.success(t("gov.contractUpdated"));
     freshOpen.value = false;
     await loadContracts();

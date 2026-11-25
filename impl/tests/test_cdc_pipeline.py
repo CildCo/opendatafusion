@@ -48,6 +48,7 @@ def test_build_pipeline_creates_one_branch_per_table(tmp_path):
     assert nodes["cdc_1"]["config"]["debezium"] is True
     assert nodes["cdc_1"]["config"]["cdc_delete"] is True
     assert nodes["sink_1"]["config"]["mode"] == "cdc"
+    assert nodes["sink_1"]["config"]["evolve"] is True
     assert nodes["cdc_1"]["config"]["table"] == "odf.public.orders"
     assert nodes["sink_1"]["config"]["table"] == "orders"
     assert len(content["edges"]) == 2

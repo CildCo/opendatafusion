@@ -157,6 +157,20 @@ def _clean_contract(raw):
     for key in ("enforce", "allow_extra"):
         if key in raw:
             out[key] = bool(raw[key])
+    if "schedule" in raw:
+        value = raw.get("schedule")
+        if value in (None, ""):
+            out.pop("schedule", None)
+        else:
+            text = str(value).strip()
+            if len(text) > 64:
+                raise ValueError("schedule is too long")
+            from odf.services.scheduler import cron_to_trigger
+            try:
+                cron_to_trigger(text)
+            except Exception:
+                raise ValueError("invalid contract schedule")
+            out["schedule"] = text
     if "freshness" in raw and raw["freshness"] is not None:
         value = raw["freshness"]
         if not isinstance(value, dict):
