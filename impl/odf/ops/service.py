@@ -189,12 +189,21 @@ def replay_jobs(session, project_id, job_ids, actor):
     if len(job_ids) > 100:
         raise ValueError("at most 100 jobs can be replayed at once")
     replayed, skipped = [], []
+    reasons = {
+        "job not found": "job not found",
+        "only failed jobs can be retried": "job is not failed",
+        "target already has a queued or running job":
+            "target already has a queued or running job",
+    }
     for job_id in job_ids:
         try:
             replayed.append(retry_job(session, project_id, int(job_id),
                                       actor)["id"])
-        except (ValueError, TypeError) as error:
-            skipped.append({"id": job_id, "reason": str(error)[:200]})
+        except ValueError as error:
+            reason = reasons.get(str(error).strip(), "replay failed")
+            skipped.append({"id": job_id, "reason": reason})
+        except TypeError:
+            skipped.append({"id": job_id, "reason": "invalid job id"})
     write_audit(session, actor, "replay_dead_letters", "ops",
                 {"replayed": replayed, "skipped": skipped})
     return {"replayed": replayed, "skipped": skipped}
