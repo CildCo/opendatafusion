@@ -63,3 +63,34 @@ def test_unsupported_mode_is_rejected(tmp_path):
                         "mode": "merge"})
     with pytest.raises(ValueError):
         sink.write([{"id": 1, "v": "x"}])
+
+
+def _columns(url, table):
+    raw = create_engine(url)
+    with raw.connect() as c:
+        cols = [row[1] for row in c.execute(text(
+            "pragma table_info(%s)" % table))]
+    raw.dispose()
+    return cols
+
+
+def test_sink_evolves_new_columns(tmp_path):
+    s, _ = _env(tmp_path)
+    ds = s.get(Datasource, 1)
+    sink = SQLSink(ds, {"sink_table": "target", "pk": ["id"],
+                        "mode": "cdc", "evolve": True})
+    sink.write([{"id": 4, "v": "x", "extra": "note", "__odf_op": "upsert"}])
+    url = "sqlite:///" + str(tmp_path / "s.db")
+    assert "extra" in _columns(url, "target")
+    rows = _rows(url)
+    assert {"id": 4, "v": "x"} in [{"id": r["id"], "v": r["v"]} for r in rows]
+
+
+def test_sink_without_evolve_ignores_new_columns(tmp_path):
+    s, _ = _env(tmp_path)
+    ds = s.get(Datasource, 1)
+    sink = SQLSink(ds, {"sink_table": "target", "pk": ["id"],
+                        "mode": "upsert"})
+    sink.write([{"id": 4, "v": "x", "extra": "note"}])
+    url = "sqlite:///" + str(tmp_path / "s.db")
+    assert "extra" not in _columns(url, "target")

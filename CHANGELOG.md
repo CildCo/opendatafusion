@@ -4,6 +4,38 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [2.5.0] - 2026-11-25
+
+### Added
+
+- Data retention: the scheduler daily prunes terminal jobs, query history,
+  notifications, closed alerts, webhook deliveries and contract checks by
+  per-class windows; `odf prune-data` supports dry runs and overrides, and the
+  platform console shows counts and a manual prune action.
+- Dead letters: final failed jobs are listed separately, filtered by asset
+  type and replayed in batches of up to 100 through the normal queue.
+- Datasource limits: per-datasource queries-per-minute for interactive SQL and
+  concurrent model/lakehouse jobs; over-limit queries return HTTP 429 and
+  blocked jobs wait and retry.
+- `odf doctor` reports database reachability, migration revision, counts and
+  disk headroom; the platform console shows the same report.
+- `odf backup-check` validates SQL, gzip and tar.gz backups.
+- `scripts/ha_smoke.py` checks `/livez` and `/readyz` on every API replica.
+- Scheduled data contracts: a six-field cron queues contract jobs through the
+  normal queue, stores results and history, and fails the job on drift.
+- Classification propagation: model publishing copies column policies from
+  its source table or parent models to the physical target, without
+  overwriting manual policies.
+- CDC schema evolution: the `cdc` sink mode can add new source columns with an
+  inferred type before writing; generated CDC pipelines enable it.
+- Native `MERGE INTO` for Trino/Iceberg incremental models when source and
+  target columns match, with the portable path as fallback.
+
+### Changed
+
+- Contract checks and datasource limits add columns and tables:
+  migrations `b2c3d4e5f6a7` and `c3d4e5f6a7b8`.
+
 ## [2.4.0] - 2026-11-24
 
 ### Added

@@ -10,6 +10,14 @@ from odf.workbench.service import explain_query, run_query
 router = APIRouter()
 
 
+def _error(error: ValueError) -> HTTPException:
+    from odf.services.limits import RateLimited
+    if isinstance(error, RateLimited):
+        return HTTPException(429, str(error))
+    return HTTPException(404 if "not found" in str(error) else 400,
+                         str(error))
+
+
 class FedSource(BaseModel):
     alias: str
     datasource_id: int
@@ -40,7 +48,7 @@ def explain(body: ExplainIn, s: Session = Depends(get_session),
         return explain_query(s, claims["project_id"], body.datasource_id,
                              body.sql, claims["sub"])
     except ValueError as e:
-        raise HTTPException(404 if "not found" in str(e) else 400, str(e))
+        raise _error(e)
 
 
 @router.post("/workbench/query")
@@ -51,7 +59,7 @@ def query(body: QueryIn, s: Session = Depends(get_session),
                          body.sql, body.limit, claims["sub"],
                          role=claims_role(s, claims))
     except ValueError as e:
-        raise HTTPException(404 if "not found" in str(e) else 400, str(e))
+        raise _error(e)
 
 
 @router.post("/workbench/federated")
@@ -71,5 +79,4 @@ def federated(body: FedIn, s: Session = Depends(get_session),
             [x.model_dump() for x in body.sources],
             body.sql, body.limit, claims["sub"])
     except ValueError as e:
-        raise HTTPException(404 if "datasource not found" in str(e) else 400,
-                            str(e))
+        raise _error(e)

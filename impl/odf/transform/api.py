@@ -173,7 +173,10 @@ def preview(asset_id: int, body: PreviewIn,
     try:
         return preview_model(s, a.id, body.content, body.limit,
                              actor=claims["sub"])
-    except ValueError:
+    except ValueError as error:
+        from odf.services.limits import RateLimited
+        if isinstance(error, RateLimited):
+            raise HTTPException(429, str(error))
         raise HTTPException(400, "could not preview the model; check SQL, "
                                  "references and the datasource")
 

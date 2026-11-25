@@ -71,7 +71,7 @@ def build_pipeline(session, project_id, source, kafka_datasource_id,
             "id": sink_id, "type": "sink", "name": "Sink " + target,
             "position": {"x": 430, "y": y},
             "config": {"datasource_id": sink.id, "table": target,
-                       "mode": "cdc", "pk": [pk]}})
+                       "mode": "cdc", "pk": [pk], "evolve": True}})
         edges.append({"id": "e%d" % index, "from": source_id,
                       "to": sink_id})
     content = {"nodes": nodes, "edges": edges,

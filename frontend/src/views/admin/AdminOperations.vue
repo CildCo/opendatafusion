@@ -59,6 +59,51 @@ python -m odf.cli rotate-fernet --old-key ... --new-key ...</pre>
       </el-card>
 
       <el-card shadow="never">
+        <template #header><b>{{ t("adm.retention") }}</b></template>
+        <p class="muted">{{ t("adm.retentionIntro") }}</p>
+        <el-table :data="retentionRows" size="small">
+          <el-table-column prop="key" :label="t('adm.retentionKey')" />
+          <el-table-column prop="days" :label="t('adm.retentionDays')"
+                           width="110" />
+          <el-table-column prop="matched" :label="t('adm.retentionMatched')"
+                           width="110" />
+        </el-table>
+        <div class="backup-actions">
+          <el-button @click="pruneRetention(false)">
+            {{ t("adm.retentionPreview") }}
+          </el-button>
+          <el-button type="primary" @click="pruneRetention(true)">
+            {{ t("adm.retentionApply") }}
+          </el-button>
+        </div>
+      </el-card>
+
+      <el-card shadow="never">
+        <template #header><b>{{ t("adm.doctor") }}</b></template>
+        <div class="flag-row">
+          <el-tag :type="doctor.ok ? 'success' : 'danger'" size="small">
+            {{ doctor.ok ? t("adm.doctorOk") : t("adm.doctorBad") }}
+          </el-tag>
+          <el-button link @click="loadDoctor">{{ t("adm.recheck") }}</el-button>
+        </div>
+        <el-descriptions :column="1" border size="small">
+          <el-descriptions-item :label="t('adm.doctorRevision')">
+            {{ doctor.migrations?.current || "-" }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('adm.doctorHead')">
+            {{ doctor.migrations?.head || "-" }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('adm.doctorDisk')">
+            {{ doctor.disk?.free_mb ?? "-" }} MB
+          </el-descriptions-item>
+          <el-descriptions-item v-if="doctor.migrations?.pending"
+                                :label="t('adm.doctorPending')">
+            {{ t("adm.doctorBad") }}
+          </el-descriptions-item>
+        </el-descriptions>
+      </el-card>
+
+      <el-card shadow="never">
         <template #header><b>{{ t("adm.auditDelivery") }}</b></template>
         <el-form label-width="130px" size="small">
           <el-form-item :label="t('adm.auditRetention')">
@@ -99,7 +144,7 @@ python -m odf.cli rotate-fernet --old-key ... --new-key ...</pre>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getToken } from "../../api";
 import { t } from "../../i18n";
@@ -112,6 +157,14 @@ const runtime = ref({});
 const audit = reactive({ retention_days: 0, siem_url: "", siem_token: "" });
 const alerts = reactive({ webhook_url: "" });
 const auditSaving = ref(false);
+const retention = ref({ policies: {}, counts: {} });
+const doctor = ref({});
+const retentionRows = computed(() =>
+  Object.entries(retention.value.counts || {}).map(([key, matched]) => ({
+    key,
+    days: (retention.value.policies || {})[key] ?? "-",
+    matched,
+  })));
 
 async function downloadBackup() {
   try {
@@ -157,6 +210,44 @@ async function restoreBackup({ file }) {
   }
 }
 
+async function loadRetention() {
+  try {
+    retention.value = await api.get("/platform/retention");
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function loadDoctor() {
+  try {
+    doctor.value = await api.get("/platform/doctor");
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function pruneRetention(apply) {
+  try {
+    if (apply) {
+      await ElMessageBox.confirm(t("adm.retentionConfirm"),
+                                 t("adm.retentionApply"),
+                                 { type: "warning" });
+    }
+    const result = await api.post("/platform/retention/prune",
+                                  { apply });
+    const removed = Object.values(result).reduce(
+      (sum, row) => sum + (row.removed || 0), 0);
+    const matched = Object.values(result).reduce(
+      (sum, row) => sum + (row.matched || 0), 0);
+    ElMessage.success(apply
+      ? t("adm.retentionDone") + ` (${removed})`
+      : `${matched}`);
+    await loadRetention();
+  } catch (e) {
+    if (e !== "cancel") ElMessage.error(errMsg(e));
+  }
+}
+
 async function saveAudit() {
   auditSaving.value = true;
   try {
@@ -180,6 +271,8 @@ onMounted(async () => {
     const doc = await api.get("/platform/settings");
     features.value = doc.features || {};
     runtime.value = await api.get("/platform/runtime");
+    await loadRetention();
+    await loadDoctor();
     Object.assign(audit, doc.audit || {});
     Object.assign(alerts, doc.alerts || {});
   } catch (e) {

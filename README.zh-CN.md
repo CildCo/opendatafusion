@@ -182,6 +182,7 @@ cp .env.example .env
 | [查询与性能](docs/QUERY.md) | 查询历史、执行计划与 P50/P95 分析 |
 | [变更数据捕获](docs/STREAMING.md) | Debezium 源与自动生成的 CDC 管道 |
 | [模板](docs/TEMPLATES.md) | 模型与管道的起步模板 |
+| [运维](docs/OPERATIONS.md) | 保留策略、死信、数据源限流、系统自检与 HA 冒烟测试 |
 | [控制台使用指南](docs/USER_GUIDE.zh-CN.md) | 每个页面与按钮的操作说明（[英文版](docs/USER_GUIDE.md)） |
 
 ## 开发

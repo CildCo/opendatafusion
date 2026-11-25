@@ -56,6 +56,16 @@ def main():
     pa.add_argument("--export")
     pa.add_argument("--apply", action="store_true")
 
+    pd = sub.add_parser("prune-data")
+    pd.add_argument("--apply", action="store_true")
+    pd.add_argument("--days", action="append", default=[],
+                    metavar="KEY=N")
+
+    sub.add_parser("doctor")
+
+    bc = sub.add_parser("backup-check")
+    bc.add_argument("--path", required=True)
+
     args = parser.parse_args()
     with SessionLocal() as s:
         if args.cmd == "create-admin":
@@ -95,6 +105,44 @@ def main():
         elif args.cmd == "rotate-jwt-secret":
             print("Change ODF_JWT_SECRET and restart API/MCP. All sessions "
                   "will be invalidated.")
+        elif args.cmd == "doctor":
+            import json
+            from odf.services.doctor import check
+            report = check(s)
+            print(json.dumps(report, default=str, indent=2))
+            if not report["ok"]:
+                raise SystemExit(1)
+        elif args.cmd == "backup-check":
+            import json
+            from odf.services.doctor import check_backup
+            report = check_backup(args.path)
+            print(json.dumps(report, indent=2))
+            if not report["ok"]:
+                raise SystemExit(1)
+        elif args.cmd == "prune-data":
+            from odf.services.retention import prune as prune_data
+            overrides = {}
+            for item in args.days:
+                if "=" not in item:
+                    parser.error("--days expects KEY=N")
+                key, value = item.split("=", 1)
+                overrides[key] = value
+            try:
+                result = prune_data(s, overrides, apply=args.apply)
+            except ValueError as error:
+                parser.error(str(error))
+            for key, row in result.items():
+                print("%-18s days=%-4s matched=%-6s removed=%s"
+                      % (key, row["days"], row["matched"],
+                         row["removed"]))
+            if args.apply:
+                from odf.services.audit import write_audit
+                write_audit(s, "cli", "prune_data", "retention",
+                            {"removed": {k: v["removed"]
+                                         for k, v in result.items()
+                                         if v["removed"]}})
+            else:
+                print("dry run; add --apply to delete")
         elif args.cmd == "prune-audit":
             if args.days < 1:
                 parser.error("--days must be at least 1")

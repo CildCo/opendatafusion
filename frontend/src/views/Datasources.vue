@@ -48,7 +48,7 @@
             <span class="mono">{{ connSummary(row) }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('ds.colActions')" width="330" fixed="right">
+        <el-table-column :label="t('ds.colActions')" width="390" fixed="right">
           <template #default="{ row }">
             <el-button link @click="test(row)">{{ t("ds.test") }}</el-button>
             <el-button v-if="capability(row, 'metadata')" link
@@ -56,6 +56,7 @@
             <el-button v-if="capability(row, 'metadata')" link
                        @click="showTables(row)">{{ t("ds.tablesButton") }}</el-button>
             <el-button link @click="openHealth(row)">{{ t("ds.health") }}</el-button>
+            <el-button v-if="canEdit" link @click="openLimits(row)">{{ t("ds.limits") }}</el-button>
             <el-button v-if="canEdit" link @click="openEdit(row)">{{ t("ds.edit") }}</el-button>
             <el-button v-if="canEdit" link type="danger" @click="remove(row)">{{ t("ds.delete") }}</el-button>
             <el-button v-if="canEdit && row.kind === 'trino'" link
@@ -202,6 +203,31 @@
       </el-table>
       <el-empty v-if="!tables.length" :description="t('ds.noTables')" />
     </el-drawer>
+
+    <el-dialog v-model="limitsOpen" :title="t('ds.limits')" width="460px">
+      <el-form label-width="140px">
+        <el-form-item :label="t('ds.maxQueriesPerMin')">
+          <el-input-number v-model="limitsForm.max_queries_per_min"
+                           :min="0" :max="100000" />
+        </el-form-item>
+        <el-form-item :label="t('ds.maxRunningJobs')">
+          <el-input-number v-model="limitsForm.max_running_jobs"
+                           :min="0" :max="100000" />
+        </el-form-item>
+      </el-form>
+      <p class="muted">{{ t("ds.limitsHint") }}</p>
+      <p class="muted" v-if="limitsUsage">
+        {{ t("ds.usageNow") }}: {{ limitsUsage.queries_last_min }}
+        {{ t("ds.queriesPerMinShort") }} · {{ limitsUsage.running_jobs }}
+        {{ t("ds.runningShort") }}
+      </p>
+      <template #footer>
+        <el-button @click="limitsOpen = false">{{ t("common.cancel") }}</el-button>
+        <el-button type="primary" :loading="saving" @click="saveLimits">
+          {{ t("common.save") }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -242,6 +268,10 @@ const healthRows = ref([]);
 const healthName = ref("");
 const testing = ref(false);
 const testResult = ref(null);
+const limitsOpen = ref(false);
+const limitsUsage = ref(null);
+const limitsForm = reactive({ datasource_id: 0, max_queries_per_min: 0,
+                              max_running_jobs: 0 });
 const maintainOpen = ref(false);
 const maintain = reactive({ datasource_id: 0, schema: "", tables: "",
                             optimize: true, expire: true, retention: "7d",
@@ -431,6 +461,35 @@ async function save() {
     dialog.value = false;
     await load();
     ElMessage.success(editId.value ? t("ds.saved") : t("ds.created"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function openLimits(row) {
+  try {
+    const data = await api.get(`/datasources/${row.id}/limits`);
+    limitsForm.datasource_id = row.id;
+    limitsForm.max_queries_per_min = data.max_queries_per_min || 0;
+    limitsForm.max_running_jobs = data.max_running_jobs || 0;
+    limitsUsage.value = data.usage || null;
+    limitsOpen.value = true;
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function saveLimits() {
+  saving.value = true;
+  try {
+    await api.put(`/datasources/${limitsForm.datasource_id}/limits`, {
+      max_queries_per_min: limitsForm.max_queries_per_min,
+      max_running_jobs: limitsForm.max_running_jobs,
+    });
+    ElMessage.success(t("ds.limitsSaved"));
+    limitsOpen.value = false;
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {

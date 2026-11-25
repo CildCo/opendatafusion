@@ -188,6 +188,31 @@ def process_job(session, job, worker_id):
     if job.cancel_requested:
         complete(session, job.id, False, "cancelled by user")
         return
+    if job.asset_type in ("model", "lakehouse_maintenance"):
+        from odf.services.limits import job_datasource, job_slot_ok
+        datasource_id = job_datasource(session, job)
+        if datasource_id and not job_slot_ok(session, datasource_id,
+                                             job.id):
+            payload = dict(job.payload_json or {})
+            waits = int(payload.get("slot_waits") or 0) + 1
+            payload["slot_waits"] = waits
+            job.payload_json = payload
+            if waits > 120:
+                job.status = "failed"
+                job.finished_at = _now()
+                job.last_error = "datasource concurrency limit reached"
+                job.locked_by = None
+                job.locked_at = None
+                job.heartbeat_at = None
+                session.commit()
+                return
+            job.status = "queued"
+            job.locked_by = None
+            job.locked_at = None
+            job.heartbeat_at = None
+            job.run_at = _now() + timedelta(seconds=30)
+            session.commit()
+            return
     if job.asset_type == "pipeline":
         from odf.lineage import openlineage
         from odf.pipeline.runner import execute_pipeline
@@ -241,6 +266,21 @@ def process_job(session, job, worker_id):
         from odf.lakehouse.schedule import run_schedule
         payload = job.payload_json or {}
         run_schedule(session, payload.get("schedule_id"), worker_id)
+        complete(session, job.id, True)
+        return
+    if job.asset_type == "contract":
+        from odf.models import Asset
+        from odf.services.contracts import check_asset, save_check
+        asset = session.get(Asset, job.asset_id) if job.asset_id else None
+        if not asset:
+            raise ValueError("contract asset not found")
+        result = check_asset(session, asset.project_id, asset.id)
+        save_check(session, asset, result)
+        if not result["ok"]:
+            failed = ", ".join(
+                item["column"] for item in result["issues"]
+                if item["kind"] == "missing") or "schema mismatch"
+            raise ValueError("data contract check failed: %s" % failed)
         complete(session, job.id, True)
         return
     if job.asset_type == "dashboard_report":
@@ -318,7 +358,13 @@ def scheduler_tick(session, now=None):
     _scheduled_quality(session, now)
     _scheduled_reports(session, now)
     _lakehouse_schedules(session, now)
+    _contract_schedules(session, now)
     _catalog_sync(session)
+    try:
+        from odf.services.retention import run_daily
+        run_daily(session, now)
+    except Exception:
+        pass
     try:
         from odf.services.audit_ops import maintenance
         maintenance(session, now)
@@ -403,6 +449,15 @@ def _lakehouse_schedules(session, now):
         from odf.lakehouse.schedule import due, enqueue
         for row in due(session, now):
             enqueue(session, row)
+    except Exception:
+        pass
+
+
+def _contract_schedules(session, now):
+    try:
+        from odf.services.contracts import due_schedules
+        for asset in due_schedules(session, now):
+            enqueue_asset(session, asset.id, "contract")
     except Exception:
         pass
 

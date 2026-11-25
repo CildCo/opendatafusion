@@ -101,7 +101,8 @@ Shape:
     {"name": "total", "type": "double"}
   ],
   "quality": [],
-  "freshness": {"column": "updated_at", "max_hours": 24}
+  "freshness": {"column": "updated_at", "max_hours": 24},
+  "schedule": "0 0 6 * * *"
 }
 ```
 
@@ -119,7 +120,23 @@ Shape:
 - **Freshness** queries `MAX(<column>)` on the live table and reports an issue
   when it is older than `max_hours`, empty or not a time value. Leave the
   column blank to disable it.
+- **Schedule** runs the check on a six-field cron (`sec min hour dom mon
+  dow`). The scheduler queues a `contract` job through the normal queue;
+  results are stored in `contract_check` and the history is available in the
+  governance console. A failed check fails the job and follows the alert path.
 - Supported asset types are datasets and models; other types return an error.
+
+## Classification propagation
+
+Publishing a transform model copies column policies from its sources:
+
+- source table columns with a policy, when the model reads one raw table;
+- parent model columns, when the model uses `{{ ref('key') }}`.
+
+The model's physical target receives matching `pii` / `confidential` /
+`sensitive` policies with the same mask type and exempt roles, marked with
+source `lineage`. Columns that no longer have a propagated source are removed
+on the next publish. A manually created policy is never overwritten.
 
 Checking a Trino model uses `DESCRIBE <catalog>.<schema>.<table>`. Other SQL
 datasources use SQLAlchemy column inspection.

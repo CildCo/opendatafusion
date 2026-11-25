@@ -275,6 +275,10 @@
             <el-option value="cdc" label="cdc" />
           </el-select>
         </el-form-item>
+        <el-form-item v-if="!isKafka && cfg.mode === 'cdc'"
+                      :label="t('nconf.evolve')">
+          <el-switch v-model="cfg.evolve" @change="$emit('update')" />
+        </el-form-item>
         <el-form-item v-if="!isKafka" :label="t('nconf.primaryKey')">
           <el-select v-model="cfg.pk" multiple filterable allow-create
                      style="width: 100%">

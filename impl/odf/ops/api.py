@@ -1,4 +1,7 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from odf.db import get_session
@@ -6,6 +9,10 @@ from odf.ops import service
 from odf.services.auth import require_admin, require_editor, require_user
 
 router = APIRouter()
+
+
+class ReplayIn(BaseModel):
+    ids: list[int]
 
 
 def _value_error(e):
@@ -24,6 +31,27 @@ def jobs(status: str | None = None, limit: int = 50,
          s: Session = Depends(get_session),
          claims: dict = Depends(require_user)):
     return service.list_jobs(s, claims["project_id"], status, limit)
+
+
+@router.get("/ops/dead-letters")
+def dead_letters(asset_type: str | None = None,
+                 since: datetime | None = None, limit: int = 100,
+                 s: Session = Depends(get_session),
+                 claims: dict = Depends(require_user)):
+    return service.dead_letters(s, claims["project_id"], asset_type,
+                                since, limit)
+
+
+@router.post("/ops/dead-letters/replay")
+def replay_dead_letters(body: ReplayIn, s: Session = Depends(get_session),
+                        claims: dict = Depends(require_editor)):
+    if not body.ids or len(body.ids) > 100:
+        raise HTTPException(400, "select between 1 and 100 jobs")
+    try:
+        return service.replay_jobs(s, claims["project_id"], body.ids,
+                                   claims["sub"])
+    except ValueError:
+        raise HTTPException(400, "could not replay the selected jobs")
 
 
 @router.post("/ops/jobs/{job_id}/retry")
