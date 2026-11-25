@@ -356,6 +356,7 @@ def search_catalog(session, project_id: int, q: str, limit: int = 50):
     for d_id, names in seen_cols.items():
         current = set(matched_columns.get(d_id, []))
         matched_columns[d_id] = sorted(current | names)
+    table_rows = table_rows[:limit]
     tables = [{"id": d.id, "datasource_id": d.datasource_id,
                "datasource_name": ds.name,
                "schema": d.schema_name, "table": d.table_name,
