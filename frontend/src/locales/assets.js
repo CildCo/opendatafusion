@@ -124,7 +124,7 @@ export default {
     "ds.phTrino": "trino://user@host:8080/iceberg/schema（https 用 trino+https://）",
     "ds.phFile": "/data/odf/files/sales.csv 或 file:///data/odf/files/orders.xlsx",
 
-    "cat.searchPlaceholder": "搜索表名",
+    "cat.searchPlaceholder": "搜索表、字段或标签",
     "cat.refresh": "刷新",
     "cat.export": "导出目录",
     "cat.datasets": "数据资产",
@@ -460,7 +460,7 @@ export default {
     "ds.phTrino": "trino://user@host:8080/iceberg/schema (use trino+https:// for https)",
     "ds.phFile": "/data/odf/files/sales.csv or file:///data/odf/files/orders.xlsx",
 
-    "cat.searchPlaceholder": "Search tables",
+    "cat.searchPlaceholder": "Search tables, columns or tags",
     "cat.refresh": "Refresh",
     "cat.export": "Export catalog",
     "cat.datasets": "Data assets",

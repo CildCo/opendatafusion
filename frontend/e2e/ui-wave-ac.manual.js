@@ -27,7 +27,7 @@ test("wave AC1: catalog domain tree, glossary, search and lineage",
   await page.locator(".term").filter({ hasText: "城市" }).click();
   await expect(page.locator(".domain-filter")).toContainText("Sales");
 
-  await page.locator("input[placeholder='搜索表名']").fill("city");
+  await page.locator("input[placeholder='搜索表、字段或标签']").fill("city");
   const hit = page.locator(".search-row").filter({ hasText: "events" })
     .first();
   await expect(hit).toBeVisible({ timeout: 15000 });
