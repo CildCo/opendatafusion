@@ -40,6 +40,9 @@ schedule it, publish it through the approval flow, or edit the nodes.
   the source but not in the target are added with an inferred type before the
   rows are written. Manual pipelines can enable the same switch in the sink
   node configuration.
+- Before writing, values are checked against the target column types; a value
+  that cannot be coerced (for example text in an integer column) fails the run
+  with a curated column error.
 - A delete row must carry every primary-key value; otherwise the run fails.
 - One primary key column is used for both source and sink nodes.
 - Manual pipelines need the source switch **Propagate deletes** and sink mode

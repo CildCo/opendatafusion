@@ -446,17 +446,17 @@ class PlatformSetting(Base):
                                                  default=now, onupdate=now)
 
 
-class InterfaceGrant(Base):
-    __tablename__ = "interface_grant"
+class AssetGrant(Base):
+    __tablename__ = "asset_grant"
     __table_args__ = (
-        Index("ux_interface_grant_active", "interface_asset_id",
-              "grantee_project_id", unique=True,
+        Index("ux_asset_grant_active", "asset_id", "grantee_project_id",
+              unique=True,
               sqlite_where=text("revoked_at IS NULL"),
               postgresql_where=text("revoked_at IS NULL")),
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    interface_asset_id: Mapped[int] = mapped_column(
-        ForeignKey("asset.id"), index=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey("asset.id"), index=True)
+    asset_type: Mapped[str] = mapped_column(String(16), default="api")
     owner_project_id: Mapped[int] = mapped_column(
         ForeignKey("project.id"), index=True)
     grantee_project_id: Mapped[int] = mapped_column(
@@ -468,17 +468,17 @@ class InterfaceGrant(Base):
         DateTime(timezone=True), nullable=True)
 
 
-class InterfaceRequest(Base):
-    __tablename__ = "interface_request"
+class AssetRequest(Base):
+    __tablename__ = "asset_request"
     __table_args__ = (
-        Index("ux_interface_request_pending", "interface_asset_id",
-              "grantee_project_id", unique=True,
+        Index("ux_asset_request_pending", "asset_id", "grantee_project_id",
+              unique=True,
               sqlite_where=text("status = 'pending'"),
               postgresql_where=text("status = 'pending'")),
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    interface_asset_id: Mapped[int] = mapped_column(
-        ForeignKey("asset.id"), index=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey("asset.id"), index=True)
+    asset_type: Mapped[str] = mapped_column(String(16), default="api")
     owner_project_id: Mapped[int] = mapped_column(
         ForeignKey("project.id"), index=True)
     grantee_project_id: Mapped[int] = mapped_column(

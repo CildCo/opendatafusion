@@ -163,12 +163,15 @@ Build pages with text, metric cards, tables and forms.
 - **GraphQL**: the API list opens a GraphQL viewer with the signed endpoint `/openapi/graphql`, the schema generated from this project's published APIs and a copyable query example. Send the same `projectKey`, `Date` and AK/SK signature headers as the REST gateway.
 - The list page can delete an API.
 
-## 16. Access control
+## 16. Asset sharing
 
-- **Catalog**: published APIs of this and other projects; request access to another project's API.
+- **Asset catalog**: published APIs, datasets and models of this and other projects; request access to another project's asset.
+- **Shared with me**: assets granted to the current project. Datasets open a masked published preview; models show layer, materialization, target and declared columns; APIs show their parameters.
 - **My requests** and **Pending approvals** track the workflow.
 - **Grants** lists and revokes access.
 - **Access keys** issues AK/SK for the current project (shown once) and can revoke them.
+
+Sharing is read-only: the receiving project can preview published datasets and read model metadata, but cannot edit the asset or use it to build new assets in its own project.
 
 ## 17. Webhooks
 
@@ -177,6 +180,8 @@ Create a subscription with name, callback URL, events (blank means all) and sign
 ## 18. Data quality
 
 Create rules by dataset, kind (not null, unique, range, freshness, schema and more), column and configuration. Run a rule and inspect Results; deleting a rule deletes its results. Creating, running and deleting a rule is written to the audit log, searchable by `quality_rule`.
+
+The Schedule dialog also stores an SLA percentage. The list marks rules whose recent pass rate is below SLA, and Results shows the last 30 days as a daily pass/fail table plus the current failure streak.
 
 The list shows the last result and the pass rate over recent runs. Results summarises that trend and links to the dataset page. A rule can carry a cron schedule; the scheduler runs it automatically, and when alert-on-failure is enabled a failed run raises an alert.
 
@@ -227,7 +232,7 @@ Every recorded action with actor, action, target, time and details, with paging.
 - **Maintenance returns zero tables**: check the schema field; blank uses the source default.
 - **Deleting a data source is refused**: review the dependent datasets, rules and tags, then confirm the cascade.
 - **A new user cannot sign in**: add the user to a project.
-- **An API cannot be called**: issue AK/SK under Access control and sign requests as shown in the API docs.
+- **An API cannot be called**: issue AK/SK under Asset sharing and sign requests as shown in the API docs.
 
 ## 27. Platform administration
 

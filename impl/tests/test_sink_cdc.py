@@ -94,3 +94,22 @@ def test_sink_without_evolve_ignores_new_columns(tmp_path):
     sink.write([{"id": 4, "v": "x", "extra": "note"}])
     url = "sqlite:///" + str(tmp_path / "s.db")
     assert "extra" not in _columns(url, "target")
+
+
+def test_sink_rejects_values_that_do_not_match_target_type(tmp_path):
+    s, _ = _env(tmp_path)
+    ds = s.get(Datasource, 1)
+    sink = SQLSink(ds, {"sink_table": "target", "pk": ["id"],
+                        "mode": "upsert"})
+    with pytest.raises(ValueError):
+        sink.write([{"id": "not-a-number", "v": "x"}])
+
+
+def test_sink_accepts_coercible_values(tmp_path):
+    s, _ = _env(tmp_path)
+    ds = s.get(Datasource, 1)
+    sink = SQLSink(ds, {"sink_table": "target", "pk": ["id"],
+                        "mode": "upsert"})
+    sink.write([{"id": "5", "v": "x"}])
+    rows = _rows("sqlite:///" + str(tmp_path / "s.db"))
+    assert {"id": 5, "v": "x"} in rows

@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 from odf.assets.service import create_asset, publish_asset
 from odf.db import Base
-from odf.models import AuditLog, Datasource, InterfaceGrant, Project
+from odf.models import AuditLog, AssetGrant, Datasource, Project
 from odf.services.crypto import encrypt_secret
 from odf.services.grants import (can_access, decide_request, list_grants,
                                  list_requests, request_access,
@@ -50,9 +50,9 @@ def test_request_approve_and_revoke(tmp_path):
     revoke_grant(s, grants[0]["id"], 1, "admin")
     assert can_access(s, a, 2) is False
     actions = [r.action for r in s.query(AuditLog).all()]
-    assert "request_api_access" in actions
-    assert "approve_api_access" in actions
-    assert "revoke_api_grant" in actions
+    assert "request_asset_access" in actions
+    assert "approve_asset_access" in actions
+    assert "revoke_asset_grant" in actions
 
 
 def test_self_project_duplicates_and_reject(tmp_path):
@@ -65,7 +65,7 @@ def test_self_project_duplicates_and_reject(tmp_path):
     decide_request(s, req["id"], 1, "admin", False)
     assert list_grants(s, 1) == []
     assert can_access(s, a, 2) is False
-    assert s.query(InterfaceGrant).count() == 0
+    assert s.query(AssetGrant).count() == 0
     with pytest.raises(ValueError):
         decide_request(s, req["id"], 1, "admin", True)
 
@@ -73,11 +73,11 @@ def test_self_project_duplicates_and_reject(tmp_path):
 def test_active_grant_is_unique(tmp_path):
     from sqlalchemy.exc import IntegrityError
     s, a = _env(tmp_path)
-    s.add(InterfaceGrant(interface_asset_id=a.id, owner_project_id=1,
-                         grantee_project_id=2, granted_by="x"))
+    s.add(AssetGrant(asset_id=a.id, asset_type="api", owner_project_id=1,
+                     grantee_project_id=2, granted_by="x"))
     s.commit()
-    s.add(InterfaceGrant(interface_asset_id=a.id, owner_project_id=1,
-                         grantee_project_id=2, granted_by="y"))
+    s.add(AssetGrant(asset_id=a.id, asset_type="api", owner_project_id=1,
+                     grantee_project_id=2, granted_by="y"))
     with pytest.raises(IntegrityError):
         s.commit()
     s.rollback()

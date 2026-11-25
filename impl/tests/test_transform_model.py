@@ -279,3 +279,35 @@ def test_failed_test_keeps_the_previous_table(tmp_path):
     assert len(rows) == 3
     leftovers = [n for n in _sqlite_tables(tmp_path) if "__odf_" in n]
     assert leftovers == []
+
+
+def test_partition_replace_requires_trino_and_columns(tmp_path):
+    s = _env(tmp_path)
+    errs = validate_model(
+        s, {"datasource_id": 1, "sql": "select * from orders",
+            "materialization": "incremental", "schema": "main",
+            "unique_key": [], "partition_by": [],
+            "incremental_strategy": "partition", "layer": "staging",
+            "tests": [], "columns": []}, 1)
+    assert "incremental_strategy" in {e["field"] for e in errs}
+    errs = validate_model(
+        s, {"datasource_id": 1, "sql": "select * from orders",
+            "materialization": "incremental", "schema": "main",
+            "unique_key": [], "partition_by": ["city"],
+            "incremental_strategy": "partition", "layer": "staging",
+            "tests": [], "columns": []}, 1)
+    assert "partition_by" in {e["field"] for e in errs}
+
+
+def test_partition_replace_accepts_trino_columns(tmp_path):
+    s = _env(tmp_path)
+    s.add(Datasource(id=9, project_id=1, name="lake", kind="trino",
+                     dsn_encrypted=encrypt_secret("trino://x")))
+    s.commit()
+    errs = validate_model(
+        s, {"datasource_id": 9, "sql": "select * from lake.t",
+            "materialization": "incremental", "schema": "odf_p1",
+            "unique_key": [], "partition_by": ["dt"],
+            "incremental_strategy": "partition", "layer": "staging",
+            "tests": [], "columns": []}, 1)
+    assert not [e for e in errs if e["field"] == "incremental_strategy"]

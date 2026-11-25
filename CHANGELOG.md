@@ -4,6 +4,31 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [2.6.0] - 2026-11-25
+
+### Added
+
+- Cross-project asset sharing for published APIs, datasets and models:
+  requests by asset id or key, approval, grants, revocation and a shared-asset
+  list. Datasets open a masked published preview; models expose layer,
+  materialization, target and declared columns without SQL; APIs keep the
+  AK/SK gateway path.
+- Quality SLA: rules store `sla_percent`, the list flags rules below SLA, and
+  results show a 30-day daily pass/fail table and the current failure streak.
+- `partition` incremental strategy for Trino: replaces the partitions present
+  in the source instead of merging row by row, with a 10,000-partition cap and
+  full-rebuild fallback.
+- CDC sink type validation: values that cannot be coerced to the target
+  column type fail the run with a curated column error.
+
+### Changed
+
+- `interface_grant` and `interface_request` become `asset_grant` and
+  `asset_request` with `asset_type`; existing rows become `api`. Migration
+  `e5f6a7b8c9d0`. The previous `/api-*` grant routes remain as API-only
+  aliases.
+- The console menu item "Access control" is renamed "Asset sharing".
+
 ## [2.5.0] - 2026-11-25
 
 ### Added

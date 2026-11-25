@@ -296,6 +296,45 @@ def _trino_columns(session, ds, target):
             columns.append(str(values[0]))
     return columns
 MERGE_BATCH = 200
+PARTITION_CAP = 10000
+
+
+def _delete_rows(session, ds, target, rows, columns, kind):
+    if not rows:
+        return
+    from odf.services.connections import engine_for
+    for start in range(0, len(rows), MERGE_BATCH):
+        batch = rows[start:start + MERGE_BATCH]
+        params, conditions = {}, []
+        for i, row in enumerate(batch):
+            for j, column in enumerate(columns):
+                params["k%d_%d" % (i, j)] = row[column]
+            conditions.append("(" + " AND ".join(
+                "%s = :k%d_%d" % (quote_ident(column), i, j)
+                for j, column in enumerate(columns)) + ")")
+        statement = "DELETE FROM %s WHERE %s" % (
+            target, " OR ".join(conditions))
+        if kind == "trino":
+            from odf.trino.client import render_params
+            _ddl(session, ds, render_params(statement, params))
+        else:
+            with engine_for(ds) as engine:
+                with engine.begin() as conn:
+                    conn.execute(text(statement), params)
+
+
+def _replace_partitions(session, ds, target, sql, partitions, kind):
+    selected = ", ".join(quote_ident(column) for column in partitions)
+    query = "SELECT %s FROM (%s) s GROUP BY %s" % (selected, sql, selected)
+    fetched = execute_query(
+        session, ds, limited(query, kind, PARTITION_CAP + 1), {},
+        PARTITION_CAP + 1)
+    rows = fetched["rows"]
+    if len(rows) > PARTITION_CAP:
+        return False
+    _delete_rows(session, ds, target, rows, partitions, kind)
+    _ddl(session, ds, "INSERT INTO %s SELECT * FROM (%s) s" % (target, sql))
+    return True
 
 
 def _merge_rows(session, ds, target, sql, keys, kind):
@@ -316,25 +355,7 @@ def _merge_rows(session, ds, target, sql, keys, kind):
     rows = count["rows"]
     if len(rows) > MERGE_KEY_CAP:
         return False
-    from odf.services.connections import engine_for
-    for start in range(0, len(rows), MERGE_BATCH):
-        batch = rows[start:start + MERGE_BATCH]
-        params, conditions = {}, []
-        for i, row in enumerate(batch):
-            for j, key in enumerate(keys):
-                params["k%d_%d" % (i, j)] = row[key]
-            conditions.append("(" + " AND ".join(
-                "%s = :k%d_%d" % (quote_ident(key), i, j)
-                for j, key in enumerate(keys)) + ")")
-        statement = "DELETE FROM %s WHERE %s" % (
-            target, " OR ".join(conditions))
-        if kind == "trino":
-            from odf.trino.client import render_params
-            _ddl(session, ds, render_params(statement, params))
-        else:
-            with engine_for(ds) as engine:
-                with engine.begin() as conn:
-                    conn.execute(text(statement), params)
+    _delete_rows(session, ds, target, rows, keys, kind)
     _ddl(session, ds, "INSERT INTO %s SELECT * FROM (%s) s" % (target, sql))
     return True
 
@@ -363,7 +384,7 @@ def materialize_model(session, asset_id, job=None):
     partition_by = content.get("partition_by") or []
     if ds.kind == "trino":
         _ensure_schema(session, ds, schema, asset.project_id)
-    merged, rebuilt = False, False
+    merged, rebuilt, partition_replaced = False, False, False
     results, out = None, None
     if materialization == "view":
         _drop(session, ds, "DROP TABLE IF EXISTS %s" % target)
@@ -378,7 +399,8 @@ def materialize_model(session, asset_id, job=None):
         results = run_tests(session, asset, content, shadow)
         out = {"target": target, "schema": schema,
                "materialization": materialization, "merged": False,
-               "rebuilt": False, "replaced": False, "tests": results}
+               "rebuilt": False, "replaced": False,
+               "partition_replaced": False, "tests": results}
         if any(item["status"] == "fail" for item in results):
             _drop(session, ds, "DROP TABLE IF EXISTS %s" % shadow)
             _save_result(session, job, out)
@@ -392,7 +414,15 @@ def materialize_model(session, asset_id, job=None):
         else:
             keys = content.get("unique_key") or []
             strategy = content.get("incremental_strategy") or "append"
-            if keys and strategy == "merge":
+            if strategy == "partition" and partition_by:
+                partition_replaced = _replace_partitions(
+                    session, ds, target, sql, partition_by, ds.kind)
+                if not partition_replaced:
+                    _ddl(session, ds, "DROP TABLE IF EXISTS %s" % target)
+                    _ddl(session, ds,
+                         _create_table_sql(target, sql, partition_by))
+                    rebuilt = True
+            elif keys and strategy == "merge":
                 merged = _merge_rows(session, ds, target, sql, keys,
                                      ds.kind)
                 if not merged:
@@ -419,7 +449,9 @@ def materialize_model(session, asset_id, job=None):
         results = run_tests(session, asset, content, target)
         out = {"target": target, "schema": schema,
                "materialization": materialization, "merged": merged,
-               "rebuilt": rebuilt, "replaced": False, "tests": results}
+               "rebuilt": rebuilt, "replaced": False,
+               "partition_replaced": partition_replaced,
+               "tests": results}
     _save_result(session, job, out)
     failed = [r for r in results if r["status"] == "fail"]
     if failed:

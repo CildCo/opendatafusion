@@ -76,6 +76,43 @@ def _evolve_columns(engine, table, rows, dialect):
                      else "%s.%s" % (table.schema, table.name), engine)
 
 
+def _coercible(py, value):
+    if value is None:
+        return True
+    try:
+        if py is int:
+            int(value)
+        elif py is float:
+            float(value)
+        elif py is datetime:
+            datetime.fromisoformat(str(value))
+        elif py is date:
+            date.fromisoformat(str(value))
+        elif py is bool:
+            return str(value).lower() in ("1", "0", "true", "false", "t",
+                                          "f", "yes", "no")
+        else:
+            str(value)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def _check_types(table, rows):
+    for row in rows:
+        for key, value in row.items():
+            if key == "__odf_op" or key not in table.c:
+                continue
+            column = table.c[key]
+            try:
+                py = column.type.python_type
+            except Exception:
+                continue
+            if not _coercible(py, value):
+                raise ValueError(
+                    "column %s does not match the target type" % key)
+
+
 def engine_for(ds):
     dsn = get_dsn(ds)
     return create_engine(dsn, connect_args=connect_args_for(ds.kind, dsn))
@@ -161,6 +198,7 @@ class SQLSink(Sink):
                 raise ValueError("cdc sink needs a primary key")
             if self.dag.get("evolve") and mode in ("cdc", "upsert"):
                 tt = _evolve_columns(engine, tt, rows, engine.dialect.name)
+            _check_types(tt, rows)
             deletes = []
             if mode == "cdc":
                 kept = []

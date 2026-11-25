@@ -58,6 +58,18 @@
             <span v-else class="muted">-</span>
           </template>
         </el-table-column>
+        <el-table-column :label="t('quality.sla')" width="120">
+          <template #default="{ row }">
+            <span v-if="row.sla_percent !== null && row.sla_percent !== undefined">
+              {{ row.sla_percent }}%
+              <el-tag v-if="row.pass_rate !== null && row.pass_rate < row.sla_percent"
+                      size="small" type="danger">
+                {{ t("quality.slaBreach") }}
+              </el-tag>
+            </span>
+            <span v-else class="muted">-</span>
+          </template>
+        </el-table-column>
         <el-table-column :label="t('quality.passRate')" width="150">
           <template #default="{ row }">
             <el-progress v-if="row.pass_rate !== null"
@@ -204,6 +216,11 @@
         <el-form-item :label="t('quality.enabled')">
           <el-switch v-model="scheduleForm.enabled" />
         </el-form-item>
+        <el-form-item :label="t('quality.sla')">
+          <el-input-number v-model="scheduleForm.sla_percent" :min="0"
+                           :max="100" :controls="false"
+                           style="width: 120px" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="scheduleDialog = false">{{ t("quality.cancel") }}</el-button>
@@ -224,6 +241,17 @@
         <el-button size="small" @click="openDataset">
           {{ t("quality.viewDataset") }}
         </el-button>
+      </div>
+      <div v-if="trendRow && trendRow.series.length" class="trend-block">
+        <div class="hint">
+          {{ t("quality.trendDays") }} · {{ t("quality.streak") }}:
+          {{ trendRow.streak }}
+        </div>
+        <el-table :data="trendRow.series" size="small">
+          <el-table-column prop="day" :label="t('quality.day')" width="120" />
+          <el-table-column prop="pass" :label="t('quality.pass')" width="90" />
+          <el-table-column prop="fail" :label="t('quality.fail')" width="90" />
+        </el-table>
       </div>
       <el-table :data="results" size="small">
         <el-table-column prop="id" :label="t('quality.id')" width="70" />
@@ -302,7 +330,8 @@ const scheduleDialog = ref(false);
 const scheduleSaving = ref(false);
 const scheduleRule = ref(null);
 const scheduleForm = reactive({ schedule_cron: "", alert_on_fail: false,
-                                enabled: true });
+                                enabled: true, sla_percent: undefined });
+const trendRow = ref(null);
 const resultDrawer = ref(false);
 const current = ref({});
 const q = ref("");
@@ -453,6 +482,7 @@ function openSchedule(row) {
   scheduleForm.schedule_cron = row.schedule_cron || "";
   scheduleForm.alert_on_fail = !!row.alert_on_fail;
   scheduleForm.enabled = row.enabled !== false;
+  scheduleForm.sla_percent = row.sla_percent ?? undefined;
   scheduleDialog.value = true;
 }
 
@@ -464,6 +494,7 @@ async function saveSchedule() {
       schedule_cron: scheduleForm.schedule_cron || null,
       alert_on_fail: scheduleForm.alert_on_fail,
       enabled: scheduleForm.enabled,
+      sla_percent: scheduleForm.sla_percent ?? null,
     });
     scheduleDialog.value = false;
     await load();
@@ -492,6 +523,13 @@ async function showResults(row) {
   current.value = row;
   try {
     results.value = await api.get(`/quality/rules/${row.id}/results`);
+    try {
+      const trend = await api.get("/quality/trends?days=30");
+      trendRow.value = (trend.rules || []).find((item) => item.id === row.id)
+        || null;
+    } catch {
+      trendRow.value = null;
+    }
     resultDrawer.value = true;
   } catch (e) {
     ElMessage.error(errMsg(e));
