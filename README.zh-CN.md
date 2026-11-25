@@ -183,6 +183,7 @@ cp .env.example .env
 | [变更数据捕获](docs/STREAMING.md) | Debezium 源与自动生成的 CDC 管道 |
 | [模板](docs/TEMPLATES.md) | 模型与管道的起步模板 |
 | [运维](docs/OPERATIONS.md) | 保留策略、死信、数据源限流、系统自检与 HA 冒烟测试 |
+| [编辑体验](docs/INTERACTION.md) | 撤销重做、画布复制与自动布局、图表画廊、回填预览与运行矩阵 |
 | [控制台使用指南](docs/USER_GUIDE.zh-CN.md) | 每个页面与按钮的操作说明（[英文版](docs/USER_GUIDE.md)） |
 
 ## 开发

@@ -14,6 +14,8 @@
         </el-tag>
       </div>
       <div class="right">
+        <history-controls :can-undo="canUndo" :can-redo="canRedo"
+                          @undo="$emit('undo')" @redo="$emit('redo')" />
         <el-button size="small" :loading="saving" @click="$emit('save')">{{ t("shell.save") }}</el-button>
         <el-button size="small" @click="$emit('validate')">{{ t("shell.validate") }}</el-button>
         <el-button size="small" @click="$emit('preview')">{{ t("shell.preview") }}</el-button>
@@ -38,6 +40,7 @@
 </template>
 
 <script setup>
+import HistoryControls from "../components/HistoryControls.vue";
 import { t } from "../i18n";
 
 defineProps({
@@ -46,10 +49,12 @@ defineProps({
   published: Boolean,
   enabled: Boolean,
   saving: Boolean,
+  canUndo: Boolean,
+  canRedo: Boolean,
 });
 defineEmits(["save", "validate", "preview", "run", "backfill", "cursors",
              "toggle", "publish", "versions", "rename", "rename-save",
-             "schedule", "governance"]);
+             "schedule", "governance", "undo", "redo"]);
 </script>
 
 <style scoped>

@@ -207,3 +207,46 @@ def replay_jobs(session, project_id, job_ids, actor):
     write_audit(session, actor, "replay_dead_letters", "ops",
                 {"replayed": replayed, "skipped": skipped})
     return {"replayed": replayed, "skipped": skipped}
+
+
+def run_matrix(session, project_id, days=7):
+    from datetime import datetime, timedelta, timezone
+    days = max(1, min(int(days if days is not None else 7), 30))
+    now = datetime.now(timezone.utc)
+    since = now - timedelta(days=days - 1)
+    since = since.replace(hour=0, minute=0, second=0, microsecond=0)
+    job_rows = (_job_query(session, project_id)
+                .filter(Job.created_at >= since)
+                .order_by(Job.id).limit(5000).all())
+    day_keys = [(since + timedelta(days=index)).date().isoformat()
+                for index in range(days)]
+    assets = {}
+    priority = ["failed", "running", "queued", "success", "skipped",
+                "cancelled"]
+    for job in job_rows:
+        target = _target(session, job)
+        key = (target.get("asset_type") or "job",
+               target.get("target_id"))
+        row = assets.setdefault(key, {
+            "asset_id": target.get("target_id"),
+            "asset_type": target.get("asset_type") or "job",
+            "name": target.get("target_name") or "-",
+            "cells": {}, "total": 0})
+        stamp = job.created_at.date().isoformat() if job.created_at else ""
+        cell = row["cells"].setdefault(stamp, {"count": 0, "statuses": {}})
+        cell["count"] += 1
+        cell["statuses"][job.status] = \
+            cell["statuses"].get(job.status, 0) + 1
+        row["total"] += 1
+    rows = []
+    for row in assets.values():
+        cells = {}
+        for day, cell in row["cells"].items():
+            counts = cell["statuses"]
+            status = next((name for name in priority if counts.get(name)),
+                          "success")
+            cells[day] = {"count": cell["count"], "status": status}
+        rows.append({**row, "cells": cells})
+    rows.sort(key=lambda item: item["name"].lower())
+    return {"days": day_keys, "rows": rows[:50],
+            "truncated": len(assets) > 50}

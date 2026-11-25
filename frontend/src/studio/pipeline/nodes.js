@@ -18,7 +18,7 @@ export function newNode(type, index) {
   const def = NODE_DEFS[type];
   return {
     id: `${type}_${Date.now()}_${index}`,
-    type: "default",
+    type: "pipeline",
     label: `${def.label} ${index}`,
     position: { x: 120 + index * 60, y: 120 + index * 40 },
     data: { kind: type, name: `${def.label} ${index}`, config: {} },
@@ -28,7 +28,7 @@ export function newNode(type, index) {
 export function toFlowNodes(nodes) {
   return (nodes || []).map((n) => ({
     id: n.id,
-    type: "default",
+    type: "pipeline",
     label: n.name || n.id,
     position: n.position || { x: 0, y: 0 },
     data: {

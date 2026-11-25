@@ -1,5 +1,11 @@
 export default {
   zh: {
+    "ped.autoLayout": "自动布局",
+    "ped.validationTitle": "管道校验",
+    "ped.previewBackfill": "预览影响",
+    "ped.previewSummary": "将处理 {sources} 个数据源，批大小 {batch}，最多 {max} 批",
+    "ped.validationField": "字段",
+    "ped.validationMessage": "说明",
     "ped.cursorsTitle": "增量游标",
     "ped.cursorsHint": "修改游标会改变下一次增量读取的起点，请确认后再保存。",
     "ped.colNode": "节点",
@@ -142,6 +148,12 @@ export default {
     "ppub.confirm": "确认发布",
   },
   en: {
+    "ped.previewBackfill": "Preview impact",
+    "ped.previewSummary": "{sources} sources, batch {batch}, up to {max} batches",
+    "ped.validationTitle": "Pipeline validation",
+    "ped.validationField": "Field",
+    "ped.validationMessage": "Message",
+    "ped.autoLayout": "Auto layout",
     "ped.cursorsTitle": "Incremental cursors",
     "ped.cursorsHint": "Changing a cursor alters where the next incremental read starts. Review before saving.",
     "ped.colNode": "Node",

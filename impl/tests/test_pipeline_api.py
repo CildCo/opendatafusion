@@ -9,7 +9,8 @@ from odf.services.auth import create_token
 
 CONTENT = {"nodes": [
     {"id": "s", "type": "source",
-     "config": {"datasource_id": 1, "table": "t", "pk": "id"}},
+     "config": {"datasource_id": 1, "table": "t", "pk": "id",
+                "cursor_column": "id"}},
     {"id": "o", "type": "sink",
      "config": {"datasource_id": 1, "table": "t", "pk": ["id"]}}],
     "edges": [{"from": "s", "to": "o"}]}
@@ -62,6 +63,12 @@ def test_pipeline_api_lifecycle():
         assert s.query(ChangeRequest).filter_by(
             action="publish_pipeline", target=str(pid)).count() == 1
     assert c.post(f"/api/v1/pipelines/{pid}/run", headers=h).status_code == 200
+    preview = c.post(f"/api/v1/pipelines/{pid}/backfill/preview",
+                     json={"start_cursor": "0", "max_batches": 200},
+                     headers=h)
+    assert preview.status_code == 200
+    assert preview.json()["sources"]
+    assert preview.json()["warnings"]
 
 
 def test_publish_rejects_invalid_dag():

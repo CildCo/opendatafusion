@@ -8,6 +8,8 @@
         {{ published ? t("aedit.published") : t("aedit.draft") }}
       </el-tag>
       <div class="spacer" />
+      <history-controls :can-undo="canUndo" :can-redo="canRedo"
+                        @undo="history.undo" @redo="history.redo" />
       <el-button size="small" @click="save()">{{ t("aedit.save") }}</el-button>
       <el-button size="small" @click="validate">
         {{ t("aedit.validate") }}
@@ -319,6 +321,9 @@ const draftVersion = ref(null);
 const governanceOpen = ref(false);
 const published = ref(false);
 const content = ref({ start_page: "p1", pages: [] });
+const history = useHistory(content);
+const { canUndo, canRedo } = history;
+bindHistoryKeys(history);
 const currentId = ref("");
 const selectedId = ref("");
 const dragFrom = ref(-1);

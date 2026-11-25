@@ -26,6 +26,12 @@ def summary(s: Session = Depends(get_session),
     return service.summary(s, claims["project_id"])
 
 
+@router.get("/ops/run-matrix")
+def run_matrix(days: int = 7, s: Session = Depends(get_session),
+               claims: dict = Depends(require_user)):
+    return service.run_matrix(s, claims["project_id"], days)
+
+
 @router.get("/ops/jobs")
 def jobs(status: str | None = None, limit: int = 50,
          s: Session = Depends(get_session),

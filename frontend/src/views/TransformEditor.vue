@@ -11,6 +11,8 @@
         {{ target }}
       </el-tag>
       <div class="spacer" />
+      <history-controls :can-undo="canUndo" :can-redo="canRedo"
+                        @undo="history.undo" @redo="history.redo" />
       <el-button size="small" @click="save()">{{ t("tm.save") }}</el-button>
       <el-button size="small" @click="validate">{{ t("tm.validate") }}</el-button>
       <el-button size="small" :loading="querying" @click="preview">{{ t("tm.preview") }}</el-button>
@@ -211,6 +213,9 @@ const content = ref({
   description: "", tests: [], columns: [], partition_by: [],
   incremental_strategy: "append",
 });
+const history = useHistory(content);
+const { canUndo, canRedo } = history;
+bindHistoryKeys(history);
 
 function setValues(test, text) {
   test.values = String(text || "").split(",").map((x) => x.trim())
@@ -267,6 +272,7 @@ async function load() {
     partition_by: draft.partition_by || [],
     incremental_strategy: draft.incremental_strategy || "append",
   };
+  history.reset();
   try {
     target.value = (await api.get(`/models/${id}/target`)).target || "";
   } catch {

@@ -113,6 +113,45 @@
           </el-table>
         </el-tab-pane>
 
+        <el-tab-pane :label="t('ops.tabMatrix')" name="matrix">
+          <div class="filters">
+            <el-select v-model="matrixDays" size="small" style="width: 120px"
+                       @change="loadMatrix">
+              <el-option :value="7" :label="t('ops.matrix7')" />
+              <el-option :value="14" :label="t('ops.matrix14')" />
+              <el-option :value="30" :label="t('ops.matrix30')" />
+            </el-select>
+            <span class="updated">{{ t("ops.matrixHint") }}</span>
+            <div class="spacer" />
+            <el-button size="small" :loading="matrixLoading"
+                       @click="loadMatrix">{{ t("ops.refresh") }}</el-button>
+          </div>
+          <el-table :data="matrix.rows" size="small"
+                    :empty-text="t('ops.matrixEmpty')" border
+                    v-loading="matrixLoading">
+            <el-table-column prop="name" :label="t('ops.target')"
+                             min-width="190" fixed="left">
+              <template #default="{ row }">
+                <b>{{ row.name }}</b>
+                <div class="muted">{{ row.asset_type }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column v-for="day in matrix.days" :key="day"
+                             :label="day.slice(5)" width="82"
+                             align="center">
+              <template #default="{ row }">
+                <el-tooltip v-if="row.cells[day]" placement="top"
+                            :content="`${row.cells[day].count} ${t('ops.matrixRuns')}`">
+                  <span class="matrix-cell" :class="row.cells[day].status">
+                    {{ row.cells[day].count }}
+                  </span>
+                </el-tooltip>
+                <span v-else class="matrix-empty">·</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
         <el-tab-pane :label="t('ops.tabAlerts')" name="alerts">
           <div class="filters">
             <el-select v-model="alertStatus" clearable
@@ -384,6 +423,9 @@ const deadSelected = ref([]);
 const deadType = ref("");
 const deadTypes = ["pipeline", "model", "pipeline_backfill",
                    "dashboard_report", "lakehouse_maintenance"];
+const matrix = ref({ days: [], rows: [] });
+const matrixDays = ref(7);
+const matrixLoading = ref(false);
 const perfDays = ref(7);
 const audit = ref([]);
 const dependencyBlocked = ref([]);
@@ -472,6 +514,17 @@ async function loadTimeline() {
 async function loadApiStats() {
   apiStats.value = await api.get("/api-stats");
 }
+async function loadMatrix() {
+  matrixLoading.value = true;
+  try {
+    matrix.value = await api.get(`/ops/run-matrix?days=${matrixDays.value}`);
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    matrixLoading.value = false;
+  }
+}
+
 async function loadDead() {
   try {
     const query = deadType.value
@@ -607,6 +660,7 @@ watch(tab, (name) => {
   if (name === "audit") loadAudit();
   if (name === "perf") loadPerf();
   if (name === "dead") loadDead();
+  if (name === "matrix") loadMatrix();
 });
 
 onMounted(load);
@@ -639,6 +693,19 @@ onBeforeUnmount(() => {
 .perf-card b { font-size: 22px; color: #0f172a; }
 .perf-card b.danger { color: #dc2626; }
 .perf-card span { font-size: 11px; color: #64748b; }
+.matrix-cell {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 26px; height: 22px; border-radius: 4px; font-size: 11px;
+  font-weight: 600; color: #fff; background: #94a3b8;
+}
+.matrix-cell.success { background: #16a34a; }
+.matrix-cell.failed { background: #dc2626; }
+.matrix-cell.running { background: #d97706; }
+.matrix-cell.queued { background: #2563eb; }
+.matrix-cell.skipped { background: #94a3b8; }
+.matrix-cell.cancelled { background: #64748b; }
+.matrix-empty { color: #cbd5e1; }
+.muted { font-size: 11px; color: #94a3b8; }
 .panel :deep(.el-card__body) { padding: 8px 14px 14px; }
 .filters { display: flex; gap: 8px; align-items: center; margin-bottom: 10px;
            flex-wrap: wrap; }

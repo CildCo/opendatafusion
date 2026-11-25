@@ -8,6 +8,8 @@
         {{ published ? t("dedit.published") : t("dedit.draft") }}
       </el-tag>
       <div class="spacer" />
+      <history-controls :can-undo="canUndo" :can-redo="canRedo"
+                        @undo="history.undo" @redo="history.redo" />
       <el-button size="small" @click="save()">{{ t("dedit.save") }}</el-button>
       <el-button size="small" @click="validate">{{ t("dedit.validate") }}</el-button>
       <el-button size="small" :loading="loadingData" @click="refresh">{{ t("dedit.refreshData") }}</el-button>
@@ -27,9 +29,9 @@
     <div class="body">
       <aside class="palette">
         <div class="label">{{ t("dedit.components") }}</div>
-        <el-button v-for="ty in types" :key="ty.type" size="small"
-                   class="add" @click="add(ty)">
-          {{ ty.label }}
+        <el-button size="small" type="primary" class="add"
+                   @click="galleryOpen = true">
+          + {{ t("gallery.add") }}
         </el-button>
         <div class="label" style="margin-top: 14px">{{ t("dedit.filterParams") }}</div>
         <div v-for="(p, i) in content.params" :key="i" class="param-row">
@@ -251,6 +253,8 @@
         </el-table-column>
       </el-table>
     </el-drawer>
+    <chart-gallery v-model="galleryOpen" @select="addFromGallery" />
+
     <lineage-drawer v-model="lineageOpen" :asset-id="id" />
     <governance-drawer v-model="governanceOpen" :asset-id="id" />
     <drill-drawer v-model="drillOpen" :asset-id="id" :widget="drill.widget"
@@ -269,6 +273,9 @@ import { api, errMsg } from "../api";
 import { t } from "../i18n";
 import DashboardGrid from "../studio/dashboard/DashboardGrid.vue";
 import DashboardFilters from "../studio/dashboard/DashboardFilters.vue";
+import HistoryControls from "../components/HistoryControls.vue";
+import ChartGallery from "../studio/dashboard/ChartGallery.vue";
+import { bindHistoryKeys, useHistory } from "../composables/useHistory";
 import DrillDrawer from "../studio/dashboard/DrillDrawer.vue";
 import ReportDrawer from "../studio/dashboard/ReportDrawer.vue";
 import ShareDialog from "../studio/share/ShareDialog.vue";
@@ -282,6 +289,10 @@ const name = ref("");
 const published = ref(false);
 const content = ref({ columns: 12, row_height: 80, params: [],
                       widgets: [] });
+const galleryOpen = ref(false);
+const history = useHistory(content);
+const { canUndo, canRedo } = history;
+bindHistoryKeys(history);
 const paramValues = ref({});
 const paramTypes = ["string", "number", "date", "bool"];
 const ops = ["=", "!=", ">", ">=", "<", "<=", "in", "like",
@@ -301,6 +312,10 @@ const drill = ref({ widget: null, dimension: null, value: null });
 const reportOpen = ref(false);
 const draftVersion = ref(null);
 const dirty = ref(false);
+function addFromGallery(type) {
+  add({ type });
+}
+
 const types = computed(() => [
   { type: "card", label: t("dedit.typeCard") },
   { type: "line", label: t("dedit.typeLine") },
@@ -349,6 +364,7 @@ async function load() {
     params: draft.params || [],
     widgets: draft.widgets || [],
   };
+  history.reset();
   resetParams();
   selected.value = selId
     ? content.value.widgets.find((w) => w.id === selId) || null
