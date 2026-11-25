@@ -45,11 +45,13 @@ def dead_letters(asset_type: str | None = None,
 @router.post("/ops/dead-letters/replay")
 def replay_dead_letters(body: ReplayIn, s: Session = Depends(get_session),
                         claims: dict = Depends(require_editor)):
+    if not body.ids or len(body.ids) > 100:
+        raise HTTPException(400, "select between 1 and 100 jobs")
     try:
         return service.replay_jobs(s, claims["project_id"], body.ids,
                                    claims["sub"])
-    except ValueError as e:
-        _value_error(e)
+    except ValueError:
+        raise HTTPException(400, "could not replay the selected jobs")
 
 
 @router.post("/ops/jobs/{job_id}/retry")
