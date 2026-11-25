@@ -9,22 +9,61 @@
     </div>
 
     <div class="layout">
-      <el-card class="tree-card" shadow="never">
-        <template #header><b>{{ t("cat.datasets") }}</b></template>
-        <el-tree :data="tree" :props="{ label: 'label', children: 'children' }"
-                 node-key="key" :filter-node-method="filterNode" ref="treeRef"
-                 default-expand-all highlight-current @node-click="onNode">
-          <template #default="{ data }">
-            <span class="node">
-              <el-icon v-if="data.type === 'ds'"><Coin /></el-icon>
-              <el-icon v-else-if="data.type === 'schema'"><Folder /></el-icon>
-              <el-icon v-else><Grid /></el-icon>
-              {{ data.label }}
-            </span>
+      <div class="left">
+        <el-card class="tree-card" shadow="never">
+          <template #header>
+            <div class="tree-head">
+              <b>{{ t("cat.datasets") }}</b>
+              <el-radio-group v-model="groupBy" size="small">
+                <el-radio-button value="source">
+                  {{ t("cat.groupBySource") }}
+                </el-radio-button>
+                <el-radio-button value="domain">
+                  {{ t("cat.groupByDomain") }}
+                </el-radio-button>
+              </el-radio-group>
+            </div>
           </template>
-        </el-tree>
-        <el-empty v-if="!datasets.length" :description="t('cat.noDatasets')" :image-size="70" />
-      </el-card>
+          <div v-if="domainFilter" class="domain-filter">
+            <el-tag size="small" closable @close="clearDomain">
+              {{ domainLabel }}
+            </el-tag>
+          </div>
+          <el-tree :data="tree" :props="{ label: 'label', children: 'children' }"
+                   node-key="key" :filter-node-method="filterNode" ref="treeRef"
+                   default-expand-all highlight-current @node-click="onNode">
+            <template #default="{ data }">
+              <span class="node">
+                <el-icon v-if="data.type === 'ds' || data.type === 'domain'">
+                  <Coin v-if="data.type === 'domain'" /><Coin v-else />
+                </el-icon>
+                <el-icon v-else-if="data.type === 'schema'"><Folder /></el-icon>
+                <el-icon v-else><Grid /></el-icon>
+                {{ data.label }}
+                <span v-if="data.count" class="count">{{ data.count }}</span>
+              </span>
+            </template>
+          </el-tree>
+          <el-empty v-if="!tree.length" :description="t('cat.noDatasets')"
+                    :image-size="70" />
+        </el-card>
+
+        <el-card class="card glossary" shadow="never">
+          <template #header>
+            <div class="tree-head">
+              <b>{{ t("cat.glossary") }}</b>
+              <span class="muted">{{ terms.length }}</span>
+            </div>
+          </template>
+          <div v-for="term in terms" :key="term.id" class="term"
+               @click="pickDomain(term.domain_id)">
+            <b>{{ term.term }}</b>
+            <small>{{ term.definition || t("cat.noDefinition") }}</small>
+          </div>
+          <el-empty v-if="!terms.length" :description="t('cat.glossaryEmpty')"
+                    :image-size="50" />
+        </el-card>
+      </div>
 
       <div class="right">
         <el-card v-if="q.trim()" class="card" shadow="never"
@@ -33,10 +72,17 @@
           <div v-if="search.tables.length || search.columns.length">
             <div class="search-group" v-if="search.tables.length">
               <div class="muted">{{ t("cat.tables") }}</div>
-              <el-tag v-for="t in search.tables" :key="'t' + t.id"
-                      class="hit" @click="openDataset(t.id)">
-                {{ t.schema }}.{{ t.table }}
-              </el-tag>
+              <div v-for="t in search.tables" :key="'t' + t.id"
+                   class="search-row" @click="openDataset(t.id)">
+                <b>{{ t.schema }}.{{ t.table }}</b>
+                <small>{{ t.datasource_name }}</small>
+                <span class="hit-tags">
+                  <el-tag v-for="c in t.matched_columns" :key="c"
+                          size="small" type="info">{{ c }}</el-tag>
+                  <el-tag v-for="g in t.matched_tags" :key="'g' + g"
+                          size="small">{{ g }}</el-tag>
+                </span>
+              </div>
             </div>
             <div class="search-group" v-if="search.columns.length">
               <div class="muted">{{ t("cat.columns") }}</div>
@@ -55,24 +101,13 @@
         </el-card>
 
         <el-card class="card" shadow="never">
-          <template #header><b>{{ t("cat.lineage") }}</b></template>
-          <div v-if="edges.length" class="lineage">
-            <div v-for="(e, i) in edges" :key="i" class="edge">
-              <span class="node-tag src">{{ e.from }}</span>
-              <el-icon class="arrow"><Right /></el-icon>
-              <span class="node-tag dst">{{ e.to }}</span>
-              <span v-if="e.flow" class="flow">← {{ e.flow }}</span>
+          <template #header>
+            <div class="tree-head">
+              <b>{{ t("cat.lineage") }}</b>
+              <span class="muted">{{ t("cat.lineageHint") }}</span>
             </div>
-          </div>
-          <el-empty v-else :description="t('cat.noLineage')" :image-size="70" />
-          <div v-if="columnEdges.length" class="column-lineage">
-            <div class="muted" style="margin: 8px 0 6px">{{ t("cat.columnLineage") }}</div>
-            <div v-for="(e, i) in columnEdges" :key="'c' + i" class="col-edge">
-              <span>{{ e.from }}.{{ e.from_column }}</span>
-              <el-icon><Right /></el-icon>
-              <span>{{ e.to }}.{{ e.to_column }}</span>
-            </div>
-          </div>
+          </template>
+          <lineage-explorer :height="340" focusable />
         </el-card>
       </div>
     </div>
@@ -83,43 +118,84 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
-import { Coin, Folder, Grid, Right, Search } from "@element-plus/icons-vue";
+import { Coin, Folder, Grid, Search } from "@element-plus/icons-vue";
 import { api, errMsg, getProject } from "../api";
 import { t } from "../i18n";
+import LineageExplorer from "../components/LineageExplorer.vue";
 
 const router = useRouter();
 const datasources = ref([]);
 const datasets = ref([]);
-const edges = ref([]);
-const columnEdges = ref([]);
+const terms = ref([]);
 const loading = ref(false);
 const q = ref("");
+const groupBy = ref("source");
+const domainFilter = ref(null);
 const search = reactive({ tables: [], columns: [] });
 const treeRef = ref();
 
-const tree = computed(() => {
-  const byDs = {};
-  for (const d of datasets.value) {
-    const ds = datasources.value.find((x) => x.id === d.datasource_id);
-    const dsName = ds ? ds.name : `${t("cat.datasourceFallback")} ${d.datasource_id}`;
-    byDs[d.datasource_id] = byDs[d.datasource_id] || {
-      key: `ds-${d.datasource_id}`, label: dsName, type: "ds", children: {},
-    };
-    const node = byDs[d.datasource_id];
+const visibleDatasets = computed(() => {
+  if (!domainFilter.value) return datasets.value;
+  return datasets.value.filter((d) => d.domain_id === domainFilter.value);
+});
+
+const domainLabel = computed(() => {
+  const found = datasets.value.find((d) => d.domain_id === domainFilter.value);
+  return found?.domain_name || t("cat.ungrouped");
+});
+
+function buildGroup(key, label, type, items) {
+  const schemas = {};
+  for (const d of items) {
     const schema = d.schema || "main";
-    node.children[schema] = node.children[schema] || {
-      key: `ds-${d.datasource_id}-${schema}`, label: schema, type: "schema", children: [],
+    schemas[schema] = schemas[schema] || {
+      key: `${key}-${schema}`, label: schema, type: "schema", children: [],
     };
-    node.children[schema].children.push({
-      key: `ds-${d.datasource_id}-${schema}-${d.table}`, label: d.table,
+    schemas[schema].children.push({
+      key: `${key}-${schema}-${d.table}`, label: d.table,
       type: "table", dataset: d,
     });
   }
-  return Object.values(byDs).map((ds) => ({
-    ...ds,
-    children: Object.values(ds.children),
-  }));
+  return {
+    key, label, type, count: items.length,
+    children: Object.values(schemas),
+  };
+}
+
+const tree = computed(() => {
+  const groups = new Map();
+  for (const d of visibleDatasets.value) {
+    if (groupBy.value === "domain") {
+      const key = d.domain_id ? `domain-${d.domain_id}` : "domain-none";
+      const label = d.domain_name || t("cat.ungrouped");
+      if (!groups.has(key)) groups.set(key, { label, type: "domain",
+                                              items: [] });
+      groups.get(key).items.push(d);
+    } else {
+      const key = `ds-${d.datasource_id}`;
+      if (!groups.has(key)) {
+        const ds = datasources.value.find((x) => x.id === d.datasource_id);
+        groups.set(key, {
+          label: ds ? ds.name
+            : `${t("cat.datasourceFallback")} ${d.datasource_id}`,
+          type: "ds", items: [],
+        });
+      }
+      groups.get(key).items.push(d);
+    }
+  }
+  return [...groups.entries()].map(([key, group]) =>
+    buildGroup(key, group.label, group.type, group.items));
 });
+
+function pickDomain(domainId) {
+  domainFilter.value = domainId || null;
+  if (domainId) groupBy.value = "domain";
+}
+
+function clearDomain() {
+  domainFilter.value = null;
+}
 
 let searchTimer = null;
 watch(q, (v) => {
@@ -165,9 +241,9 @@ async function load() {
   try {
     datasources.value = await api.get("/datasources");
     datasets.value = await api.get("/catalog/datasets");
-    const l = await api.get(`/catalog/lineage?project_id=${getProject() || 1}`);
-    edges.value = l.edges;
-    columnEdges.value = l.column_edges || [];
+    const termsOut = await api.get(
+      `/governance/terms?project_id=${getProject() || 1}`);
+    terms.value = termsOut.items || [];
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -189,11 +265,28 @@ onMounted(load);
   grid-template-columns: 300px 1fr;
   gap: 16px;
 }
+.left { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .tree-card,
 .card {
   border-radius: 12px;
   border: 1px solid #e5e7eb;
 }
+.tree-head { display: flex; align-items: center; justify-content: space-between;
+             gap: 8px; }
+.count { color: #94a3b8; font-size: 11px; }
+.domain-filter { margin-bottom: 6px; }
+.glossary :deep(.el-card__body) { padding: 4px 10px 10px; }
+.term { display: flex; flex-direction: column; gap: 2px; padding: 6px 4px;
+        border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+.term b { font-size: 12px; color: #0f172a; }
+.term small { font-size: 11px; color: #64748b; overflow: hidden;
+              text-overflow: ellipsis; white-space: nowrap; }
+.term:hover { background: #f8fafc; }
+.search-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+              border-radius: 6px; cursor: pointer; font-size: 13px; }
+.search-row:hover { background: #f1f5f9; }
+.search-row small { color: #64748b; }
+.hit-tags { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 .node {
   display: flex;
   align-items: center;
