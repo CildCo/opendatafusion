@@ -4,6 +4,24 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [2.8.0] - 2026-11-25
+
+### Added
+
+- Undo/redo in the pipeline, dashboard, application and transform-model
+  editors with one snapshot history stack, keyboard shortcuts and toolbar
+  controls.
+- Pipeline canvas multi-select with Shift, copy/paste of selected nodes and
+  edges, auto layout by dependency level, and per-node runtime badges showing
+  the latest status, rows and duration.
+- Pipeline validation results open in a panel listing node, field and message.
+- Backfill preview validates the published pipeline and shows source cursors,
+  batch size, maximum batches and warnings before queueing.
+- Dashboard chart gallery with search and visual previews; component drag and
+  resize push overlapping widgets down instead of stacking.
+- Run matrix in the operations centre: assets by day with run counts and the
+  worst status of each day.
+
 ## [2.7.0] - 2026-11-25
 
 ### Added

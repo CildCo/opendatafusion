@@ -258,15 +258,12 @@ def update_cursor(asset_id: int, body: CursorIn,
     return out
 
 
-@router.post("/pipelines/{asset_id}/backfill")
-def backfill(asset_id: int, body: BackfillIn,
-             s: Session = Depends(get_session),
-             claims: dict = Depends(require_editor)):
-    a = _asset(s, asset_id, claims)
+def _backfill_payload(s, a, body):
     if not a.published_version_id:
         raise HTTPException(400, "pipeline is not published")
     version = s.get(AssetVersion, a.published_version_id)
-    err = backfill_content_error(version.content_json if version else None)
+    content = version.content_json if version else None
+    err = backfill_content_error(content)
     if err:
         raise HTTPException(400, err)
     if not body.start_cursor.strip():
@@ -275,10 +272,53 @@ def backfill(asset_id: int, body: BackfillIn,
         raise HTTPException(400, "batch must be 1..100000")
     if not 1 <= body.max_batches <= 1000:
         raise HTTPException(400, "max_batches must be 1..1000")
-    payload = {"start_cursor": body.start_cursor.strip(),
-               "end_cursor": body.end_cursor,
-               "batch": body.batch,
-               "max_batches": body.max_batches}
+    return content or {}, {
+        "start_cursor": body.start_cursor.strip(),
+        "end_cursor": body.end_cursor,
+        "batch": body.batch,
+        "max_batches": body.max_batches}
+
+
+@router.post("/pipelines/{asset_id}/backfill/preview")
+def backfill_preview(asset_id: int, body: BackfillIn,
+                     s: Session = Depends(get_session),
+                     claims: dict = Depends(require_editor)):
+    a = _asset(s, asset_id, claims)
+    content, payload = _backfill_payload(s, a, body)
+    cursors = dict(a.cursor_json or {})
+    sources = []
+    settings = content.get("settings") or {}
+    batch = payload["batch"] or settings.get("batch") or 1000
+    for node in content.get("nodes") or []:
+        if node.get("type") != "source":
+            continue
+        config = node.get("config") or {}
+        raw = cursors.get(node.get("id"))
+        sources.append({
+            "node_id": node.get("id"),
+            "name": node.get("name") or node.get("id"),
+            "table": config.get("table"),
+            "cursor_column": config.get("cursor_column"),
+            "current_cursor": raw,
+        })
+    warnings = []
+    if payload["max_batches"] > 100:
+        warnings.append("max_batches above 100 may run for a long time")
+    if payload["end_cursor"]:
+        warnings.append("rows after end_cursor are skipped")
+    return {"ok": True, "sources": sources, "batch": batch,
+            "max_batches": payload["max_batches"],
+            "start_cursor": payload["start_cursor"],
+            "end_cursor": payload["end_cursor"] or None,
+            "warnings": warnings}
+
+
+@router.post("/pipelines/{asset_id}/backfill")
+def backfill(asset_id: int, body: BackfillIn,
+             s: Session = Depends(get_session),
+             claims: dict = Depends(require_editor)):
+    a = _asset(s, asset_id, claims)
+    _, payload = _backfill_payload(s, a, body)
     try:
         job = enqueue_asset(s, a.id, "pipeline_backfill", payload=payload)
     except ValueError as e:

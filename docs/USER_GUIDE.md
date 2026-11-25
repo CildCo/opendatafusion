@@ -356,3 +356,16 @@ See [Templates](TEMPLATES.md).
 - `scripts/ha_smoke.py` checks every API replica's `/livez` and `/readyz`.
 
 See [Operations](OPERATIONS.md).
+
+## 34. Editing experience
+
+- Pipeline, dashboard, app and model editors support undo (`Ctrl+Z`) and redo
+  (`Ctrl+Shift+Z`).
+- Pipeline nodes support Shift multi-select, copy/paste and auto layout; the
+  canvas shows the latest run status, rows and duration per node.
+- **Validate** lists node/field/message results instead of a single toast.
+- Dashboards add components from a searchable chart gallery; dragging a widget
+  pushes overlapping widgets down.
+- Backfill has **Preview impact** before anything is queued.
+- The operations centre adds a **Run matrix** by asset and day.
+

@@ -1,6 +1,8 @@
 <template>
   <StudioShell :title="title" :cron="cron" :published="published"
                :enabled="enabled" :saving="saving"
+               :can-undo="canUndo" :can-redo="canRedo"
+               @undo="history.undo" @redo="history.redo"
                @rename="title = $event" @rename-save="renameSave"
                @schedule="saveSchedule" @save="save" @validate="validate"
                @preview="preview" @run="run" @backfill="backfillOpen = true"
@@ -11,11 +13,11 @@
     <template #tree>
       <AssetTree :items="treeItems" :active-id="id" @select="openOther" />
     </template>
-    <PipelineCanvas ref="canvasRef" :content="content"
-                    @select="selected = $event" @change="dirty = true" />
+    <PipelineCanvas ref="canvasRef" :content="content" :runtime="runtime"
+                    @select="selected = $event" @change="onCanvasChange" />
     <template #config>
       <NodeConfig :node="selected" :datasources="datasources"
-                  @update="dirty = true" />
+                  @update="onNodeUpdate" />
     </template>
     <template #console>
       <PreviewPanel ref="previewRef" :asset-id="id"
@@ -50,6 +52,23 @@
               :image-size="60" />
   </el-dialog>
 
+  <el-dialog v-model="validationOpen" :title="t('ped.validationTitle')"
+             width="560px">
+    <el-alert v-if="validationOk" type="success" :closable="false"
+              :title="t('ped.validationPassed')" />
+    <el-table v-else :data="validationRows" size="small">
+      <el-table-column prop="node_id" :label="t('ped.colNode')" width="140">
+        <template #default="{ row }">{{ row.node_id || "-" }}</template>
+      </el-table-column>
+      <el-table-column prop="field" :label="t('ped.validationField')"
+                       width="130" />
+      <el-table-column prop="message" :label="t('ped.validationMessage')" />
+    </el-table>
+    <template #footer>
+      <el-button @click="validationOpen = false">{{ t("common.close") }}</el-button>
+    </template>
+  </el-dialog>
+
   <el-dialog v-model="backfillOpen" :title="t('ped.backfillTitle')" width="540px">
     <el-alert type="info" :closable="false" show-icon
               :title="t('ped.backfillHint')"
@@ -72,8 +91,21 @@
                          :max="1000" />
       </el-form-item>
     </el-form>
+    <el-alert v-if="backfillPreview" type="info" :closable="false"
+              style="margin-top: 8px">
+      <p class="preview-line">
+        {{ t("ped.previewSummary")
+          .replace("{sources}", backfillPreview.sources.length)
+          .replace("{batch}", backfillPreview.batch)
+          .replace("{max}", backfillPreview.max_batches) }}
+      </p>
+      <p v-for="(warning, i) in backfillPreview.warnings" :key="i"
+         class="preview-line">· {{ warning }}</p>
+    </el-alert>
     <template #footer>
       <el-button @click="backfillOpen = false">{{ t('ped.cancel') }}</el-button>
+      <el-button :loading="previewingBackfill"
+                 @click="previewBackfill">{{ t('ped.previewBackfill') }}</el-button>
       <el-button type="primary" :loading="backfilling"
                  @click="startBackfill">{{ t('ped.startBackfill') }}</el-button>
     </template>
@@ -95,6 +127,7 @@ import PreviewPanel from "../studio/pipeline/PreviewPanel.vue";
 import VersionDrawer from "../studio/pipeline/VersionDrawer.vue";
 import PublishDialog from "../studio/pipeline/PublishDialog.vue";
 import GovernanceDrawer from "../components/GovernanceDrawer.vue";
+import { bindHistoryKeys, useHistory } from "../composables/useHistory";
 
 const route = useRoute();
 const router = useRouter();
@@ -104,6 +137,9 @@ const draftVersion = ref(null);
 const savedTitle = ref("");
 const cron = ref("");
 const content = ref({ nodes: [], edges: [], settings: {} });
+const history = useHistory(content);
+const { canUndo, canRedo } = history;
+bindHistoryKeys(history);
 const selected = ref(null);
 const datasources = ref([]);
 const treeItems = ref([]);
@@ -115,13 +151,19 @@ const versionsOpen = ref(false);
 const governanceOpen = ref(false);
 const publishDialog = ref(false);
 const backfillOpen = ref(false);
+const validationOpen = ref(false);
+const validationOk = ref(true);
+const validationRows = ref([]);
 const cursorsOpen = ref(false);
 const cursors = reactive({ cursors: {}, sources: [] });
 const backfilling = ref(false);
+const previewingBackfill = ref(false);
+const backfillPreview = ref(null);
 const backfillForm = reactive({ start_cursor: "", end_cursor: "",
                                 batch: null, max_batches: 100 });
 const settings = ref({ batch: 1000 });
 const canvasRef = ref(null);
+const runtime = ref({});
 const previewRef = ref(null);
 
 async function load() {
@@ -132,6 +174,7 @@ async function load() {
     savedTitle.value = a.name;
     cron.value = a.cron || "";
     content.value = a.draft || { nodes: [], edges: [], settings: {} };
+    history.reset();
     settings.value = content.value.settings || { batch: 1000 };
     published.value = Boolean(a.published);
     enabled.value = a.enabled !== false;
@@ -140,6 +183,7 @@ async function load() {
     datasources.value = await api.get("/datasources");
     dirty.value = false;
     draftGuard.reset();
+    await loadRuntime();
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -202,9 +246,9 @@ async function validate() {
   try {
     const c = currentContent();
     const r = await api.post(`/pipelines/${id}/validate`, { content: c });
-    if (r.valid) ElMessage.success(t("ped.validationPassed"));
-    else ElMessage.error(r.errors.map(
-      (e) => `${e.node_id || "-"}: ${e.message}`).join("; "));
+    validationOk.value = Boolean(r.valid);
+    validationRows.value = r.errors || [];
+    validationOpen.value = true;
   } catch (e) {
     ElMessage.error(errMsg(e));
   }
@@ -290,6 +334,24 @@ async function saveCursor(row) {
   }
 }
 
+async function previewBackfill() {
+  previewingBackfill.value = true;
+  try {
+    backfillPreview.value = await api.post(
+      `/pipelines/${id}/backfill/preview`, {
+        start_cursor: backfillForm.start_cursor,
+        end_cursor: backfillForm.end_cursor || null,
+        batch: backfillForm.batch || null,
+        max_batches: backfillForm.max_batches || 100,
+      });
+  } catch (e) {
+    backfillPreview.value = null;
+    ElMessage.error(errMsg(e));
+  } finally {
+    previewingBackfill.value = false;
+  }
+}
+
 async function startBackfill() {
   if (!backfillForm.start_cursor) {
     ElMessage.warning(t("ped.startCursorRequired"));
@@ -313,6 +375,36 @@ async function startBackfill() {
   }
 }
 
+function onCanvasChange() {
+  if (!canvasRef.value) {
+    dirty.value = true;
+    return;
+  }
+  const snapshot = canvasRef.value.serialize(settings.value);
+  content.value = {
+    nodes: snapshot.nodes, edges: snapshot.edges,
+    settings: snapshot.settings,
+  };
+  dirty.value = true;
+}
+
+function onNodeUpdate() {
+  dirty.value = true;
+  canvasRef.value?.notify();
+}
+
+async function loadRuntime() {
+  try {
+    const jobs = await api.get(`/pipelines/${id}/jobs`);
+    const latest = jobs.find((job) => (job.nodes || []).length) || jobs[0];
+    const map = {};
+    for (const node of latest?.nodes || []) map[node.node_id] = node;
+    runtime.value = map;
+  } catch {
+    runtime.value = {};
+  }
+}
+
 async function pollJob(jobId) {
   for (let i = 0; i < 30; i++) {
     await new Promise((r) => setTimeout(r, 2000));
@@ -322,6 +414,7 @@ async function pollJob(jobId) {
       if (j && (j.status === "success" || j.status === "failed")) {
         ElMessage[j.status === "success" ? "success" : "error"](
           `${t("ped.jobLabel")} ${jobId}: ${j.status}`);
+        await loadRuntime();
         return;
       }
     } catch (e) {

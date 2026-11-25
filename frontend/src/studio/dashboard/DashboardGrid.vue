@@ -48,6 +48,21 @@ function styleFor(w) {
   };
 }
 
+function resolveCollisions(moved) {
+  const others = props.widgets
+    .filter((item) => item.id !== moved.id)
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+  let floor = moved.y + moved.h;
+  for (const item of others) {
+    const xOverlap = moved.x < item.x + item.w && item.x < moved.x + moved.w;
+    if (!xOverlap) continue;
+    if (item.y < floor && item.y + item.h > moved.y) {
+      item.y = floor;
+    }
+    floor = Math.max(floor, item.y + item.h);
+  }
+}
+
 function startDrag(w, event) {
   event.preventDefault();
   const sx = event.clientX;
@@ -58,6 +73,7 @@ function startDrag(w, event) {
     w.x = Math.max(0, ox + Math.round((e.clientX - sx) / cellWidth.value));
     w.y = Math.max(0, oy + Math.round((e.clientY - sy) / props.rowHeight));
     w.x = Math.min(w.x, props.columns - w.w);
+    resolveCollisions(w);
     emit("change");
   };
   bind();
@@ -73,6 +89,7 @@ function startResize(w, event) {
     w.w = Math.max(1, ow + Math.round((e.clientX - sx) / cellWidth.value));
     w.h = Math.max(1, oh + Math.round((e.clientY - sy) / props.rowHeight));
     w.w = Math.min(w.w, props.columns - w.x);
+    resolveCollisions(w);
     emit("change");
   };
   bind();
