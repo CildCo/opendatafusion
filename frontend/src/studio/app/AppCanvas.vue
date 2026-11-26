@@ -1,5 +1,6 @@
 <template>
-  <div ref="host" class="app-grid" :class="{ design, empty: !components.length }"
+  <div ref="host" class="app-grid"
+       :class="{ design, empty: !components.length, stacked: compact }"
        :style="gridStyle" @click.self="onBlank">
     <div v-for="c in components" v-show="design || visible(c)" :key="c.id"
          class="app-widget" :class="[c.type, {
@@ -7,21 +8,106 @@
            dimmed: design && !visible(c),
            card: isCard(c),
          }]" :style="styleFor(c)" @click.stop="$emit('select', c.id)">
-      <div v-if="design" class="widget-head"
+      <div v-if="design && !compact" class="widget-head"
            @pointerdown.stop="startDrag(c, $event)">
         <span class="widget-title">{{ c.title || typeLabel(c.type) }}</span>
         <span class="widget-type">{{ typeLabel(c.type) }}</span>
       </div>
       <div class="widget-body">
-        <AppComponent :component="c" :entry="entryFor(c)" :params="params"
+        <template v-if="c.type === 'container'">
+          <div v-if="c.title" class="container-title">{{ c.title }}</div>
+          <AppCanvas :page="nestedPage(c)" :data="data" :params="params"
+                     :component-state="componentState" :design="design"
+                     :stacked="compact" :selected-id="selectedId"
+                     :on-submit="onSubmit" @select="$emit('select', $event)"
+                     @drag-start="$emit('drag-start')"
+                     @change="$emit('change')"
+                     @change-end="$emit('change-end')"
+                     @navigate="$emit('navigate', $event)"
+                     @row="$emit('row', $event)"
+                     @action="$emit('action', $event)"
+                     @component-change="forwardChange" />
+        </template>
+        <template v-else-if="c.type === 'tabs'">
+          <template v-if="design">
+            <div v-for="tab in c.tabs || []" :key="tab.id"
+                 class="tab-section">
+              <div class="tab-title">{{ tab.title || tab.id }}</div>
+              <AppCanvas :page="tabPage(tab)" :data="data"
+                         :params="params"
+                         :component-state="componentState" :design="design"
+                         :stacked="compact" :selected-id="selectedId"
+                         :on-submit="onSubmit"
+                         @select="$emit('select', $event)"
+                         @drag-start="$emit('drag-start')"
+                         @change="$emit('change')"
+                         @change-end="$emit('change-end')"
+                         @navigate="$emit('navigate', $event)"
+                         @row="$emit('row', $event)"
+                         @action="$emit('action', $event)"
+                         @component-change="forwardChange" />
+            </div>
+          </template>
+          <el-tabs v-else :model-value="tabValue(c)" class="app-tabs"
+                   @update:model-value="setTab(c, $event)">
+            <el-tab-pane v-for="tab in c.tabs || []" :key="tab.id"
+                         :label="tab.title || tab.id" :name="tab.id">
+              <AppCanvas :page="tabPage(tab)" :data="data"
+                         :params="params"
+                         :component-state="componentState"
+                         :stacked="compact" :on-submit="onSubmit"
+                         @navigate="$emit('navigate', $event)"
+                         @row="$emit('row', $event)"
+                         @action="$emit('action', $event)"
+                         @component-change="forwardChange" />
+            </el-tab-pane>
+          </el-tabs>
+        </template>
+        <template v-else-if="c.type === 'modal'">
+          <template v-if="design">
+            <div class="container-title">{{ modalLabel(c) }}</div>
+            <AppCanvas :page="nestedPage(c)" :data="data" :params="params"
+                       :component-state="componentState" :design="design"
+                       :stacked="compact" :selected-id="selectedId"
+                       :on-submit="onSubmit"
+                       @select="$emit('select', $event)"
+                       @drag-start="$emit('drag-start')"
+                       @change="$emit('change')"
+                       @change-end="$emit('change-end')"
+                       @navigate="$emit('navigate', $event)"
+                       @row="$emit('row', $event)"
+                       @action="$emit('action', $event)"
+                       @component-change="forwardChange" />
+          </template>
+          <template v-else>
+            <el-button type="primary" @click="modalOpen[c.id] = true">
+              {{ modalLabel(c) }}
+            </el-button>
+            <el-dialog v-model="modalOpen[c.id]"
+                       :title="c.title || modalLabel(c)" append-to-body>
+              <AppCanvas :page="nestedPage(c)" :data="data"
+                         :params="params"
+                         :component-state="componentState"
+                         :stacked="compact" :on-submit="onSubmit"
+                         @navigate="$emit('navigate', $event)"
+                         @row="$emit('row', $event)"
+                         @action="$emit('action', $event)"
+                         @component-change="forwardChange" />
+            </el-dialog>
+          </template>
+        </template>
+        <AppComponent v-else :component="c" :entry="entryFor(c)"
+                      :params="params" :components="componentState"
                       :on-submit="onSubmit" :design="design"
                       @navigate="$emit('navigate', $event)"
-                      @row="$emit('row', $event)" />
+                      @row="$emit('row', { componentId: c.id, row: $event })"
+                      @change="$emit('component-change', c.id, $event)"
+                      @action="$emit('action', $event)" />
       </div>
-      <span v-if="design && !visible(c)" class="hidden-flag">
+      <span v-if="design && !compact && !visible(c)" class="hidden-flag">
         {{ t("aedit.hidden") }}
       </span>
-      <span v-if="design" class="resize"
+      <span v-if="design && !compact" class="resize"
             @pointerdown.stop="startResize(c, $event)" />
     </div>
     <div v-if="design && !components.length" class="grid-empty">
@@ -31,10 +117,11 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { t } from "../../i18n";
 import AppComponent from "./AppComponent.vue";
-import { isVisible } from "./bindings";
+import { isVisible, interpolate } from "./bindings";
+import { getRole } from "../../api";
 import { cellWidthFor, gridStyleFor, maxGridBottom,
          resolveGridCollisions } from "../shared/grid";
 
@@ -42,14 +129,17 @@ const props = defineProps({
   page: { type: Object, required: true },
   data: { type: Object, default: () => ({}) },
   params: { type: Object, default: () => ({}) },
+  componentState: { type: Object, default: () => ({}) },
   selectedId: { type: String, default: "" },
   onSubmit: { type: Function, default: null },
   design: Boolean,
+  stacked: { type: Boolean, default: null },
   columns: { type: Number, default: 12 },
   rowHeight: { type: Number, default: 72 },
 });
 const emit = defineEmits([
   "select", "change", "change-end", "drag-start", "navigate", "row",
+  "action", "component-change",
 ]);
 
 const host = ref(null);
@@ -58,14 +148,20 @@ let observer = null;
 let drag = null;
 
 const components = computed(() => props.page?.components || []);
+const compact = computed(() => props.stacked === null
+  ? width.value < 720 : props.stacked);
 const cellWidth = computed(
   () => cellWidthFor(width.value, props.columns));
-const gridStyle = computed(() => ({
-  backgroundSize: `100% ${props.rowHeight}px`,
-  minHeight: `${Math.max(420, (maxBottom.value + 1) * props.rowHeight)}px`,
-}));
+const gridStyle = computed(() => (compact.value
+  ? { backgroundSize: "100% 24px", minHeight: "0" }
+  : {
+    backgroundSize: `100% ${props.rowHeight}px`,
+    minHeight: `${Math.max(420, (maxBottom.value + 1) * props.rowHeight)}px`,
+  }));
 const maxBottom = computed(() => maxGridBottom(
   components.value, layoutOf));
+const activeTabs = reactive({});
+const modalOpen = reactive({});
 
 const LABELS = {
   text: "aedit.compText",
@@ -92,7 +188,7 @@ function entryFor(c) {
 }
 
 function visible(c) {
-  return isVisible(c, props.params);
+  return isVisible(c, props.params, getRole() || "viewer");
 }
 
 function layoutOf(c) {
@@ -100,7 +196,45 @@ function layoutOf(c) {
 }
 
 function styleFor(c) {
-  return gridStyleFor(layoutOf(c), cellWidth.value, props.rowHeight);
+  const layout = layoutOf(c);
+  if (compact.value) {
+    return {
+      position: "static",
+      width: "100%",
+      height: "auto",
+      minHeight: `${Math.max(48, layout.h * props.rowHeight)}px`,
+      order: layout.y * 100 + layout.x,
+    };
+  }
+  return gridStyleFor(layout, cellWidth.value, props.rowHeight);
+}
+
+function nestedPage(comp) {
+  return { params: props.page?.params || [],
+           components: comp.children || [] };
+}
+
+function tabPage(tab) {
+  return { params: props.page?.params || [],
+           components: tab.components || [] };
+}
+
+function tabValue(comp) {
+  return activeTabs[comp.id] || comp.tabs?.[0]?.id || "";
+}
+
+function setTab(comp, value) {
+  activeTabs[comp.id] = value;
+}
+
+function modalLabel(comp) {
+  return interpolate(comp.label || t("acomp.open"), props.params, {
+    components: props.componentState,
+  });
+}
+
+function forwardChange(componentId, values) {
+  emit("component-change", componentId, values);
 }
 
 function onBlank() {
@@ -117,7 +251,7 @@ function ensureLayout(c) {
 }
 
 function startDrag(c, event) {
-  if (!props.design) return;
+  if (!props.design || compact.value) return;
   event.preventDefault();
   emit("drag-start");
   const l = ensureLayout(c);
@@ -136,7 +270,7 @@ function startDrag(c, event) {
 }
 
 function startResize(c, event) {
-  if (!props.design) return;
+  if (!props.design || compact.value) return;
   event.preventDefault();
   event.stopPropagation();
   emit("drag-start");
@@ -260,6 +394,33 @@ onBeforeUnmount(() => {
   border-radius: 3px;
   padding: 0 4px;
 }
+.app-grid.stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0;
+  background-image: none;
+}
+.app-grid.stacked .app-widget { overflow: visible; }
+.app-grid.stacked .widget-body { height: auto; overflow: visible; }
+.container-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 8px;
+}
+.tab-section { margin-bottom: 12px; }
+.tab-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  padding: 4px 8px;
+  background: #eef2f7;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+.app-tabs { min-height: 40px; }
+.app-tabs :deep(.el-tabs__content) { overflow: visible; }
 .grid-empty {
   position: absolute;
   inset: 0;

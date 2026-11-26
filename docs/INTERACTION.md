@@ -50,15 +50,32 @@ day (failed, running, queued, success, skipped). The window can be 7, 14 or
 - Pages use a 12-column grid. Drag a component's title bar to move it and the
   lower-right corner to resize; overlapping components are pushed down.
 - The property panel edits column, row, width and height numerically. **Tidy
-  layout** reflows components in their current order.
-- Text and heading content interpolates page parameters with `{{name}}`.
-- A **visibility** rule hides a component when the selected page parameter
-  does not satisfy `=`, `!=` or `in`.
+  layout** reflows components recursively, including nested containers.
+- The left panel is an outline: search filters by title, text, id or type,
+  nested items are indented, and **Add to** chooses the page, a container, or a
+  specific tab as the insertion target.
+- Components include text, heading, divider, image, button, progress, metric,
+  table, form, container, tabs and dialog. Containers and dialogs hold child
+  components on their own 12-column grid; tabs hold one grid per tab.
+- Bindings support dotted paths: `{{params.city}}`, form values such as
+  `{{components.form1.values.city}}`, and table selections such as
+  `{{components.t1.selectedRow.city}}`. The editor offers a searchable binding
+  picker built from the current page.
+- Buttons can run a short action sequence: navigate, open a URL, set a page
+  parameter, refresh data, or show a message. Actions run in order and are
+  validated against declared pages and parameters.
+- **Visibility** rules hide a component when a page parameter does not satisfy
+  `=`, `!=` or `in`; **visible roles** restrict it to viewer, editor, approver
+  or admin.
+- The inspector splits into **Content**, **Layout** and **Interaction** tabs, so
+  data fields, grid settings and behavior do not compete for one column.
+- A desktop/tablet switch previews the runtime layout. Below the tablet width,
+  widgets stack in reading order while keeping their configured heights.
 - A drag or resize is one undo step: history pauses during the gesture and
   commits when the pointer is released.
-- The editor preview reacts to parameter changes, and validation reports grid
-  bounds, undefined bindings, visibility parameters, image URLs and button
-  targets.
+- The editor preview reacts to parameters, form input and table row selection;
+  validation reports grid bounds, undefined bindings, visibility parameters,
+  role lists, container depth, image URLs and button targets/actions.
 
 ## Catalog discovery and collaboration
 

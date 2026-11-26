@@ -9,7 +9,10 @@ from odf.modelstudio.content import (dataset_output_columns,
 from odf.models import Asset, AssetVersion, Datasource
 
 TYPES = {"text", "heading", "divider", "image", "button", "progress",
-         "metric", "table", "form"}
+         "metric", "table", "form", "container", "tabs", "modal"}
+CONTAINER_TYPES = {"container", "tabs", "modal"}
+MAX_NESTING = 4
+MAX_PAGE_COMPONENTS = 200
 FORM_WIDGETS = {"input", "textarea", "number", "date", "select", "checkbox"}
 FORM_ROLES = {"viewer", "editor", "approver", "admin"}
 
@@ -20,7 +23,88 @@ def empty_app():
         "components": []}]}
 
 
-BINDING = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
+BINDING = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\}\}")
+
+
+def child_lists(comp):
+    typ = comp.get("type")
+    if typ in ("container", "modal"):
+        children = comp.get("children")
+        return [children] if isinstance(children, list) else []
+    if typ == "tabs":
+        out = []
+        for tab in comp.get("tabs") or []:
+            if isinstance(tab, dict) and isinstance(tab.get("components"),
+                                                    list):
+                out.append(tab["components"])
+        return out
+    return []
+
+
+def iter_components(components, depth=0):
+    if not isinstance(components, list) or depth > MAX_NESTING:
+        return
+    for comp in components:
+        if not isinstance(comp, dict):
+            continue
+        yield comp
+        for children in child_lists(comp):
+            yield from iter_components(children, depth + 1)
+
+
+def collect_component_ids(components):
+    return {comp.get("id") for comp in iter_components(components)
+            if isinstance(comp.get("id"), str)}
+
+
+def _container_errors(comp):
+    typ = comp.get("type")
+    if typ == "container":
+        children = comp.get("children", [])
+        if not isinstance(children, list) or len(children) > 50:
+            return [_err("component.children",
+                         "container children must be an array of at most 50")]
+        return []
+    if typ == "modal":
+        errs = []
+        children = comp.get("children", [])
+        if not isinstance(children, list) or len(children) > 50:
+            errs.append(_err("component.children",
+                             "modal children must be an array of at most 50"))
+        for name in ("label", "title"):
+            value = comp.get(name)
+            if value is not None and (not isinstance(value, str)
+                                      or len(value) > 80):
+                errs.append(_err("component.%s" % name,
+                                 "modal %s must be a string" % name))
+        return errs
+    if typ == "tabs":
+        tabs = comp.get("tabs")
+        if not isinstance(tabs, list) or not 1 <= len(tabs) <= 8:
+            return [_err("component.tabs",
+                         "tabs must contain 1 to 8 tabs")]
+        errs, ids = [], set()
+        for tab in tabs:
+            if not isinstance(tab, dict):
+                errs.append(_err("component.tabs", "tab must be an object"))
+                continue
+            tid = tab.get("id")
+            if not isinstance(tid, str) or not re.fullmatch(
+                    r"[A-Za-z0-9_-]{1,40}", tid):
+                errs.append(_err("component.tabs", "invalid tab id"))
+            elif tid in ids:
+                errs.append(_err("component.tabs",
+                                 "duplicate tab id: %s" % tid))
+            ids.add(tid)
+            if not isinstance(tab.get("title"), str) \
+                    or len(tab.get("title")) > 80:
+                errs.append(_err("component.tabs",
+                                 "tab title must be a string"))
+            if not isinstance(tab.get("components"), list):
+                errs.append(_err("component.tabs",
+                                 "tab components must be an array"))
+        return errs
+    return []
 
 
 def _layout_errors(comp):
@@ -60,12 +144,85 @@ def _visible_errors(comp, page_params):
     return []
 
 
-def _binding_errors(text, page_params, field):
+def _binding_errors(text, page_params, field, component_ids):
     if not isinstance(text, str):
         return []
-    names = set(BINDING.findall(text))
-    return [_err(field, "binding param not found: %s" % name)
-            for name in sorted(names) if name not in page_params]
+    errs = []
+    for path in sorted(set(BINDING.findall(text))):
+        if path.startswith("params."):
+            name = path[7:]
+            if "." in name or name not in page_params:
+                errs.append(_err(field,
+                                 "binding param not found: %s" % path))
+        elif path.startswith("components."):
+            parts = path.split(".")
+            if len(parts) < 2 or parts[1] not in component_ids:
+                errs.append(_err(field,
+                                 "binding component not found: %s" % path))
+        elif path not in page_params:
+            errs.append(_err(field, "binding param not found: %s" % path))
+    return errs
+
+
+def _visible_role_errors(comp):
+    roles = comp.get("visible_roles")
+    if roles is None:
+        return []
+    if not isinstance(roles, list) or not roles:
+        return [_err("component.visible_roles",
+                     "visible_roles must be a non-empty array")]
+    if any(not isinstance(role, str) or role not in FORM_ROLES
+           for role in roles) or len(set(roles)) != len(roles):
+        return [_err("component.visible_roles",
+                     "visible_roles must be viewer/editor/approver/admin")]
+    return []
+
+
+def _action_errors(comp, page_ids, page_params):
+    actions = comp.get("actions")
+    if actions is None:
+        return []
+    if not isinstance(actions, list) or len(actions) > 10:
+        return [_err("component.actions",
+                     "actions must be an array of at most 10 items")]
+    errs = []
+    for action in actions:
+        if not isinstance(action, dict):
+            errs.append(_err("component.actions",
+                             "action must be an object"))
+            continue
+        kind = action.get("type")
+        if kind not in ("navigate", "url", "set_param", "refresh",
+                        "message"):
+            errs.append(_err("component.actions.type",
+                             "unsupported action type: %s" % kind))
+            continue
+        if kind == "navigate":
+            target = action.get("page")
+            if not isinstance(target, str) or target not in page_ids:
+                errs.append(_err("component.actions.page",
+                                 "target page does not exist"))
+        elif kind == "url":
+            url = action.get("url")
+            if not isinstance(url, str) or not url.startswith(
+                    ("/", "http://", "https://")) or len(url) > 512:
+                errs.append(_err("component.actions.url",
+                                 "url must be a relative or http(s) path"))
+        elif kind == "set_param":
+            param = action.get("param")
+            if not isinstance(param, str) or param not in page_params:
+                errs.append(_err("component.actions.param",
+                                 "param is not declared: %s" % param))
+            if not isinstance(action.get("value"),
+                              (str, int, float, bool)):
+                errs.append(_err("component.actions.value",
+                                 "action value must be a scalar"))
+        elif kind == "message":
+            text = action.get("text")
+            if not isinstance(text, str) or not text.strip():
+                errs.append(_err("component.actions.text",
+                                 "message text is required"))
+    return errs
 
 
 def _err(field, message):
@@ -213,6 +370,54 @@ def _metric_columns(content):
     return dims + [measure.get("as") or "value"]
 
 
+def _component_structure(components, comp_ids, depth, total):
+    if not isinstance(components, list):
+        return [_err("component", "components must be an array")]
+    if depth > MAX_NESTING:
+        return [_err("component.nesting",
+                     "component nesting exceeds %d levels" % MAX_NESTING)]
+    errs = []
+    for comp in components:
+        if not isinstance(comp, dict):
+            errs.append(_err("component", "component must be an object"))
+            continue
+        total[0] += 1
+        if total[0] > MAX_PAGE_COMPONENTS:
+            errs.append(_err("component.count",
+                             "too many components on a page"))
+            break
+        cid = comp.get("id")
+        if not isinstance(cid, str) or not cid:
+            errs.append(_err("component.id", "invalid component id"))
+            continue
+        if cid in comp_ids:
+            errs.append(_err("component.id",
+                             "duplicate component id: %s" % cid))
+        comp_ids.add(cid)
+        ctype = comp.get("type")
+        if not isinstance(ctype, str) or ctype not in TYPES:
+            errs.append(_err("component.type", "unknown component type"))
+        cols = comp.get("columns")
+        if cols is not None and (
+                not isinstance(cols, list)
+                or any(not isinstance(x, str) for x in cols)):
+            errs.append(_err("component.columns",
+                             "columns must be an array of names"))
+        errs.extend(_layout_errors(comp))
+        errs.extend(_visible_role_errors(comp))
+        errs.extend(_container_errors(comp))
+        children = child_lists(comp)
+        if children and depth >= MAX_NESTING:
+            errs.append(_err("component.nesting",
+                             "component nesting exceeds %d levels"
+                             % MAX_NESTING))
+        elif children:
+            for items in children:
+                errs.extend(_component_structure(
+                    items, comp_ids, depth + 1, total))
+    return errs
+
+
 def structural_errors(content):
     if not isinstance(content, dict):
         return [_err("content", "content must be an object")]
@@ -255,35 +460,14 @@ def structural_errors(content):
             errs.append(_err("page.components",
                              "components must be an array"))
             continue
-        for c in comps:
-            if not isinstance(c, dict):
-                errs.append(_err("component", "component must be an object"))
-                continue
-            cid = c.get("id")
-            if not isinstance(cid, str) or not cid:
-                errs.append(_err("component.id", "invalid component id"))
-                continue
-            if cid in comp_ids:
-                errs.append(_err("component.id",
-                                 "duplicate component id: %s" % cid))
-            comp_ids.add(cid)
-            ctype = c.get("type")
-            if not isinstance(ctype, str) or ctype not in TYPES:
-                errs.append(_err("component.type", "unknown component type"))
-            cols = c.get("columns")
-            if cols is not None and (
-                    not isinstance(cols, list)
-                    or any(not isinstance(x, str) for x in cols)):
-                errs.append(_err("component.columns",
-                                 "columns must be an array of names"))
-            errs.extend(_layout_errors(c))
+        errs.extend(_component_structure(comps, comp_ids, 0, [0]))
     if not isinstance(start, str) or start not in ids:
         errs.append(_err("start_page", "start page does not exist"))
     for page in pages if isinstance(pages, list) else []:
         if not isinstance(page, dict):
             continue
-        for comp in page.get("components") or []:
-            if isinstance(comp, dict) and comp.get("type") == "button":
+        for comp in iter_components(page.get("components") or []):
+            if comp.get("type") == "button":
                 target = comp.get("target_page")
                 if target and target not in ids:
                     errs.append(_err("component.target_page",
@@ -300,12 +484,24 @@ def _column_errors(comp):
     return []
 
 
-def validate_component(session, page, comp, project_id):
+def validate_component(session, page, comp, project_id, page_ids=None):
     params = page.get("params")
     page_params = {p.get("name") for p in (params if isinstance(params, list)
                                            else [])
                    if isinstance(p, dict)}
     typ = comp.get("type")
+    page_components = page.get("components") or []
+    component_ids = collect_component_ids(page_components)
+    page_ids = set(page_ids or [])
+    if typ in CONTAINER_TYPES:
+        errs = _visible_errors(comp, page_params)
+        errs.extend(_container_errors(comp))
+        for children in child_lists(comp):
+            for child in children:
+                if isinstance(child, dict):
+                    errs.extend(validate_component(
+                        session, page, child, project_id, page_ids))
+        return errs
     errs = _visible_errors(comp, page_params)
     if typ == "form":
         return errs + _form_errors(session, comp, project_id)
@@ -316,7 +512,7 @@ def validate_component(session, page, comp, project_id):
         if not isinstance(comp.get("text"), str) or not comp["text"].strip():
             return errs + [_err("component.text", "text is required")]
         return errs + _binding_errors(comp.get("text"), page_params,
-                                      "component.text")
+                                      "component.text", component_ids)
     if typ == "divider":
         return errs
     if typ == "image":
@@ -331,6 +527,7 @@ def validate_component(session, page, comp, project_id):
         if not isinstance(comp.get("label") or comp.get("text") or "",
                           str):
             return errs + [_err("component.label", "button label is invalid")]
+        errs.extend(_action_errors(comp, page_ids, page_params))
         url = comp.get("url")
         if url and not (str(url).startswith("http://")
                         or str(url).startswith("https://")
@@ -408,6 +605,8 @@ def validate_app(session, content, project_id):
     pages = content.get("pages")
     if not isinstance(pages, list):
         return errs
+    page_ids = {p.get("id") for p in pages
+                if isinstance(p, dict) and isinstance(p.get("id"), str)}
     for page in pages:
         if not isinstance(page, dict):
             continue
@@ -418,5 +617,5 @@ def validate_app(session, content, project_id):
             ctype = comp.get("type") if isinstance(comp, dict) else None
             if isinstance(ctype, str) and ctype in TYPES:
                 errs.extend(validate_component(session, page, comp,
-                                               project_id))
+                                               project_id, page_ids))
     return errs

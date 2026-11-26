@@ -198,3 +198,117 @@ def test_image_requires_an_allowed_url(tmp_path):
     errs = validate_app(s, _page([
         {"id": "i", "type": "image", "url": "javascript:alert(1)"}]), 1)
     assert any(e["field"] == "component.url" for e in errs)
+
+
+def test_app_bindings_actions_and_roles(tmp_path):
+    s = _env(tmp_path)
+    content = _page([
+        {"id": "t", "type": "text", "text": "Hello {{params.city}}",
+         "layout": {"x": 0, "y": 0, "w": 12, "h": 1}},
+        {"id": "h", "type": "heading",
+         "text": "{{components.tbl.selectedRow.city}}",
+         "layout": {"x": 0, "y": 1, "w": 12, "h": 1}},
+        {"id": "tbl", "type": "table", "dataset_id": 1,
+         "layout": {"x": 0, "y": 2, "w": 12, "h": 4}},
+        {"id": "b", "type": "button", "label": "Go",
+         "actions": [
+             {"type": "set_param", "param": "city", "value": "beijing"},
+             {"type": "message", "text": "done"},
+             {"type": "navigate", "page": "p1"},
+         ],
+         "visible_roles": ["editor", "admin"],
+         "layout": {"x": 0, "y": 6, "w": 3, "h": 2}},
+    ], [{"name": "city", "type": "string"}])
+    # Dataset asset is not created in this fixture, so only structural and
+    # non-dataset errors are interesting here.
+    errs = validate_app(s, content, 1)
+    assert not any(e["field"] == "component.text" for e in errs)
+    assert not any(e["field"] == "component.actions.type" for e in errs)
+
+    bad = _page([
+        {"id": "t", "type": "text", "text": "{{params.missing}}"},
+        {"id": "b", "type": "button", "label": "Go",
+         "actions": [{"type": "navigate", "page": "missing"}],
+         "visible_roles": ["owner"]},
+    ], [{"name": "city", "type": "string"}])
+    errs = validate_app(s, bad, 1)
+    assert any("binding param" in e["message"] for e in errs)
+    assert any("target page" in e["message"] for e in errs)
+    assert any(e["field"] == "component.visible_roles" for e in errs)
+
+    bad_action = _page([
+        {"id": "b", "type": "button", "label": "Go",
+         "actions": [{"type": "set_param", "param": "missing",
+                      "value": 1}]},
+    ], [{"name": "city", "type": "string"}])
+    assert any("param is not declared" in e["message"]
+               for e in validate_app(s, bad_action, 1))
+
+
+def test_container_and_tabs_content_validation(tmp_path):
+    s = _env(tmp_path)
+    content = {
+        "start_page": "p1",
+        "pages": [{
+            "id": "p1",
+            "title": "P",
+            "params": [{"name": "city", "type": "string", "default": "a"}],
+            "components": [
+                {"id": "box", "type": "container", "title": "Box",
+                 "layout": {"x": 0, "y": 0, "w": 6, "h": 4},
+                 "children": [
+                     {"id": "txt", "type": "text",
+                      "text": "Hello {{params.city}}",
+                      "layout": {"x": 0, "y": 0, "w": 6, "h": 1}}]},
+                {"id": "tabs", "type": "tabs",
+                 "tabs": [{"id": "t1", "title": "One", "components": [
+                     {"id": "go", "type": "button", "label": "Go",
+                      "actions": [{"type": "navigate", "page": "p1"}]}]}],
+                 "layout": {"x": 6, "y": 0, "w": 6, "h": 4}},
+                {"id": "modal", "type": "modal", "label": "More",
+                 "title": "More",
+                 "children": [{"id": "h2", "type": "heading",
+                               "text": "Inside"}]},
+            ],
+        }],
+    }
+    errs = validate_app(s, content, 1)
+    assert errs == []
+
+
+def test_container_validation_rejects_bad_nesting(tmp_path):
+    s = _env(tmp_path)
+    content = {
+        "start_page": "p1",
+        "pages": [{
+            "id": "p1",
+            "title": "P",
+            "params": [],
+            "components": [
+                {"id": "box", "type": "container", "children": [
+                    {"id": "a", "type": "text", "text": "ok",
+                     "visible_roles": ["nobody"]}]},
+                {"id": "tabs", "type": "tabs", "tabs": []},
+                {"id": "a", "type": "text", "text": "duplicate"},
+                {"id": "modal", "type": "modal", "label": 5},
+            ],
+        }],
+    }
+    messages = [e["message"] for e in validate_app(s, content, 1)]
+    assert any("visible_roles" in m for m in messages)
+    assert any("tabs" in m for m in messages)
+    assert any("duplicate component id" in m for m in messages)
+    assert any("modal" in m or "label" in m for m in messages)
+
+
+def test_container_depth_is_limited(tmp_path):
+    s = _env(tmp_path)
+    inner = {"id": "leaf", "type": "text", "text": "deep"}
+    for i in range(6):
+        inner = {"id": f"box{i}", "type": "container",
+                 "children": [inner]}
+    content = {"start_page": "p1", "pages": [{
+        "id": "p1", "title": "P", "params": [],
+        "components": [inner]}]}
+    messages = [e["message"] for e in validate_app(s, content, 1)]
+    assert any("nesting" in m or "depth" in m for m in messages)

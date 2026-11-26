@@ -6,17 +6,21 @@
               @reset="resetValues" />
 
     <AppCanvas v-if="hasLayout" :page="page" :data="data" :params="values"
-               :on-submit="onSubmit" @navigate="$emit('navigate', $event)"
-               @row="openDetail" />
+               :component-state="componentState" :on-submit="onSubmit"
+               @navigate="$emit('navigate', $event)"
+               @row="onRow" @action="runActions"
+               @component-change="onComponentChange" />
 
     <template v-else>
       <div v-for="c in page.components" v-show="visible(c)" :key="c.id"
            class="component">
         <div class="title">{{ c.title || c.type }}</div>
         <AppComponent :component="c" :entry="data?.[c.id]" :params="values"
-                      :on-submit="onSubmit"
+                      :component-state="componentState" :on-submit="onSubmit"
                       @navigate="$emit('navigate', $event)"
-                      @row="openDetail" />
+                      @row="onRow({ componentId: c.id, row: $event })"
+                      @action="runActions"
+                      @change="onComponentChange(c.id, $event)" />
       </div>
     </template>
 
@@ -33,6 +37,8 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from "vue";
+import { ElMessage } from "element-plus";
+import { getRole } from "../../api";
 import { t } from "../../i18n";
 import AppCanvas from "./AppCanvas.vue";
 import AppComponent from "./AppComponent.vue";
@@ -47,6 +53,7 @@ const props = defineProps({
 });
 const emit = defineEmits(["update:params", "refresh", "navigate"]);
 const values = reactive({ ...props.params });
+const componentState = reactive({});
 const detailOpen = ref(false);
 const detailRow = ref({});
 const hasLayout = computed(() =>
@@ -73,7 +80,43 @@ function resetValues() {
 }
 
 function visible(c) {
-  return isVisible(c, values);
+  return isVisible(c, values, getRole() || "viewer");
+}
+
+function onComponentChange(componentId, next) {
+  componentState[componentId] = {
+    ...(componentState[componentId] || {}),
+    values: next,
+  };
+}
+
+function onRow({ componentId, row }) {
+  componentState[componentId] = {
+    ...(componentState[componentId] || {}),
+    selectedRow: row,
+  };
+  openDetail(row);
+}
+
+function runActions(actions) {
+  let changed = false;
+  let refresh = false;
+  for (const action of actions || []) {
+    if (action.type === "navigate") {
+      emit("navigate", action.page);
+    } else if (action.type === "url") {
+      window.open(action.url, "_blank", "noopener,noreferrer");
+    } else if (action.type === "set_param") {
+      values[action.param] = action.value;
+      changed = true;
+    } else if (action.type === "refresh") {
+      refresh = true;
+    } else if (action.type === "message") {
+      ElMessage.info(action.text);
+    }
+  }
+  if (changed) emit("update:params", { ...values });
+  if (refresh) emit("refresh");
 }
 
 function openDetail(row) {

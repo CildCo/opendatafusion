@@ -1,18 +1,42 @@
-const TOKEN = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
+const TOKEN = /\{\{\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\}\}/g;
 
 function display(value) {
   if (value === null || value === undefined) return "";
   return String(value);
 }
 
-export function interpolate(text, params, { keepMissing = false } = {}) {
-  if (typeof text !== "string") return "";
-  const values = params || {};
-  return text.replace(TOKEN, (match, name) => {
-    if (!Object.prototype.hasOwnProperty.call(values, name)) {
-      return keepMissing ? match : "";
+function resolvePath(context, path) {
+  if (path.startsWith("params.")) {
+    const rest = path.slice(7).split(".");
+    let value = context.params;
+    for (const key of rest) {
+      if (value === null || value === undefined) return undefined;
+      value = value[key];
     }
-    return display(values[name]);
+    return value;
+  }
+  if (path.startsWith("components.")) {
+    const rest = path.slice(11).split(".");
+    let value = context.components;
+    for (const key of rest) {
+      if (value === null || value === undefined) return undefined;
+      value = value[key];
+    }
+    return value;
+  }
+  return Object.prototype.hasOwnProperty.call(context.params || {}, path)
+    ? context.params[path] : undefined;
+}
+
+export function interpolate(text, params, {
+  keepMissing = false, components = {},
+} = {}) {
+  if (typeof text !== "string") return "";
+  const context = { params: params || {}, components: components || {} };
+  return text.replace(TOKEN, (match, path) => {
+    const value = resolvePath(context, path);
+    if (value === undefined) return keepMissing ? match : "";
+    return display(value);
   });
 }
 
@@ -20,7 +44,9 @@ function same(a, b) {
   return display(a) === display(b);
 }
 
-export function isVisible(component, params) {
+export function isVisible(component, params, role = "") {
+  const roles = component?.visible_roles;
+  if (roles && roles.length && !roles.includes(role)) return false;
   const rule = component?.visible_when;
   if (!rule || !rule.param) return true;
   const value = (params || {})[rule.param];
@@ -60,6 +86,12 @@ export function defaultSize(type) {
       return { w: 3, h: 2 };
     case "form":
       return { w: 6, h: 5 };
+    case "container":
+      return { w: 6, h: 4 };
+    case "tabs":
+      return { w: 12, h: 5 };
+    case "modal":
+      return { w: 3, h: 2 };
     default:
       return { w: 12, h: 5 };
   }

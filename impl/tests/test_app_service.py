@@ -50,6 +50,19 @@ def test_app_page_data_with_params(tmp_path):
     assert out["params"]["city"] == "a"
 
 
+def test_button_action_targets_any_page(tmp_path):
+    s = _env(tmp_path)
+    content = {"start_page": "p1", "pages": [
+        {"id": "p1", "title": "P", "params": [], "components": [
+            {"id": "go", "type": "button", "label": "Go",
+             "actions": [{"type": "navigate", "page": "p2"}]}]},
+        {"id": "p2", "title": "Q", "params": [], "components": [
+            {"id": "h", "type": "heading", "text": "Q"}]}]}
+    a = create_asset(s, 1, "app", "A", content, "admin", enabled=False)
+    out = app_data(s, a.id)
+    assert out["components"]["go"]["error"] is None
+
+
 def test_component_error_is_isolated(tmp_path):
     s = _env(tmp_path)
     content = {"start_page": "p1", "pages": [{
@@ -165,3 +178,24 @@ def test_static_components_do_not_query_metrics(tmp_path):
     assert out["components"]["h"]["text"] == "Hello"
     for key in ("r", "i", "b", "p"):
         assert out["components"][key]["error"] is None
+
+
+def test_container_children_load_data(tmp_path):
+    s = _env(tmp_path)
+    ds = create_asset(s, 1, "dataset", "D", DATASET, "admin", enabled=False)
+    publish_asset(s, ds.id, "admin")
+    content = {"start_page": "p1", "pages": [{
+        "id": "p1", "title": "P",
+        "params": [{"name": "city", "type": "string", "default": "a"}],
+        "components": [
+            {"id": "box", "type": "container", "children": [
+                {"id": "d", "type": "table", "dataset_id": ds.id,
+                 "limit": 50}]},
+            {"id": "tabs", "type": "tabs", "tabs": [
+                {"id": "one", "title": "One", "components": [
+                    {"id": "m", "type": "metric", "dataset_id": ds.id}]}]}]}]}
+    a = create_asset(s, 1, "app", "A", content, "admin", enabled=False)
+    out = app_data(s, a.id, params={"city": "a"})
+    assert out["components"]["d"]["rows"] == [{"city": "a", "amount": 10},
+                                              {"city": "a", "amount": 5}]
+    assert "box" not in out["components"]

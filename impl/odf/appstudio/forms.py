@@ -6,7 +6,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from odf.apistudio.compiler import CompileError, quote_ident, quote_table
 from odf.appstudio.content import (FORM_ROLES, _published,
                                    dataset_physical_columns,
-                                   structural_errors, validate_component)
+                                   iter_components, structural_errors,
+                                   validate_component)
 from odf.assets.service import get_asset
 from odf.modelstudio.content import validate_dataset
 from odf.models import AssetVersion
@@ -115,8 +116,10 @@ def submit_form(session, asset_id, component_id, values,
     if errs:
         raise ValueError("invalid app: %s" % errs)
     comp = page = None
+    page_ids = {p.get("id") for p in content["pages"]
+                if isinstance(p, dict) and isinstance(p.get("id"), str)}
     for p in content["pages"]:
-        for c in p.get("components") or []:
+        for c in iter_components(p.get("components") or []):
             if c.get("id") == component_id and c.get("type") == "form":
                 comp, page = c, p
                 break
@@ -124,7 +127,8 @@ def submit_form(session, asset_id, component_id, values,
             break
     if not comp:
         raise ValueError("form component not found")
-    errs = validate_component(session, page, comp, asset.project_id)
+    errs = validate_component(session, page, comp, asset.project_id,
+                              page_ids)
     if errs:
         raise ValueError("invalid form: %s" % errs)
     if actor_role not in (comp.get("allow_roles") or FORM_ROLES):
