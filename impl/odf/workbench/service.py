@@ -96,3 +96,15 @@ def explain_query(session, project_id, datasource_id, sql, actor=""):
             len(result["rows"]), None, sql, elapsed)
     return {"columns": result["columns"], "rows": result["rows"],
             "row_count": len(result["rows"]), "ms": elapsed}
+
+
+def format_sql(sql: str) -> str:
+    import sqlglot
+    text = (sql or "").strip()
+    if not text:
+        raise ValueError("sql is required")
+    ensure_read_only(text)
+    try:
+        return sqlglot.parse_one(text).sql(pretty=True)
+    except Exception:
+        raise ValueError("could not format SQL")

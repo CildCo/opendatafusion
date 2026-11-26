@@ -46,6 +46,18 @@ watch(() => props.modelValue, (v) => {
   }
 });
 
+defineExpose({
+  insert(text) {
+    if (!view) return;
+    const pos = view.state.selection.main.head;
+    view.dispatch({
+      changes: { from: pos, insert: text },
+      selection: { anchor: pos + text.length },
+    });
+    view.focus();
+  },
+});
+
 onBeforeUnmount(() => view?.destroy());
 </script>
 

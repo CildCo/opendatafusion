@@ -434,3 +434,20 @@ share one history stack.
   error and per-node input/output rows and duration.
 - **Run comparison** diffs the open job against the previous run of the same
   asset, including duration and output-row deltas per node.
+
+## 39. Authoring experience
+
+- **SQL workbench** supports multiple query tabs, a schema tree that inserts
+  tables/columns, SQL formatting and a result inspector.
+- The inspector has table, chart, stats, request and JSON views; charts share
+  the dashboard palette and number formats.
+- **Dashboard widgets** add style controls: palette, legend, data labels,
+  smooth lines, X/Y axis titles and number format.
+- **Click behavior** can filter a parameter, navigate to an in-app path or open
+  an external URL.
+- Dashboard and app filters are written to the URL, so shared links keep the
+  current selection; **Reset** restores defaults.
+- Parameter bars support string, number, date and boolean inputs.
+
+The shared chart, grid and parameter primitives serve dashboards, the
+workbench and the app runtime.

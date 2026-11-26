@@ -1,25 +1,9 @@
 <template>
   <div class="runtime">
     <h3 v-if="page.title">{{ page.title }}</h3>
-    <div v-if="page.params?.length" class="filters">
-      <div v-for="p in page.params" :key="p.name" class="filter">
-        <span>{{ p.name }}</span>
-        <el-select v-if="p.type === 'bool'" v-model="values[p.name]"
-                   size="small" style="width: 110px"
-                   @change="$emit('update:params', { ...values })">
-          <el-option :label="t('acomp.all')" :value="''" />
-          <el-option :label="t('acomp.yes')" :value="true" />
-          <el-option :label="t('acomp.no')" :value="false" />
-        </el-select>
-        <el-input v-else v-model="values[p.name]" size="small"
-                  style="width: 150px"
-                  :placeholder="p.example || p.type"
-                  @change="$emit('update:params', { ...values })" />
-      </div>
-      <el-button type="primary" size="small" @click="$emit('refresh')">
-        {{ t("acomp.query") }}
-      </el-button>
-    </div>
+    <ParamBar :params="page.params || []" :value="values" resettable
+              @update:value="setValues" @refresh="$emit('refresh')"
+              @reset="resetValues" />
 
     <AppCanvas v-if="hasLayout" :page="page" :data="data" :params="values"
                :on-submit="onSubmit" @navigate="$emit('navigate', $event)"
@@ -52,6 +36,7 @@ import { computed, reactive, ref, watch } from "vue";
 import { t } from "../../i18n";
 import AppCanvas from "./AppCanvas.vue";
 import AppComponent from "./AppComponent.vue";
+import ParamBar from "../shared/ParamBar.vue";
 import { isVisible } from "./bindings";
 
 const props = defineProps({
@@ -60,7 +45,7 @@ const props = defineProps({
   params: { type: Object, default: () => ({}) },
   onSubmit: { type: Function, default: null },
 });
-defineEmits(["update:params", "refresh", "navigate"]);
+const emit = defineEmits(["update:params", "refresh", "navigate"]);
 const values = reactive({ ...props.params });
 const detailOpen = ref(false);
 const detailRow = ref({});
@@ -71,6 +56,21 @@ watch(() => props.params, (next) => {
   Object.keys(values).forEach((k) => delete values[k]);
   Object.assign(values, next || {});
 }, { deep: true });
+
+function setValues(next) {
+  Object.assign(values, next);
+  emit("update:params", { ...values });
+}
+
+function resetValues() {
+  const defaults = {};
+  for (const param of props.page.params || []) {
+    if (param.name) defaults[param.name] = param.default ?? "";
+  }
+  Object.assign(values, defaults);
+  emit("update:params", { ...values });
+  emit("refresh");
+}
 
 function visible(c) {
   return isVisible(c, values);

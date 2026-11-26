@@ -101,3 +101,12 @@ def test_workbench_requires_editor(tmp_path):
                json={"datasource_id": 501, "sql": "select * from t"},
                headers=_h())
     assert r.status_code == 403
+
+
+def test_format_sql_pretty_prints_and_rejects_writes():
+    import pytest
+    from odf.workbench.service import format_sql
+    out = format_sql("select a,b from t where a=1")
+    assert "SELECT" in out and "\n" in out
+    with pytest.raises(ValueError):
+        format_sql("delete from t")

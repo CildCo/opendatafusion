@@ -13,21 +13,55 @@
 
     <el-tabs v-model="tab" class="panel">
       <el-tab-pane :label="t('wb.single')" name="single">
-        <div class="toolbar">
-          <el-select v-model="datasourceId" :placeholder="t('wb.selectSource')"
-                     size="small" style="width: 220px">
-            <el-option v-for="d in datasources" :key="d.id" :value="d.id"
-                       :label="`${d.name} (${d.kind})`" />
-          </el-select>
-          <span class="hint">{{ t("wb.limit") }}</span>
-          <el-input-number v-model="limit" :min="1" :max="10000"
-                           size="small" :controls="false"
-                           style="width: 90px" />
-          <div class="spacer" />
-          <el-button type="primary" size="small" :loading="loading"
-                     @click="runSingle">{{ t("wb.run") }}</el-button>
+        <div class="query-tabs">
+          <button v-for="(tab, i) in queryTabs" :key="tab.id" type="button"
+                  class="query-tab" :class="{ active: i === activeTab }"
+                  @click="activateTab(i)">
+            <span>{{ tab.name }}</span>
+            <span v-if="queryTabs.length > 1" class="tab-close"
+                  @click.stop="closeTab(i)">×</span>
+          </button>
+          <el-button link size="small" @click="addTab">
+            + {{ t("wb.newTab") }}
+          </el-button>
         </div>
-        <SqlEditor v-model="singleSql" :schema="sqlSchema" />
+        <div class="query-layout">
+          <aside class="schema-panel">
+            <div class="schema-head">
+              <b>{{ t("wb.schema") }}</b>
+              <el-button link size="small" :loading="schemaLoading"
+                         @click="loadTables(datasourceId)">
+                {{ t("wb.refreshSchema") }}
+              </el-button>
+            </div>
+            <el-input v-model="schemaFilter" size="small" clearable
+                      :placeholder="t('wb.searchSchema')" />
+            <el-tree :data="schemaTree" :props="{ label: 'label' }"
+                     node-key="key" default-expand-all highlight-current
+                     empty-text="-" @node-click="insertSchema" />
+          </aside>
+          <div class="query-main">
+            <div class="toolbar">
+              <el-select v-model="datasourceId"
+                         :placeholder="t('wb.selectSource')" size="small"
+                         style="width: 220px">
+                <el-option v-for="d in datasources" :key="d.id" :value="d.id"
+                           :label="`${d.name} (${d.kind})`" />
+              </el-select>
+              <span class="hint">{{ t("wb.limit") }}</span>
+              <el-input-number v-model="limit" :min="1" :max="10000"
+                               size="small" :controls="false"
+                               style="width: 90px" />
+              <div class="spacer" />
+              <el-button size="small" :loading="formatting"
+                         @click="formatSql">{{ t("wb.format") }}</el-button>
+              <el-button type="primary" size="small" :loading="loading"
+                         @click="runSingle">{{ t("wb.run") }}</el-button>
+            </div>
+            <SqlEditor ref="editorRef" v-model="singleSql"
+                       :schema="sqlSchema" />
+          </div>
+        </div>
       </el-tab-pane>
 
       <el-tab-pane :label="t('wb.federated')" name="federated">
@@ -80,15 +114,24 @@
           {{ t("wb.truncated") }}
         </el-tag>
         <div class="spacer" />
-        <el-select v-model="chartType" size="small" style="width: 96px"
-                   :aria-label="t('wb.chartType')">
-          <el-option value="table" :label="t('wb.chartTable')" />
-          <el-option value="bar" :label="t('wb.chartBar')" />
-          <el-option value="line" :label="t('wb.chartLine')" />
-          <el-option value="area" :label="t('wb.chartArea')" />
-          <el-option value="pie" :label="t('wb.chartPie')" />
-        </el-select>
-        <template v-if="chartType !== 'table'">
+        <el-radio-group v-model="resultView" size="small">
+          <el-radio-button value="table">{{ t("wb.resultTable") }}</el-radio-button>
+          <el-radio-button value="chart">{{ t("wb.resultChart") }}</el-radio-button>
+          <el-radio-button value="stats">{{ t("wb.resultStats") }}</el-radio-button>
+          <el-radio-button value="request">{{ t("wb.resultRequest") }}</el-radio-button>
+          <el-radio-button value="json">{{ t("wb.resultJson") }}</el-radio-button>
+        </el-radio-group>
+        <el-button size="small" @click="exportCsv">{{ t("wb.exportCsv") }}</el-button>
+      </div>
+      <template v-if="resultView === 'chart'">
+        <div class="chart-controls">
+          <el-select v-model="chartType" size="small" style="width: 96px"
+                     :aria-label="t('wb.chartType')">
+            <el-option value="bar" :label="t('wb.chartBar')" />
+            <el-option value="line" :label="t('wb.chartLine')" />
+            <el-option value="area" :label="t('wb.chartArea')" />
+            <el-option value="pie" :label="t('wb.chartPie')" />
+          </el-select>
           <el-select v-model="chartDim" size="small" style="width: 130px"
                      :placeholder="t('wb.dimension')">
             <el-option v-for="c in result.columns" :key="'d' + c" :value="c"
@@ -99,15 +142,34 @@
             <el-option v-for="c in result.columns" :key="'v' + c" :value="c"
                        :label="c" />
           </el-select>
-        </template>
-        <el-button size="small" @click="exportCsv">{{ t("wb.exportCsv") }}</el-button>
-      </div>
-      <chart-view v-if="chartType !== 'table' && chartOption"
-                  :option="chartOption" class="result-chart" />
-      <el-table v-else :data="result.rows" size="small" height="380" border>
+        </div>
+        <chart-view v-if="chartOption" :option="chartOption"
+                    class="result-chart" />
+      </template>
+      <el-table v-else-if="resultView === 'table'" :data="result.rows"
+                size="small" height="380" border>
         <el-table-column v-for="c in result.columns" :key="c" :prop="c"
                          :label="c" min-width="130" show-overflow-tooltip />
       </el-table>
+      <el-descriptions v-else-if="resultView === 'stats'" :column="2" border>
+        <el-descriptions-item :label="t('wb.statRows')">
+          {{ result.row_count }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('wb.statMs')">
+          {{ result.ms }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('wb.statColumns')">
+          {{ result.columns.length }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('wb.statDatasource')">
+          {{ datasourceName }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('wb.statTruncated')">
+          {{ result.truncated ? t("wb.yes") : t("wb.no") }}
+        </el-descriptions-item>
+      </el-descriptions>
+      <pre v-else-if="resultView === 'request'" class="inspector-pre">{{ singleSql }}</pre>
+      <pre v-else class="inspector-pre">{{ JSON.stringify(result.rows, null, 2) }}</pre>
     </div>
     <el-empty v-else :description="t('wb.empty')" />
     <el-drawer v-model="savedOpen" :title="t('wb.savedQueries')" size="420px"
@@ -162,12 +224,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
 import SqlEditor from "../studio/api/SqlEditor.vue";
 import ChartView from "../studio/dashboard/ChartView.vue";
+import { buildChartOption } from "../studio/shared/chartOptions";
 
 const tab = ref("single");
 const datasources = ref([]);
@@ -187,6 +250,14 @@ const plan = ref({ columns: [], rows: [], ms: 0 });
 const planError = ref("");
 const historyOpen = ref(false);
 const runs = ref([]);
+const editorRef = ref(null);
+const queryTabs = ref([]);
+const activeTab = ref(0);
+const schemaFilter = ref("");
+const schemaLoading = ref(false);
+const formatting = ref(false);
+const resultView = ref("table");
+let tabSeq = 0;
 const chartType = ref("table");
 const chartDim = ref("");
 const chartVal = ref("");
@@ -203,33 +274,45 @@ const sqlSchema = computed(() => {
   return out;
 });
 
+const schemaTree = computed(() => {
+  const needle = schemaFilter.value.trim().toLowerCase();
+  const out = [];
+  for (const table of tables.value[datasourceId.value] || []) {
+    const name = table.schema ? `${table.schema}.${table.table}`
+      : table.table;
+    const allColumns = table.columns || [];
+    const columns = needle
+      ? allColumns.filter((c) => c.name.toLowerCase().includes(needle))
+      : allColumns;
+    if (needle && !name.toLowerCase().includes(needle) && !columns.length) {
+      continue;
+    }
+    out.push({
+      key: `t:${name}`, label: name, type: "table", insert: name,
+      children: (needle && !name.toLowerCase().includes(needle)
+        ? columns : allColumns).map((c) => ({
+        key: `c:${name}:${c.name}`, label: c.name, type: "column",
+        insert: c.name,
+      })),
+    });
+  }
+  return out;
+});
+
+const datasourceName = computed(() => {
+  const found = datasources.value.find((d) => d.id === datasourceId.value);
+  return found ? found.name : "-";
+});
+
 const chartOption = computed(() => {
   if (!result.value || !chartDim.value || !chartVal.value) return null;
-  const rows = result.value.rows || [];
-  const labels = rows.map((r) => r[chartDim.value]);
-  const values = rows.map((r) => r[chartVal.value]);
-  if (chartType.value === "pie") {
-    return {
-      tooltip: { trigger: "item" },
-      series: [{
-        type: "pie", radius: "65%",
-        data: rows.map((r) => ({
-          name: r[chartDim.value], value: r[chartVal.value],
-        })),
-      }],
-    };
-  }
-  return {
-    tooltip: { trigger: "axis" },
-    grid: { left: 46, right: 20, top: 24, bottom: 34 },
-    xAxis: { type: "category", data: labels },
-    yAxis: { type: "value" },
-    series: [{
-      type: chartType.value === "area" ? "line" : chartType.value,
-      data: values, smooth: true,
-      areaStyle: chartType.value === "area" ? {} : undefined,
-    }],
-  };
+  return buildChartOption({
+    type: chartType.value,
+    rows: result.value.rows || [],
+    columns: result.value.columns || [],
+    dimension: chartDim.value,
+    value: chartVal.value,
+  });
 });
 
 function fmt(value) {
@@ -283,6 +366,84 @@ async function applyRun(row) {
   }
 }
 
+function applyTab(index) {
+  const tab = queryTabs.value[index];
+  if (!tab) return;
+  activeTab.value = index;
+  datasourceId.value = tab.datasourceId;
+  singleSql.value = tab.sql;
+  limit.value = tab.limit;
+  result.value = tab.result;
+  error.value = tab.error;
+  resultView.value = "table";
+}
+
+function snapshotTab() {
+  const tab = queryTabs.value[activeTab.value];
+  if (!tab) return;
+  tab.datasourceId = datasourceId.value;
+  tab.sql = singleSql.value;
+  tab.limit = limit.value;
+  tab.result = result.value;
+  tab.error = error.value;
+}
+
+function activateTab(index) {
+  if (index === activeTab.value) return;
+  snapshotTab();
+  applyTab(index);
+}
+
+function addTab() {
+  snapshotTab();
+  tabSeq += 1;
+  const tab = {
+    id: `q_${Date.now()}_${tabSeq}`,
+    name: t("wb.queryName").replace("{n}", queryTabs.value.length + 1),
+    datasourceId: datasourceId.value,
+    sql: "select 1 as n",
+    limit: limit.value,
+    result: null,
+    error: "",
+  };
+  queryTabs.value.push(tab);
+  applyTab(queryTabs.value.length - 1);
+  nextTick(() => editorRef.value?.focus?.());
+}
+
+function closeTab(index) {
+  if (queryTabs.value.length <= 1) return;
+  const wasActive = index === activeTab.value;
+  queryTabs.value.splice(index, 1);
+  if (wasActive) {
+    applyTab(Math.min(index, queryTabs.value.length - 1));
+  } else if (index < activeTab.value) {
+    activeTab.value -= 1;
+  }
+}
+
+function insertSchema(node) {
+  if (!node?.insert) return;
+  editorRef.value?.insert(`${node.insert} `);
+}
+
+async function formatSql() {
+  if (!singleSql.value.trim()) return;
+  formatting.value = true;
+  try {
+    const out = await api.post("/workbench/format", {
+      sql: singleSql.value,
+    });
+    singleSql.value = out.sql;
+    snapshotTab();
+    ElMessage.success(t("wb.formatted"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    formatting.value = false;
+  }
+}
+
 async function loadDatasources() {
   try {
     const list = await api.get("/datasources");
@@ -298,11 +459,14 @@ async function loadDatasources() {
 
 async function loadTables(id) {
   if (!id) return;
+  schemaLoading.value = true;
   try {
     tables.value[id] = await api.get(`/datasources/${id}/tables`);
   } catch (e) {
     tables.value[id] = [];
     ElMessage.error(errMsg(e));
+  } finally {
+    schemaLoading.value = false;
   }
 }
 
@@ -352,7 +516,9 @@ async function run(path, body) {
     chartDim.value = result.value.columns?.[0] || "";
     chartVal.value = result.value.columns?.[result.value.columns.length - 1]
       || "";
-    chartType.value = "table";
+    chartType.value = "bar";
+    resultView.value = "table";
+    if (path === "/workbench/query") snapshotTab();
   } catch (e) {
     error.value = errMsg(e);
   } finally {
@@ -428,6 +594,7 @@ function applySaved(row) {
     }
   }
   savedOpen.value = false;
+  if (row.tab === "single") snapshotTab();
 }
 
 async function removeSaved(row) {
@@ -447,6 +614,17 @@ watch(datasourceId, (id) => {
 
 onMounted(async () => {
   await loadDatasources();
+  tabSeq = 1;
+  queryTabs.value = [{
+    id: `q_${Date.now()}_1`,
+    name: t("wb.queryName").replace("{n}", 1),
+    datasourceId: datasourceId.value,
+    sql: singleSql.value,
+    limit: limit.value,
+    result: null,
+    error: "",
+  }];
+  activeTab.value = 0;
   for (const s of sources.value) {
     if (s.datasource_id) await loadTables(s.datasource_id);
   }
@@ -460,6 +638,29 @@ onMounted(async () => {
 .spacer { flex: 1; }
 .panel :deep(.el-tabs__header) { margin-bottom: 10px; }
 .toolbar { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.query-tabs { display: flex; align-items: center; gap: 4px;
+              border-bottom: 1px solid #e5e7eb; margin-bottom: 8px;
+              overflow-x: auto; }
+.query-tab { border: 1px solid #e5e7eb; border-bottom: none;
+             background: #f8fafc; padding: 5px 10px; font-size: 12px;
+             color: #475569; cursor: pointer; display: inline-flex;
+             gap: 6px; align-items: center; white-space: nowrap; }
+.query-tab.active { background: #fff; color: #1d4ed8; font-weight: 600; }
+.tab-close { color: #94a3b8; }
+.query-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr);
+                gap: 10px; min-height: 360px; }
+.schema-panel { border: 1px solid #e5e7eb; background: #fff;
+                padding: 6px; overflow: auto; max-height: 460px; }
+.schema-head { display: flex; align-items: center;
+               justify-content: space-between; margin-bottom: 6px;
+               font-size: 12px; }
+.schema-panel :deep(.el-tree) { margin-top: 4px; font-size: 12px; }
+.query-main { min-width: 0; }
+.chart-controls { display: flex; gap: 8px; margin-bottom: 8px;
+                  flex-wrap: wrap; }
+.inspector-pre { background: #0f172a; color: #e2e8f0; padding: 10px;
+                 border-radius: 6px; font-size: 12px; max-height: 380px;
+                 overflow: auto; white-space: pre-wrap; }
 .hint { font-size: 12px; color: #6b7280; }
 .saved-row {
   display: flex; align-items: center; gap: 8px;

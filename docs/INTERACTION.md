@@ -98,3 +98,17 @@ day (failed, running, queued, success, skipped). The window can be 7, 14 or
 - Job rows open a detail drawer with node runs; the comparison block selects
   the previous non-skipped job for the same asset and computes per-node
   duration and output deltas.
+
+## Authoring primitives
+
+- `studio/shared/chartOptions.js` builds every ECharts option used by the
+  dashboard, workbench and previews. Palettes and number formats live there.
+- `studio/shared/grid.js` owns cell sizing, item positioning and collision
+  push-down for both the dashboard grid and the app canvas.
+- `studio/shared/ParamBar.vue` renders page/app parameters consistently and
+  supports reset, date and number inputs.
+- Workbench query tabs keep SQL, datasource, limit, result and error per tab.
+  The schema tree inserts a table or column at the editor cursor.
+- Dashboard click behavior is stored per widget as `interaction`
+  (`navigate`/`url`); the runtime opens the target or route. `emit` remains
+  the filter-parameter behavior.

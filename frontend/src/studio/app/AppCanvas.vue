@@ -35,6 +35,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { t } from "../../i18n";
 import AppComponent from "./AppComponent.vue";
 import { isVisible } from "./bindings";
+import { cellWidthFor, gridStyleFor, maxGridBottom,
+         resolveGridCollisions } from "../shared/grid";
 
 const props = defineProps({
   page: { type: Object, required: true },
@@ -57,13 +59,13 @@ let drag = null;
 
 const components = computed(() => props.page?.components || []);
 const cellWidth = computed(
-  () => Math.max(32, (width.value - 8) / props.columns));
+  () => cellWidthFor(width.value, props.columns));
 const gridStyle = computed(() => ({
   backgroundSize: `100% ${props.rowHeight}px`,
   minHeight: `${Math.max(420, (maxBottom.value + 1) * props.rowHeight)}px`,
 }));
-const maxBottom = computed(() => components.value.reduce(
-  (m, c) => Math.max(m, (c.layout?.y || 0) + (c.layout?.h || 1)), 0));
+const maxBottom = computed(() => maxGridBottom(
+  components.value, layoutOf));
 
 const LABELS = {
   text: "aedit.compText",
@@ -98,13 +100,7 @@ function layoutOf(c) {
 }
 
 function styleFor(c) {
-  const l = layoutOf(c);
-  return {
-    left: `${l.x * cellWidth.value + 4}px`,
-    top: `${l.y * props.rowHeight + 4}px`,
-    width: `${l.w * cellWidth.value - 8}px`,
-    height: `${l.h * props.rowHeight - 8}px`,
-  };
+  return gridStyleFor(layoutOf(c), cellWidth.value, props.rowHeight);
 }
 
 function onBlank() {
@@ -112,18 +108,7 @@ function onBlank() {
 }
 
 function resolveCollisions(moved) {
-  const others = components.value
-    .filter((item) => item.id !== moved.id && item.layout)
-    .sort((a, b) => a.layout.y - b.layout.y || a.layout.x - b.layout.x);
-  let floor = moved.layout.y + moved.layout.h;
-  for (const item of others) {
-    const l = item.layout;
-    const xOverlap = moved.layout.x < l.x + l.w
-      && l.x < moved.layout.x + moved.layout.w;
-    if (!xOverlap) continue;
-    if (l.y < floor && l.y + l.h > moved.layout.y) l.y = floor;
-    floor = Math.max(floor, l.y + l.h);
-  }
+  resolveGridCollisions(components.value, moved, layoutOf);
 }
 
 function ensureLayout(c) {

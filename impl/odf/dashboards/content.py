@@ -133,6 +133,67 @@ def _filter_errors(w, columns, param_names):
     return errs
 
 
+PALETTES = {"default", "blue", "green", "warm", "mono"}
+NUMBER_FORMATS = {"auto", "number", "percent", "compact"}
+
+
+def _format_errors(w):
+    fmt = w.get("format")
+    if fmt is None:
+        return []
+    if not isinstance(fmt, dict):
+        return [_err("widget.format", "format must be an object")]
+    errs = []
+    if "palette" in fmt and fmt["palette"] not in PALETTES:
+        errs.append(_err("widget.format.palette", "unsupported palette"))
+    if "numberFormat" in fmt and fmt["numberFormat"] not in NUMBER_FORMATS:
+        errs.append(_err("widget.format.numberFormat",
+                         "unsupported number format"))
+    for key in ("legend", "labels", "smooth"):
+        if key in fmt and not isinstance(fmt[key], bool):
+            errs.append(_err("widget.format.%s" % key,
+                             "%s must be a boolean" % key))
+    for key in ("xTitle", "yTitle"):
+        if key in fmt and (not isinstance(fmt[key], str)
+                           or len(fmt[key]) > 80):
+            errs.append(_err("widget.format.%s" % key,
+                             "%s must be a short string" % key))
+    return errs
+
+
+def _interaction_errors(w, columns, param_names, dimension=None):
+    value = w.get("interaction")
+    if value is None:
+        return []
+    if not isinstance(value, dict):
+        return [_err("widget.interaction", "interaction must be an object")]
+    kind = value.get("type")
+    if kind not in ("filter", "navigate", "url"):
+        return [_err("widget.interaction.type",
+                     "interaction type must be filter, navigate or url")]
+    errs = []
+    if kind == "filter":
+        param = value.get("param")
+        if not isinstance(param, str) or param not in param_names:
+            errs.append(_err("widget.interaction.param",
+                             "param is not declared: %s" % param))
+        source = value.get("from")
+        if dimension is not None:
+            if source and source != dimension:
+                errs.append(_err("widget.interaction.from",
+                                 "from must equal the chart dimension"))
+        elif source not in columns:
+            errs.append(_err("widget.interaction.from",
+                             "from is not an output column: %s" % source))
+    else:
+        url = value.get("url")
+        if not isinstance(url, str) or not url.startswith(
+                ("/", "http://", "https://")) or len(url) > 512:
+            errs.append(_err("widget.interaction.url",
+                             "url must be a relative or http(s) path"))
+    return errs
+
+
 def _emit_errors(w, columns, param_names, dimension=None):
     emit = w.get("emit")
     if emit is None:
@@ -159,7 +220,10 @@ def validate_widget(session, content, w, project_id):
     typ = w.get("type")
     param_names = _param_names(content)
     if typ == "text":
-        errs = []
+        errs = _format_errors(w)
+        if w.get("interaction"):
+            errs.append(_err("widget.interaction",
+                             "text widgets cannot define interaction"))
         if not isinstance(w.get("text"), str) or not w["text"].strip():
             errs.append(_err("widget.text", "text is required"))
         if w.get("filters"):
@@ -192,8 +256,10 @@ def validate_widget(session, content, w, project_id):
                 source_cols = table_columns(session, ds, query["table"])
             except Exception:
                 pass
-        errs = _filter_errors(w, source_cols, param_names)
+        errs = _format_errors(w)
+        errs.extend(_filter_errors(w, source_cols, param_names))
         errs.extend(_emit_errors(w, cols, param_names))
+        errs.extend(_interaction_errors(w, cols, param_names))
         return errs
     metric_content, err = _published(session, w.get("metric_id"), "metric",
                                      project_id)
@@ -222,23 +288,28 @@ def validate_widget(session, content, w, project_id):
         if value not in cols:
             return [_err("widget.value_column",
                          "column not in metric output")]
-        return errs
+        return _format_errors(w) + errs
     value = (w.get("value_column")
              or (metric_content.get("measure") or {}).get("as")
              or "value")
     if value not in cols:
         errs.append(_err("widget.value_column", "column not in metric output"))
     if typ in CHART_TYPES or typ in MAP_TYPES:
+        errs.extend(_format_errors(w))
         dim = w.get("dimension")
         if not dim or dim not in metric_dimensions(metric_content):
             errs.append(_err("widget.dimension",
                              "dimension must be a metric dimension"))
         errs.extend(_emit_errors(w, cols, param_names, dimension=dim))
+        errs.extend(_interaction_errors(w, cols, param_names, dimension=dim))
         if typ in MAP_TYPES:
             errs.extend(_map_errors(w))
     elif typ == "table":
+        errs.extend(_format_errors(w))
         errs.extend(_emit_errors(w, cols, param_names))
+        errs.extend(_interaction_errors(w, cols, param_names))
     elif typ == "card":
+        errs.extend(_format_errors(w))
         if w.get("emit"):
             errs.append(_err("widget.emit",
                              "cards cannot define emit"))

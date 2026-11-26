@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from odf.db import get_session
 from odf.services.auth import claims_role, require_editor
 from odf.workbench.federation import run_federated
-from odf.workbench.service import explain_query, run_query
+from odf.workbench.service import explain_query, format_sql, run_query
 
 router = APIRouter()
 
@@ -39,6 +39,18 @@ class QueryIn(BaseModel):
 class ExplainIn(BaseModel):
     datasource_id: int
     sql: str
+
+
+class FormatIn(BaseModel):
+    sql: str
+
+
+@router.post("/workbench/format")
+def format_query(body: FormatIn, claims: dict = Depends(require_editor)):
+    try:
+        return {"sql": format_sql(body.sql)}
+    except ValueError as e:
+        raise _error(e)
 
 
 @router.post("/workbench/explain")

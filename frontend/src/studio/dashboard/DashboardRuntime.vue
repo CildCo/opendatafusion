@@ -2,12 +2,13 @@
   <div class="runtime">
     <DashboardFilters :params="content.params || []" :value="params"
                       @update:value="$emit('update:params', $event)"
-                      @refresh="$emit('refresh')" />
+                      @refresh="$emit('refresh')" @reset="resetParams" />
     <DashboardGrid :widgets="content.widgets || []" :data="data"
                    :columns="content.columns || 12"
                    :row-height="content.row_height || 80"
                    :selected-id="''" readonly :drillable="drillable"
-                   @filter="onFilter" @drill="onDrill" />
+                   @filter="onFilter" @drill="onDrill"
+                   @interact="onInteract" />
     <drill-drawer v-if="drillable && assetId" v-model="drillOpen"
                   :asset-id="assetId" :widget="drill.widget"
                   :dimension="drill.dimension" :value="drill.value"
@@ -28,13 +29,31 @@ const props = defineProps({
   assetId: { type: Number, default: null },
   drillable: Boolean,
 });
-const emit = defineEmits(["update:params", "refresh"]);
+const emit = defineEmits(["update:params", "refresh", "navigate"]);
 const drillOpen = ref(false);
 const drill = ref({ widget: null, dimension: null, value: null });
+
+function resetParams() {
+  const defaults = {};
+  for (const param of props.content.params || []) {
+    if (param.name) defaults[param.name] = param.default ?? "";
+  }
+  emit("update:params", defaults);
+  emit("refresh");
+}
 
 function onFilter({ param, value }) {
   emit("update:params", { ...props.params, [param]: value });
   emit("refresh");
+}
+
+function onInteract({ url }) {
+  if (!url) return;
+  if (String(url).startsWith("http://") || String(url).startsWith("https://")) {
+    window.open(url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  emit("navigate", url);
 }
 
 function onDrill(context) {

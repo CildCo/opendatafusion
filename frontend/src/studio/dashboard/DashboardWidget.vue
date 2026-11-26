@@ -46,6 +46,7 @@
 import { computed } from "vue";
 import ChartView from "./ChartView.vue";
 import { t } from "../../i18n";
+import { buildChartOption } from "../shared/chartOptions";
 
 const props = defineProps({
   widget: { type: Object, required: true },
@@ -55,7 +56,15 @@ const props = defineProps({
   drillable: Boolean,
 });
 const emit = defineEmits(["select", "drag-start", "resize-start", "filter",
-                          "drill"]);
+                          "drill", "interact"]);
+
+function runInteraction(value, dimension) {
+  const action = props.widget.interaction;
+  if (!action || !["navigate", "url"].includes(action.type)) return false;
+  emit("interact", { widget: props.widget, value, dimension,
+                     url: action.url });
+  return true;
+}
 
 function emitFilter(value) {
   const e = props.widget.emit;
@@ -64,6 +73,7 @@ function emitFilter(value) {
 }
 function onRowClick(row) {
   const e = props.widget.emit;
+  if (runInteraction(row[e?.from], e?.from)) return;
   if (e) emitFilter(row[e.from]);
   if (!props.drillable || !props.widget.metric_id) return;
   const dimension = props.widget.drill_dimension || e?.from || null;
@@ -72,6 +82,7 @@ function onRowClick(row) {
                   value: row[dimension] });
 }
 function onChartClick(p) {
+  if (runInteraction(p?.name, props.widget.dimension)) return;
   emitFilter(p?.name);
   if (!props.drillable || !props.widget.metric_id
       || !props.widget.dimension) return;
@@ -81,6 +92,7 @@ function onChartClick(p) {
 }
 
 function onCardClick() {
+  if (runInteraction(null, null)) return;
   if (!props.drillable || !props.widget.metric_id) return;
   emit("drill", { widget: props.widget, dimension: null, value: null });
 }
@@ -146,69 +158,20 @@ const mapGeo = computed(() => {
 });
 
 const chartOption = computed(() => {
-  const rows = props.data?.rows || [];
-  const dim = props.widget.dimension;
   const cols = props.data?.columns || [];
-  const val = props.widget.value_column || cols[cols.length - 1] || "value";
-  if (!dim || !rows.length) return null;
-  const labels = rows.map((r) => r[dim]);
-  const values = rows.map((r) => r[val]);
-  if (props.widget.type === "map") {
-    const data = rows.map((r) => ({ name: r[dim], value: r[val] }));
-    const numbers = values.filter((v) => typeof v === "number");
-    return {
-      tooltip: { trigger: "item" },
-      visualMap: {
-        min: numbers.length ? Math.min(...numbers) : 0,
-        max: numbers.length ? Math.max(...numbers) : 1,
-        left: 8, bottom: 8, calculable: true,
-        inRange: { color: ["#dbeafe", "#2563eb"] },
-      },
-      series: [{
-        type: "map", map: mapName.value, data,
-        emphasis: { label: { show: true } },
-        select: { disabled: true },
-      }],
-    };
-  }
-  if (props.widget.type === "pie") {
-    return {
-      tooltip: { trigger: "item" },
-      series: [{
-        type: "pie", radius: "65%",
-        data: rows.map((r) => ({ name: r[dim], value: r[val] })),
-      }],
-    };
-  }
-  const series = {
-    name: t("dash.current"),
-    type: props.widget.type === "area" ? "line" : props.widget.type,
-    data: values, smooth: true,
-  };
-  if (props.widget.type === "area") series.areaStyle = {};
-  const previousKey = `${val}_previous`;
-  const hasPrevious = rows.some(
-    (r) => r[previousKey] !== null && r[previousKey] !== undefined);
-  const allSeries = [series];
-  if (hasPrevious) {
-    allSeries.push({
-      name: t("dash.previous"),
-      type: props.widget.type === "area" ? "line" : props.widget.type,
-      data: rows.map((r) => r[previousKey]),
-      smooth: true,
-      lineStyle: { type: "dashed" },
-      itemStyle: { opacity: 0.7 },
-      areaStyle: props.widget.type === "area" ? { opacity: 0.15 } : undefined,
-    });
-  }
-  return {
-    tooltip: { trigger: "axis" },
-    legend: hasPrevious ? {} : undefined,
-    grid: { left: 40, right: 16, top: hasPrevious ? 44 : 24, bottom: 28 },
-    xAxis: { type: "category", data: labels },
-    yAxis: { type: "value" },
-    series: allSeries,
-  };
+  const value = props.widget.value_column || cols[cols.length - 1]
+    || "value";
+  return buildChartOption({
+    type: props.widget.type,
+    rows: props.data?.rows || [],
+    columns: cols,
+    dimension: props.widget.dimension,
+    value,
+    format: props.widget.format || {},
+    mapName: mapName.value,
+    currentLabel: t("dash.current"),
+    previousLabel: t("dash.previous"),
+  });
 });
 </script>
 
