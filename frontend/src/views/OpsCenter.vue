@@ -358,14 +358,14 @@
               <template #default="{ row }">
                 <el-input-number v-model="row.max_attempts" :min="1" :max="10"
                                  size="small" :controls="false"
-                                 style="width: 80px" />
+                                 :disabled="!canOperate" style="width: 80px" />
               </template>
             </el-table-column>
             <el-table-column :label="t('ops.retryBackoff')" width="170">
               <template #default="{ row }">
                 <el-input-number v-model="row.retry_backoff_seconds" :min="0"
                                  :max="3600" size="small" :controls="false"
-                                 style="width: 100px" />
+                                 :disabled="!canOperate" style="width: 100px" />
                 <span class="unit">{{ t("ops.seconds") }}</span>
               </template>
             </el-table-column>
@@ -380,8 +380,8 @@
             </el-table-column>
             <el-table-column :label="t('ops.actions')" width="110">
               <template #default="{ row }">
-                <el-button link type="primary" :loading="row.saving"
-                           @click.stop="savePolicy(row)">
+                <el-button v-if="canOperate" link type="primary"
+                           :loading="row.saving" @click.stop="savePolicy(row)">
                   {{ t("ops.save") }}
                 </el-button>
               </template>
