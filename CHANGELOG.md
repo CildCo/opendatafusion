@@ -4,6 +4,30 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [3.3.0] - 2026-11-26
+
+### Added
+
+- Shared authoring primitives: one chart option builder, one grid layout
+  helper and one parameter bar used by dashboards, workbench and app runtime.
+- Dashboard widget style settings: palette, legend, data labels, smooth lines,
+  axis titles and number format.
+- Dashboard click behavior: filter a parameter (existing), navigate to an
+  in-app path or open an external URL; runtime executes the configured action.
+- Dashboard and application filter state is serialized to the URL, with a
+  reset action restoring defaults.
+- Workbench multi-query tabs, a schema tree that inserts tables/columns, SQL
+  formatting, and a result inspector with table, chart, stats, request and
+  JSON views.
+- Parameter bars support date and number inputs in addition to string/bool.
+
+### Changed
+
+- Workbench charts, dashboard charts and previews now use the same chart
+  option builder and palette definitions.
+- Dashboard and app grids share collision/layout calculations instead of
+  maintaining separate copies.
+
 ## [3.2.1] - 2026-11-26
 
 ### Fixed

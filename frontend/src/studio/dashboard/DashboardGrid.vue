@@ -8,13 +8,16 @@
                      @drag-start="startDrag(w, $event)"
                      @resize-start="startResize(w, $event)"
                      @filter="$emit('filter', $event)"
-                     @drill="$emit('drill', $event)" />
+                     @drill="$emit('drill', $event)"
+                     @interact="$emit('interact', $event)" />
   </div>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import DashboardWidget from "./DashboardWidget.vue";
+import { cellWidthFor, gridStyleFor, maxGridBottom,
+         resolveGridCollisions } from "../shared/grid";
 
 const props = defineProps({
   widgets: { type: Array, default: () => [] },
@@ -25,46 +28,32 @@ const props = defineProps({
   readonly: Boolean,
   drillable: Boolean,
 });
-const emit = defineEmits(["select", "change", "filter", "drill"]);
+const emit = defineEmits(["select", "change", "change-end", "drag-start",
+                          "filter", "drill", "interact"]);
 const host = ref(null);
 const width = ref(960);
 let observer = null;
 let drag = null;
 
 const cellWidth = computed(
-  () => Math.max(40, (width.value - 8) / props.columns));
+  () => cellWidthFor(width.value, props.columns));
 const gridStyle = computed(() => ({
   backgroundSize: `100% ${props.rowHeight}px`,
-  minHeight: `${Math.max(520, (props.widgets.reduce(
-    (m, w) => Math.max(m, w.y + w.h), 0) + 1) * props.rowHeight)}px`,
+  minHeight: `${Math.max(520, (maxGridBottom(
+    props.widgets, (item) => item) + 1) * props.rowHeight)}px`,
 }));
 
 function styleFor(w) {
-  return {
-    left: `${w.x * cellWidth.value + 4}px`,
-    top: `${w.y * props.rowHeight + 4}px`,
-    width: `${w.w * cellWidth.value - 8}px`,
-    height: `${w.h * props.rowHeight - 8}px`,
-  };
+  return gridStyleFor(w, cellWidth.value, props.rowHeight);
 }
 
 function resolveCollisions(moved) {
-  const others = props.widgets
-    .filter((item) => item.id !== moved.id)
-    .sort((a, b) => a.y - b.y || a.x - b.x);
-  let floor = moved.y + moved.h;
-  for (const item of others) {
-    const xOverlap = moved.x < item.x + item.w && item.x < moved.x + moved.w;
-    if (!xOverlap) continue;
-    if (item.y < floor && item.y + item.h > moved.y) {
-      item.y = floor;
-    }
-    floor = Math.max(floor, item.y + item.h);
-  }
+  resolveGridCollisions(props.widgets, moved, (item) => item);
 }
 
 function startDrag(w, event) {
   event.preventDefault();
+  emit("drag-start");
   const sx = event.clientX;
   const sy = event.clientY;
   const ox = w.x;
@@ -81,6 +70,7 @@ function startDrag(w, event) {
 
 function startResize(w, event) {
   event.preventDefault();
+  emit("drag-start");
   const sx = event.clientX;
   const sy = event.clientY;
   const ow = w.w;
@@ -101,7 +91,10 @@ function bind() {
 }
 function onMove(e) { if (drag) drag(e); }
 function stop() {
-  drag = null;
+  if (drag) {
+    drag = null;
+    emit("change-end");
+  }
   window.removeEventListener("pointermove", onMove);
   window.removeEventListener("pointerup", stop);
 }

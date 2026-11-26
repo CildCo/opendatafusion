@@ -58,13 +58,15 @@
         <DashboardFilters :params="content.params || []"
                           :value="paramValues"
                           @update:value="setParams"
-                          @refresh="refresh" />
+                          @refresh="refresh" @reset="resetFilterParams" />
         <DashboardGrid :widgets="content.widgets" :data="data"
                        :columns="content.columns"
                        :row-height="content.row_height"
                        :selected-id="selected?.id || ''"
                        drillable
                        @select="selectWidget" @change="dirty = true"
+                       @drag-start="history.pause"
+                       @change-end="onCanvasChangeEnd"
                        @filter="onFilter" @drill="onDrill" />
       </main>
 
@@ -107,7 +109,7 @@
                              @click="addFilter">{{ t("dedit.addCondition") }}</el-button>
                 </div>
               </el-form-item>
-              <el-form-item v-if="['line','bar','area','pie','map','table'].includes(selected.type)"
+              <el-form-item v-if="!selected.interaction && ['line','bar','area','pie','map','table'].includes(selected.type)"
                             :label="t('dedit.clickLinkage')">
                 <div v-if="selected.emit" class="filter-row">
                   <el-select v-model="selected.emit.param" size="small"
@@ -132,6 +134,20 @@
                 <el-button v-else link size="small"
                            :disabled="!content.params.length"
                            @click="enableEmit">{{ t("dedit.enable") }}</el-button>
+              </el-form-item>
+              <el-form-item :label="t('dedit.clickBehavior')">
+                <el-select :model-value="selected.interaction?.type || 'filter'"
+                           style="width: 100%"
+                           @update:model-value="setInteractionType">
+                  <el-option value="filter" :label="t('dedit.behaviorFilter')" />
+                  <el-option value="navigate"
+                             :label="t('dedit.behaviorNavigate')" />
+                  <el-option value="url" :label="t('dedit.behaviorUrl')" />
+                </el-select>
+                <el-input v-if="selected.interaction"
+                          v-model="selected.interaction.url" size="small"
+                          style="margin-top: 6px"
+                          :placeholder="t('dedit.behaviorUrlHint')" />
               </el-form-item>
             </template>
             <template v-if="['card','line','bar','area','pie','map'].includes(selected.type)">
@@ -224,6 +240,49 @@
             <el-form-item v-if="selected.type === 'text'" :label="t('dedit.text')">
               <el-input v-model="selected.text" type="textarea" :rows="4" />
             </el-form-item>
+            <template v-if="['card','line','bar','area','pie','map'].includes(selected.type)">
+              <el-divider content-position="left">
+                {{ t("dedit.style") }}
+              </el-divider>
+              <el-form-item :label="t('dedit.palette')">
+                <el-select v-model="selected.format.palette" clearable
+                           style="width: 100%"
+                           :placeholder="t('dedit.paletteDefault')">
+                  <el-option value="blue" :label="t('dedit.paletteBlue')" />
+                  <el-option value="green" :label="t('dedit.paletteGreen')" />
+                  <el-option value="warm" :label="t('dedit.paletteWarm')" />
+                  <el-option value="mono" :label="t('dedit.paletteMono')" />
+                </el-select>
+              </el-form-item>
+              <el-form-item :label="t('dedit.numberFormat')">
+                <el-select v-model="selected.format.numberFormat"
+                           style="width: 100%">
+                  <el-option value="auto" :label="t('dedit.fmtAuto')" />
+                  <el-option value="number" :label="t('dedit.fmtNumber')" />
+                  <el-option value="percent" :label="t('dedit.fmtPercent')" />
+                  <el-option value="compact" :label="t('dedit.fmtCompact')" />
+                </el-select>
+              </el-form-item>
+              <template v-if="selected.type !== 'card'">
+                <el-form-item :label="t('dedit.legend')">
+                  <el-switch v-model="selected.format.legend" />
+                </el-form-item>
+                <el-form-item :label="t('dedit.labels')">
+                  <el-switch v-model="selected.format.labels" />
+                </el-form-item>
+              </template>
+              <template v-if="['line','bar','area'].includes(selected.type)">
+                <el-form-item :label="t('dedit.smooth')">
+                  <el-switch v-model="selected.format.smooth" />
+                </el-form-item>
+                <el-form-item :label="t('dedit.xTitle')">
+                  <el-input v-model="selected.format.xTitle" />
+                </el-form-item>
+                <el-form-item :label="t('dedit.yTitle')">
+                  <el-input v-model="selected.format.yTitle" />
+                </el-form-item>
+              </template>
+            </template>
             <el-form-item :label="t('dedit.layout')">
               <div class="layout">
                 <el-input-number v-model="selected.x" :min="0"
@@ -366,6 +425,12 @@ async function load() {
     params: draft.params || [],
     widgets: draft.widgets || [],
   };
+  for (const widget of content.value.widgets) {
+    if (!widget.format) {
+      widget.format = { legend: true, labels: false, smooth: true,
+                        numberFormat: "auto" };
+    }
+  }
   history.reset();
   resetParams();
   selected.value = selId
@@ -390,6 +455,8 @@ function add(ty) {
     x: 0, y, w: ty.type === "card" || ty.type === "text" ? 3 : 6,
     h: ty.type === "card" || ty.type === "text" ? 2 : 4,
     filters: [],
+    format: { legend: true, labels: false, smooth: true,
+              numberFormat: "auto" },
   };
   if (["card", "line", "bar", "area", "pie", "map"].includes(ty.type)) {
     widget.metric_id = metrics.value[0]?.id || null;
@@ -508,8 +575,18 @@ function resetParams() {
   paramValues.value = values;
 }
 
+function resetFilterParams() {
+  resetParams();
+  refresh();
+}
+
 function setParams(p) {
   paramValues.value = { ...p };
+}
+
+function onCanvasChangeEnd() {
+  history.commit();
+  history.resume();
 }
 
 function onFilter({ param, value }) {
@@ -555,6 +632,15 @@ function addFilter() {
 
 function removeFilter(i) {
   selected.value.filters.splice(i, 1);
+}
+
+function setInteractionType(type) {
+  if (!selected.value) return;
+  if (type === "filter") {
+    selected.value.interaction = null;
+    return;
+  }
+  selected.value.interaction = { type, url: "" };
 }
 
 function enableEmit() {

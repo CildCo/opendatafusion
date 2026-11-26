@@ -244,3 +244,38 @@ def test_map_widget_requires_geojson_and_dimension(tmp_path):
         {**base, "geo_json": {"type": "FeatureCollection",
                               "features": []}}]}
     assert validate_dashboard(s, content, 1)
+
+
+def test_widget_format_and_interaction(tmp_path):
+    s = _env(tmp_path)
+    ds = create_asset(s, 1, "dataset", "D", DATASET, "admin", enabled=False)
+    publish_asset(s, ds.id, "admin")
+    mid = _metric(s, ds.id)
+    base = {"columns": 12, "row_height": 80,
+            "params": [{"name": "city", "type": "string"}],
+            "widgets": [{"id": "w1", "type": "line", "metric_id": mid,
+                         "dimension": "city", "x": 0, "y": 0, "w": 6,
+                         "h": 4,
+                         "format": {"palette": "blue", "legend": True,
+                                    "numberFormat": "compact",
+                                    "xTitle": "城市", "yTitle": "金额"},
+                         "interaction": {"type": "navigate",
+                                         "url": "/catalog/1"}}]}
+    assert validate_dashboard(s, base, 1) == []
+
+    bad = {**base, "widgets": [{**base["widgets"][0],
+                                "format": {"palette": "neon",
+                                           "numberFormat": "money"},
+                                "interaction": {"type": "filter",
+                                                "param": "missing",
+                                                "from": "city"}}]}
+    errs = validate_dashboard(s, bad, 1)
+    assert any("palette" in e["field"] for e in errs)
+    assert any("numberFormat" in e["field"] for e in errs)
+    assert any("interaction.param" in e["field"] for e in errs)
+
+    bad_url = {**base, "widgets": [{**base["widgets"][0],
+                                    "interaction": {"type": "url",
+                                                    "url": "javascript:1"}}]}
+    assert any(e["field"] == "widget.interaction.url"
+               for e in validate_dashboard(s, bad_url, 1))

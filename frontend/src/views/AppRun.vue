@@ -43,13 +43,14 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
 import AppRuntime from "../studio/app/AppRuntime.vue";
 
 const route = useRoute();
+const router = useRouter();
 const id = Number(route.params.id);
 const name = ref("");
 const published = ref(false);
@@ -65,9 +66,22 @@ const currentPage = computed(() =>
 function resetParams() {
   const values = {};
   for (const p of currentPage.value?.params || []) {
-    if (p.name) values[p.name] = p.default ?? "";
+    if (p.name) values[p.name] = route.query[p.name] ?? p.default ?? "";
   }
   paramValues.value = values;
+}
+
+function syncUrl() {
+  const query = { ...route.query };
+  for (const p of currentPage.value?.params || []) {
+    const value = paramValues.value[p.name];
+    if (value === "" || value === null || value === undefined) {
+      delete query[p.name];
+    } else {
+      query[p.name] = String(value);
+    }
+  }
+  router.replace({ query });
 }
 
 async function load() {
@@ -95,6 +109,7 @@ function navigate(pageId) {
 
 function setParams(p) {
   paramValues.value = { ...p };
+  syncUrl();
   refresh();
 }
 
