@@ -44,6 +44,7 @@ import { useRoute } from "vue-router";
 import AppRuntime from "../studio/app/AppRuntime.vue";
 import DashboardRuntime from "../studio/dashboard/DashboardRuntime.vue";
 import { t } from "../i18n";
+import { rolesAllow } from "../studio/app/bindings";
 
 const route = useRoute();
 const token = computed(() => String(route.params.token || ""));
@@ -58,7 +59,8 @@ const currentId = ref("");
 const paramValues = ref({});
 
 const pages = computed(() => view.value?.kind === "app"
-  ? view.value.content?.pages || [] : []);
+  ? (view.value.content?.pages || []).filter(
+    (page) => rolesAllow(page, "viewer")) : []);
 const currentPage = computed(() =>
   pages.value.find((p) => p.id === currentId.value) || pages.value[0]);
 

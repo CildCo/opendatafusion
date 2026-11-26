@@ -56,3 +56,28 @@ def test_asset_usage_finds_references_and_runs():
     assert {row["id"] for row in usage["references"]} == {dashboard.id}
     assert usage["runs"] == 1
     assert asset_usage(s, 1, dataset.id)["reference_count"] >= 1
+
+
+def test_bulk_glossary_import_upserts_csv_and_json():
+    from odf.services.governance import (create_domain, create_term,
+                                          import_terms, list_terms)
+    s = _session()
+    dom = create_domain(s, 1, "Sales", "")
+    create_term(s, 1, "GMV", "old", dom.id, "alice")
+    csv_text = ("term,definition,domain,owner\n"
+                "GMV,new definition,Sales,bob\n"
+                "ARPU,revenue per user,Sales,carol\n"
+                "MISSING,x,NoSuchDomain,dave\n")
+    out = import_terms(s, 1, csv_text, "csv", "editor")
+    assert out["created"] == 1 and out["updated"] == 1
+    assert out["skipped"] == 1
+    assert out["errors"][0]["row"] == 3
+    rows = {row.term: row for row in list_terms(s, 1)}
+    assert rows["GMV"].definition == "new definition"
+    assert rows["GMV"].owner == "bob"
+    assert rows["ARPU"].domain_id == dom.id
+    js = '[{"term":"ARPU","definition":"json update","domain":"Sales"}]'
+    out = import_terms(s, 1, js, "json", "editor")
+    assert out["updated"] == 1
+    assert {row.term: row.definition for row in list_terms(s, 1)}[
+        "ARPU"] == "json update"

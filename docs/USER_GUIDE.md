@@ -504,3 +504,35 @@ workbench and the app runtime.
   `ODFEmbed.url(token, params)`.
 - Embed tokens are the same bearer share tokens described in
   [EMBEDDING.md](EMBEDDING.md); revocation and expiry apply immediately.
+
+## 43. Page roles, component styles and highlights
+
+- Every application page can declare **visible roles**. The runtime hides
+  other pages, and the data endpoint refuses to load a page the caller cannot
+  see.
+- Components support background, text color, alignment, padding, radius and
+  font size. Values are validated when the app is saved.
+- **Conditional highlight** applies an info, success, warning or danger tone
+  when a page parameter matches a rule.
+- The editor exposes page roles beside the page title, styles in the Layout
+  tab and highlight rules in the Interaction tab.
+
+## 44. Bulk glossary import and row policies
+
+- The glossary tab imports CSV or JSON. Existing terms update by name; unknown
+  domains are reported with the source row number.
+- Row policies now apply to dataset previews, metrics, dashboards, visual API
+  queries and catalog samples. A missing role is treated as viewer, not as an
+  administrator.
+- SQL-mode APIs are disabled when the datasource has row policies, because a
+  free-form query cannot be rewritten safely.
+
+## 45. Project concurrency, timezone and promotion
+
+- Project quota adds **max running jobs**. The worker skips a saturated
+  project while keeping global priority order.
+- Project quota adds an IANA timezone such as `Asia/Shanghai`; asset, quality,
+  contract, lakehouse and report schedules use it.
+- Platform administrators can **promote** a project bundle into another
+  project. Assets arrive as drafts; type conflicts and missing datasources
+  block the promotion before anything is written.

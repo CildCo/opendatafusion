@@ -188,10 +188,43 @@ def dataset_sample(session, project_id: int, dataset_id: int, limit: int = 20,
     except (TypeError, ValueError):
         raise ValueError("limit must be a number")
     sql = "SELECT * FROM %s" % _qualified(d)
+    binds = {}
+    try:
+        from odf.apistudio.compiler import quote_ident
+        from odf.services.policies import (dataset_asset_for_query,
+                                           filters_for)
+        logical = dataset_asset_for_query(session, project_id, ds.id,
+                                          d.table_name)
+        filters = filters_for(session, logical.id, role) if logical else []
+        clauses = []
+        for index, item in enumerate(filters):
+            column = quote_ident(item["column"])
+            op = (item.get("op") or "").lower()
+            if op in ("is null", "is not null"):
+                clauses.append("%s %s" % (column, op.upper()))
+                continue
+            value = item.get("value")
+            if op == "in":
+                values = value if isinstance(value, list) else [value]
+                keys = []
+                for pos, one in enumerate(values):
+                    key = "rp_%d_%d" % (index, pos)
+                    binds[key] = one
+                    keys.append(":" + key)
+                if keys:
+                    clauses.append("%s IN (%s)" % (column, ", ".join(keys)))
+            else:
+                key = "rp_%d" % index
+                binds[key] = value
+                clauses.append("%s %s :%s" % (column, op.upper(), key))
+        if clauses:
+            sql = "%s WHERE %s" % (sql, " AND ".join(clauses))
+    except ValueError:
+        raise
     started = time.time()
     try:
         result = execute_query(session, ds, limited(sql, ds.kind, max_rows + 1),
-                               None, max_rows + 1, read_only=True)
+                               binds, max_rows + 1, read_only=True)
     except ValueError as error:
         raise ValueError(str(error))
     rows = result["rows"]

@@ -8,7 +8,7 @@ from odf.services.auth import require_editor, require_user
 from odf.services.governance import (asset_governance, asset_usage,
                                      create_domain, create_term,
                                      delete_domain, delete_term,
-                                     list_domains, list_terms,
+                                     import_terms, list_domains, list_terms,
                                      table_governance, update_asset_governance,
                                      update_domain, update_table_governance,
                                      update_term)
@@ -33,6 +33,11 @@ class TermIn(BaseModel):
     definition: str = ""
     domain_id: int | None = None
     owner: str = ""
+
+
+class TermImportIn(BaseModel):
+    format: str = "csv"
+    text: str = Field(min_length=1, max_length=1_000_000)
 
 
 class TermPatch(BaseModel):
@@ -221,6 +226,16 @@ def add_term(body: TermIn, s: Session = Depends(get_session),
     write_audit(s, claims["sub"], "create_glossary_term", str(row.id),
                 {"term": row.term})
     return _term(s, row)
+
+
+@router.post("/governance/terms/import")
+def import_glossary(body: TermImportIn, s: Session = Depends(get_session),
+                    claims: dict = Depends(require_editor)):
+    try:
+        return import_terms(s, claims["project_id"], body.text, body.format,
+                            claims["sub"])
+    except ValueError:
+        raise HTTPException(400, "invalid glossary import")
 
 
 @router.put("/governance/terms/{term_id}")

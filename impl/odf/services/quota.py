@@ -47,6 +47,32 @@ def check_asset(session, project_id):
         raise ValueError("project asset quota reached (%d)" % limit)
 
 
+def running_count(session, project_id):
+    project = session.get(Project, project_id)
+    if not project:
+        return 0
+    asset_ids = [row[0] for row in session.query(Asset.id)
+                 .filter(Asset.project_id == project_id).all()]
+    query = session.query(func.count(Job.id)).filter(Job.status == "running")
+    if asset_ids:
+        query = query.filter((Job.asset_id.in_(asset_ids))
+                             | (Job.project_id == project_id))
+    else:
+        query = query.filter(Job.project_id == project_id)
+    return query.scalar() or 0
+
+
+def running_limit(session, project_id):
+    project = session.get(Project, project_id)
+    return _limit(project, "max_running_jobs") if project else None
+
+
+def check_running_job(session, project_id):
+    limit = running_limit(session, project_id)
+    if limit is not None and running_count(session, project_id) >= limit:
+        raise ValueError("project running job limit reached (%d)" % limit)
+
+
 def check_job(session, project_id):
     project = session.get(Project, project_id)
     limit = _limit(project, "max_jobs") if project else None

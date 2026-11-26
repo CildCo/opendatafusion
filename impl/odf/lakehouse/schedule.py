@@ -5,7 +5,7 @@ from sqlalchemy import or_
 from odf.lakehouse.maintenance import maintain
 from odf.lakehouse.service import list_tables, project_schema
 from odf.models import Datasource, Job, LakehouseMaintenance
-from odf.services.scheduler import cron_to_trigger
+from odf.services.scheduler import cron_to_trigger, project_timezone
 from odf.trino.client import client_for_datasource
 
 
@@ -100,7 +100,8 @@ def due(session, now):
     for row in (session.query(LakehouseMaintenance)
                 .filter(LakehouseMaintenance.enabled.is_(True)).all()):
         try:
-            trigger = cron_to_trigger(row.cron)
+            trigger = cron_to_trigger(
+                row.cron, project_timezone(session, row.project_id))
         except Exception:
             continue
         base = _aware(row.last_run_at or row.created_at)

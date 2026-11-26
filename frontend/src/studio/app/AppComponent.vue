@@ -5,10 +5,12 @@
       <AppForm :component="component" :on-submit="onSubmit"
                @change="$emit('change', $event)" />
     </template>
-    <div v-else-if="component.type === 'heading'" class="heading">
+    <div v-else-if="component.type === 'heading'" class="heading"
+         :style="contentStyle">
       {{ text }}
     </div>
-    <div v-else-if="component.type === 'text'" class="text">{{ text }}</div>
+    <div v-else-if="component.type === 'text'" class="text"
+         :style="contentStyle">{{ text }}</div>
     <el-divider v-else-if="component.type === 'divider'" />
     <el-image v-else-if="component.type === 'image'" :src="component.url"
               :alt="component.alt || ''" fit="cover" class="image">
@@ -52,6 +54,7 @@ const props = defineProps({
   entry: { type: Object, default: null },
   params: { type: Object, default: () => ({}) },
   components: { type: Object, default: () => ({}) },
+  visual: { type: Object, default: () => ({}) },
   onSubmit: { type: Function, default: null },
   design: Boolean,
 });
@@ -68,6 +71,13 @@ const label = computed(() => interpolate(
                   components: props.components }));
 const percentage = computed(() =>
   progressValue(props.component, props.params));
+const contentStyle = computed(() => {
+  const out = {};
+  if (props.visual.color) out.color = props.visual.color;
+  if (props.visual.textAlign) out.textAlign = props.visual.textAlign;
+  if (props.visual.fontSize) out.fontSize = props.visual.fontSize;
+  return out;
+});
 
 function metricValue() {
   const row = props.entry?.rows?.[0] || {};

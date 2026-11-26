@@ -89,8 +89,9 @@ def delete_policy(session, project_id, dataset_id, policy_id, actor):
 
 
 def filters_for(session, dataset_id, role):
-    if not role or role == "admin":
+    if role == "admin":
         return []
+    role = role or "viewer"
     rows = (session.query(RowPolicy).filter_by(dataset_id=dataset_id).all())
     out = []
     for p in rows:
@@ -98,3 +99,43 @@ def filters_for(session, dataset_id, role):
             continue
         out.append({"column": p.column, "op": p.op, "value": p.value})
     return out
+
+
+def dataset_asset_for_query(session, project_id, datasource_id, table):
+    """Resolve the logical dataset asset behind a datasource/table query."""
+    from odf.models import Asset, AssetVersion
+    if not isinstance(datasource_id, int) or not isinstance(table, str):
+        return None
+    assets = (session.query(Asset)
+              .filter(Asset.project_id == project_id,
+                      Asset.type == "dataset").all())
+    for asset in assets:
+        vid = asset.published_version_id or asset.draft_version_id
+        version = session.get(AssetVersion, vid) if vid else None
+        content = (version.content_json or {}) if version else {}
+        query = content.get("query") or {}
+        if query.get("datasource_id") != datasource_id:
+            continue
+        name = query.get("table")
+        if name == table or (isinstance(name, str)
+                             and name.split(".")[-1] == table.split(".")[-1]):
+            return asset
+    return None
+
+
+def datasource_has_row_policies(session, datasource_id):
+    from odf.models import Asset, AssetVersion
+    assets = (session.query(Asset)
+              .filter(Asset.type == "dataset").all())
+    ids = []
+    for asset in assets:
+        vid = asset.published_version_id or asset.draft_version_id
+        version = session.get(AssetVersion, vid) if vid else None
+        query = ((version.content_json or {}).get("query")
+                 if version else None) or {}
+        if query.get("datasource_id") == datasource_id:
+            ids.append(asset.id)
+    if not ids:
+        return False
+    return (session.query(RowPolicy)
+            .filter(RowPolicy.dataset_id.in_(ids)).first()) is not None

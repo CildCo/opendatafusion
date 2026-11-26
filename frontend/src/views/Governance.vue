@@ -43,6 +43,9 @@
           <el-button v-if="canEdit" type="primary" @click="openTerm()">
             {{ t("gov.newTerm") }}
           </el-button>
+          <el-button v-if="canEdit" @click="openImport">
+            {{ t("gov.importTerms") }}
+          </el-button>
           <div class="spacer" />
           <el-button @click="load" :loading="loading">
             {{ t("common.refresh") }}
@@ -193,6 +196,35 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="importOpen" :title="t('gov.importTerms')"
+               width="640px">
+      <el-radio-group v-model="importFormat" size="small">
+        <el-radio-button value="csv">CSV</el-radio-button>
+        <el-radio-button value="json">JSON</el-radio-button>
+      </el-radio-group>
+      <el-input v-model="importText" type="textarea" :rows="10"
+                style="margin-top: 10px"
+                :placeholder="t('gov.importPlaceholder')" />
+      <p class="hint">{{ t("gov.importHint") }}</p>
+      <el-alert v-if="importResult" type="success" :closable="false"
+                style="margin-top: 10px"
+                :title="t('gov.importResult')
+                  .replace('{created}', importResult.created)
+                  .replace('{updated}', importResult.updated)
+                  .replace('{skipped}', importResult.skipped)" />
+      <el-table v-if="importResult?.errors?.length" :data="importResult.errors"
+                size="small" style="margin-top: 10px" max-height="180">
+        <el-table-column prop="row" :label="t('gov.importRow')" width="70" />
+        <el-table-column prop="message" :label="t('gov.importError')" />
+      </el-table>
+      <template #footer>
+        <el-button @click="importOpen = false">{{ t("common.cancel") }}</el-button>
+        <el-button type="primary" :loading="importing" @click="runImport">
+          {{ t("gov.importAction") }}
+        </el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="freshOpen" :title="t('gov.contractSettings')"
                width="500px">
       <el-form label-width="120px">
@@ -310,6 +342,11 @@ const loading = ref(false);
 const saving = ref(false);
 const domainOpen = ref(false);
 const termOpen = ref(false);
+const importOpen = ref(false);
+const importFormat = ref("csv");
+const importText = ref("");
+const importResult = ref(null);
+const importing = ref(false);
 const domainForm = reactive({ id: null, name: "", owner: "",
                              description: "" });
 const termForm = reactive({ id: null, term: "", definition: "",
@@ -497,6 +534,30 @@ async function removeDomain(row) {
     await load();
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));
+  }
+}
+
+function openImport() {
+  importOpen.value = true;
+  importFormat.value = "csv";
+  importText.value = "";
+  importResult.value = null;
+}
+
+async function runImport() {
+  if (!importText.value.trim()) return;
+  importing.value = true;
+  try {
+    importResult.value = await api.post("/governance/terms/import", {
+      format: importFormat.value,
+      text: importText.value,
+    });
+    ElMessage.success(t("gov.importDone"));
+    await load();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    importing.value = false;
   }
 }
 

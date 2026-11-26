@@ -174,3 +174,24 @@ def test_breached_duration_raises_alert():
     alerts = s.query(Alert).all()
     assert alerts and alerts[0].title == "运行超时：copy"
     assert alerts[0].severity == "warning"
+
+
+def test_project_running_limit_blocks_then_releases():
+    from odf.models import Project
+    s = _session()
+    s.add(Project(id=88, code="c88", name="c88",
+                  quota_json={"max_running_jobs": 1}))
+    a = Asset(project_id=88, type="pipeline", key="q1", name="one",
+              owner="admin")
+    b = Asset(project_id=88, type="pipeline", key="q2", name="two",
+              owner="admin")
+    s.add_all([a, b])
+    s.commit()
+    first = enqueue_asset(s, a.id, "pipeline")
+    second = enqueue_asset(s, b.id, "pipeline")
+    got = claim(s, "w1")
+    assert got.id == first.id
+    assert claim(s, "w2") is None
+    complete(s, first.id, True)
+    got = claim(s, "w1")
+    assert got.id == second.id

@@ -7,7 +7,8 @@
            selected: selectedId === c.id,
            dimmed: design && !visible(c),
            card: isCard(c),
-         }]" :style="styleFor(c)" @click.stop="$emit('select', c.id)">
+         }, toneFor(c),
+         ]" :style="styleFor(c)" @click.stop="$emit('select', c.id)">
       <div v-if="design && !compact" class="widget-head"
            @pointerdown.stop="startDrag(c, $event)">
         <span class="widget-title">{{ c.title || typeLabel(c.type) }}</span>
@@ -98,6 +99,7 @@
         </template>
         <AppComponent v-else :component="c" :entry="entryFor(c)"
                       :params="params" :components="componentState"
+                      :visual="visualStyle(c)"
                       :on-submit="onSubmit" :design="design"
                       @navigate="$emit('navigate', $event)"
                       @row="$emit('row', { componentId: c.id, row: $event })"
@@ -120,7 +122,8 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { t } from "../../i18n";
 import AppComponent from "./AppComponent.vue";
-import { isVisible, interpolate } from "./bindings";
+import { highlightTone, isVisible, interpolate,
+         visualStyle } from "./bindings";
 import { getRole } from "../../api";
 import { cellWidthFor, gridStyleFor, maxGridBottom,
          resolveGridCollisions } from "../shared/grid";
@@ -195,6 +198,11 @@ function layoutOf(c) {
   return c.layout || { x: 0, y: 0, w: 12, h: 2 };
 }
 
+function toneFor(c) {
+  const tone = highlightTone(c, props.params);
+  return tone ? `tone-${tone}` : "";
+}
+
 function styleFor(c) {
   const layout = layoutOf(c);
   if (compact.value) {
@@ -204,9 +212,11 @@ function styleFor(c) {
       height: "auto",
       minHeight: `${Math.max(48, layout.h * props.rowHeight)}px`,
       order: layout.y * 100 + layout.x,
+      ...visualStyle(c),
     };
   }
-  return gridStyleFor(layout, cellWidth.value, props.rowHeight);
+  return { ...gridStyleFor(layout, cellWidth.value, props.rowHeight),
+           ...visualStyle(c) };
 }
 
 function nestedPage(comp) {
@@ -394,6 +404,10 @@ onBeforeUnmount(() => {
   border-radius: 3px;
   padding: 0 4px;
 }
+.app-widget.tone-info { border-color: #93c5fd; background: #eff6ff; }
+.app-widget.tone-success { border-color: #86efac; background: #f0fdf4; }
+.app-widget.tone-warning { border-color: #fcd34d; background: #fffbeb; }
+.app-widget.tone-danger { border-color: #fca5a5; background: #fef2f2; }
 .app-grid.stacked {
   display: flex;
   flex-direction: column;

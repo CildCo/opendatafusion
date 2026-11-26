@@ -164,18 +164,84 @@ def _binding_errors(text, page_params, field, component_ids):
     return errs
 
 
-def _visible_role_errors(comp):
-    roles = comp.get("visible_roles")
+def _role_list_errors(roles, field):
     if roles is None:
         return []
     if not isinstance(roles, list) or not roles:
-        return [_err("component.visible_roles",
-                     "visible_roles must be a non-empty array")]
+        return [_err(field, "visible_roles must be a non-empty array")]
     if any(not isinstance(role, str) or role not in FORM_ROLES
            for role in roles) or len(set(roles)) != len(roles):
-        return [_err("component.visible_roles",
+        return [_err(field,
                      "visible_roles must be viewer/editor/approver/admin")]
     return []
+
+
+def _visible_role_errors(comp):
+    return _role_list_errors(comp.get("visible_roles"),
+                             "component.visible_roles")
+
+
+STYLE_COLORS = re.compile(
+    r"^(#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|transparent|inherit)$")
+STYLE_KEYS = {"background", "color", "align", "padding", "radius",
+              "font_size"}
+STYLE_NUMBERS = {"padding": (0, 64), "radius": (0, 64),
+                 "font_size": (8, 48)}
+HIGHLIGHT_TONES = {"info", "success", "warning", "danger"}
+
+
+def _style_errors(comp):
+    style = comp.get("style")
+    if style is None:
+        return []
+    if not isinstance(style, dict):
+        return [_err("component.style", "style must be an object")]
+    errs = []
+    for key, value in style.items():
+        field = "component.style.%s" % key
+        if key not in STYLE_KEYS:
+            errs.append(_err(field, "unsupported style property: %s" % key))
+        elif key in ("background", "color"):
+            if not isinstance(value, str) or not STYLE_COLORS.match(value):
+                errs.append(_err(field, "style color must be a hex color"))
+        elif key == "align":
+            if value not in ("left", "center", "right"):
+                errs.append(_err(field, "align must be left, center or right"))
+        elif key in STYLE_NUMBERS:
+            low, high = STYLE_NUMBERS[key]
+            if not isinstance(value, int) or isinstance(value, bool)                     or not low <= value <= high:
+                errs.append(_err(field,
+                                 "%s must be %d..%d" % (key, low, high)))
+    return errs
+
+
+def _highlight_errors(comp, page_params):
+    rule = comp.get("highlight_when")
+    if rule is None:
+        return []
+    if not isinstance(rule, dict):
+        return [_err("component.highlight_when",
+                     "highlight_when must be an object")]
+    errs = []
+    param = rule.get("param")
+    if not isinstance(param, str) or param not in page_params:
+        errs.append(_err("component.highlight_when.param",
+                         "highlight param not found"))
+    if rule.get("op") not in ("=", "!=", "in"):
+        errs.append(_err("component.highlight_when.op",
+                         "unsupported highlight operator"))
+    if rule.get("tone") not in HIGHLIGHT_TONES:
+        errs.append(_err("component.highlight_when.tone",
+                         "tone must be info/success/warning/danger"))
+    value = rule.get("value")
+    if rule.get("op") == "in":
+        if not isinstance(value, list) or not 1 <= len(value) <= 50:
+            errs.append(_err("component.highlight_when.value",
+                             "in requires 1..50 values"))
+    elif value is None or isinstance(value, (dict, list)):
+        errs.append(_err("component.highlight_when.value",
+                         "highlight value must be a scalar"))
+    return errs
 
 
 def _action_errors(comp, page_ids, page_params):
@@ -370,7 +436,8 @@ def _metric_columns(content):
     return dims + [measure.get("as") or "value"]
 
 
-def _component_structure(components, comp_ids, depth, total):
+def _component_structure(components, comp_ids, depth, total,
+                         page_params):
     if not isinstance(components, list):
         return [_err("component", "components must be an array")]
     if depth > MAX_NESTING:
@@ -405,6 +472,8 @@ def _component_structure(components, comp_ids, depth, total):
                              "columns must be an array of names"))
         errs.extend(_layout_errors(comp))
         errs.extend(_visible_role_errors(comp))
+        errs.extend(_style_errors(comp))
+        errs.extend(_highlight_errors(comp, page_params))
         errs.extend(_container_errors(comp))
         children = child_lists(comp)
         if children and depth >= MAX_NESTING:
@@ -414,7 +483,7 @@ def _component_structure(components, comp_ids, depth, total):
         elif children:
             for items in children:
                 errs.extend(_component_structure(
-                    items, comp_ids, depth + 1, total))
+                    items, comp_ids, depth + 1, total, page_params))
     return errs
 
 
@@ -439,6 +508,8 @@ def structural_errors(content):
         ids.add(pid)
         if not isinstance(page.get("title"), str):
             errs.append(_err("page.title", "page title must be a string"))
+        errs.extend(_role_list_errors(page.get("visible_roles"),
+                                      "page.visible_roles"))
         params = page.get("params") or []
         if not isinstance(params, list):
             errs.append(_err("page.params", "params must be an array"))
@@ -460,7 +531,12 @@ def structural_errors(content):
             errs.append(_err("page.components",
                              "components must be an array"))
             continue
-        errs.extend(_component_structure(comps, comp_ids, 0, [0]))
+        page_params = {p.get("name") for p in
+                       (params if isinstance(params, list) else [])
+                       if isinstance(p, dict) and isinstance(
+                           p.get("name"), str)}
+        errs.extend(_component_structure(comps, comp_ids, 0, [0],
+                                         page_params))
     if not isinstance(start, str) or start not in ids:
         errs.append(_err("start_page", "start page does not exist"))
     for page in pages if isinstance(pages, list) else []:

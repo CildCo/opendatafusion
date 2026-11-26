@@ -258,3 +258,20 @@ def import_bundle(session, project_id, bundle, actor):
     return {"created": created, "updated": updated, "skipped": skipped,
             "missing_datasource_refs": sorted(set(missing_refs)),
             "unresolved_datasources": unresolved}
+
+
+def promote_project(session, source_project_id, target_project_id, actor):
+    if source_project_id == target_project_id:
+        raise ValueError("source and target projects must differ")
+    bundle = export_bundle(session, source_project_id)
+    report = validate_bundle(session, target_project_id, bundle)
+    if report["conflicts"]:
+        raise ValueError("bundle conflicts: %s"
+                         % ", ".join(report["conflicts"][:5]))
+    if report["unresolved_datasources"]:
+        raise ValueError("missing datasources: %s"
+                         % ", ".join(report["unresolved_datasources"][:5]))
+    result = import_bundle(session, target_project_id, bundle, actor)
+    return {"source_project_id": source_project_id,
+            "target_project_id": target_project_id,
+            "validation": report, "import": result}

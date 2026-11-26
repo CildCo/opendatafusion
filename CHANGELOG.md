@@ -4,6 +4,33 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [4.1.0] - 2026-11-26
+
+### Added
+
+- Application pages support `visible_roles`; the runtime hides pages and the
+  data endpoint refuses to load a page the caller cannot see.
+- Component style tokens: background, text color, alignment, padding, radius
+  and font size, validated on save and applied by both grid and legacy
+  runtimes.
+- Conditional highlight (`highlight_when`) with info/success/warning/danger
+  tones.
+- Bulk glossary import from CSV or JSON with per-row errors, domain lookup and
+  upsert by term.
+- Project quota adds `max_running_jobs`; the worker skips saturated projects
+  while preserving priority order.
+- Project quota adds an IANA `timezone`, applied to asset, quality, contract,
+  lakehouse and report cron schedules.
+- Platform administrators can promote a project bundle into another project
+  as drafts; conflicts and missing datasources block promotion.
+
+### Fixed
+
+- Row policies now apply to visual API execution and catalog sample queries;
+  SQL-mode APIs are disabled when the datasource has row policies.
+- Missing roles are treated as viewers for row policies instead of bypassing
+  them.
+
 ## [4.0.0] - 2026-11-26
 
 ### Added

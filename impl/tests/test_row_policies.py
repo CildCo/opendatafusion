@@ -126,3 +126,51 @@ def test_policy_route(tmp_path):
     _role("admin")
     assert c.delete(f"/api/v1/datasets/{aid}/policies/{r.json()['id']}",
                     headers=h).status_code == 200
+
+
+def test_row_policies_apply_to_api_and_catalog_sample(tmp_path):
+    from odf.apistudio.service import run_content
+    from odf.models import Column, Dataset
+    from odf.services.catalog import dataset_sample
+    s, dsid, _ = _env(tmp_path)
+    create_policy(s, 1, dsid, "city", "=", "a", [], "admin")
+    api_content = {"mode": "visual", "query": {
+        "datasource_id": 1, "table": "t",
+        "select": [{"column": "city"}, {"column": "amount"}]},
+        "params": [], "sql": None, "auth": {"type": "aksk"}}
+    api = create_asset(s, 1, "api", "A", api_content, "admin", enabled=False)
+    publish_asset(s, api.id, "admin")
+    assert run_content(s, api, api_content, {}, role="viewer")["row_count"] == 2
+    assert run_content(s, api, api_content, {}, role=None)["row_count"] == 2
+    assert run_content(s, api, api_content, {}, role="admin")["row_count"] == 3
+
+    s.add(Dataset(id=901, datasource_id=1, schema_name="main",
+                  table_name="t"))
+    s.add_all([Column(id=9001, dataset_id=901, name="city",
+                      data_type="TEXT"),
+               Column(id=9002, dataset_id=901, name="amount",
+                      data_type="INTEGER")])
+    s.commit()
+    sample = dataset_sample(s, 1, 901, role="viewer", actor="admin")
+    assert sample["row_count"] == 2
+    assert {row["city"] for row in sample["rows"]} == {"a"}
+    sample = dataset_sample(s, 1, 901, role=None, actor="admin")
+    assert sample["row_count"] == 2
+
+
+def test_sql_api_is_disabled_when_row_policies_exist(tmp_path):
+    from odf.apistudio.service import run_content
+    s, dsid, _ = _env(tmp_path)
+    create_policy(s, 1, dsid, "city", "=", "a", [], "admin")
+    api_content = {"mode": "sql", "query": {"datasource_id": 1},
+                   "sql": "select city from t", "params": [],
+                   "auth": {"type": "aksk"}}
+    api = create_asset(s, 1, "api", "SQL A", api_content, "admin",
+                       enabled=False)
+    try:
+        run_content(s, api, api_content, {}, role="viewer")
+    except ValueError as e:
+        assert any("SQL mode is disabled" in item["message"]
+                   for item in getattr(e, "errors", []))
+    else:
+        raise AssertionError("SQL mode must be disabled")

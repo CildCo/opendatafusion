@@ -61,10 +61,12 @@ def validate_content(session, content, project_id):
                              "datasource does not belong to project"))
         else:
             from odf.services.masking import datasource_has_policies
-            if datasource_has_policies(session, ds.id):
+            from odf.services.policies import datasource_has_row_policies
+            if (datasource_has_policies(session, ds.id)
+                    or datasource_has_row_policies(session, ds.id)):
                 errs.append(_err(
                     "mode", "SQL mode is disabled for governed datasources; "
-                    "use visual mode so column masks apply"))
+                    "use visual mode so masks and row policies apply"))
     auth = content.get("auth")
     if auth is not None:
         if not isinstance(auth, dict) or auth.get("type") != "aksk":

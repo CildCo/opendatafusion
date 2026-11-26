@@ -7,7 +7,7 @@ from odf.files.service import store_bytes
 from odf.models import ReportSchedule
 from odf.services.audit import write_audit
 from odf.services.notifications import notify
-from odf.services.scheduler import cron_to_trigger
+from odf.services.scheduler import cron_to_trigger, project_timezone
 from odf.webhooks.service import emit_safe
 
 
@@ -84,7 +84,8 @@ def due_schedules(session, now):
     for row in (session.query(ReportSchedule)
                 .filter(ReportSchedule.enabled.is_(True)).all()):
         try:
-            trigger = cron_to_trigger(row.cron)
+            trigger = cron_to_trigger(
+                row.cron, project_timezone(session, row.project_id))
         except Exception:
             continue
         base = _aware(row.last_run_at or row.created_at)
