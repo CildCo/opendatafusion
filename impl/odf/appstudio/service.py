@@ -21,7 +21,7 @@ def _component_error(errs):
 
 
 def app_data(session, asset_id, page_id=None, params=None, content=None,
-             limit=100, published_only=False, role=None):
+             limit=100, published_only=False, role=None, design=False):
     a = get_asset(session, asset_id)
     if not a or a.type != "app":
         raise ValueError("app not found")
@@ -37,6 +37,9 @@ def app_data(session, asset_id, page_id=None, params=None, content=None,
                 if isinstance(p, dict) and isinstance(p.get("id"), str)}
     page = next((p for p in content["pages"] if p.get("id") == pid), None)
     if not page:
+        raise ValueError("page not found")
+    roles = page.get("visible_roles")
+    if not design and roles and role not in roles:
         raise ValueError("page not found")
     try:
         values = coerce_params(page.get("params") or [], params or {})

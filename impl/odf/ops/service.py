@@ -444,14 +444,15 @@ def job_compare(session, project_id, job_id):
 
 
 def schedules(session, project_id):
-    from odf.services.scheduler import cron_to_trigger
+    from odf.services.scheduler import cron_to_trigger, project_timezone
     now = datetime.now(timezone.utc)
+    tz = project_timezone(session, project_id)
     out = []
     for asset in (session.query(Asset)
                   .filter(Asset.project_id == project_id,
                           Asset.cron.isnot(None)).all()):
         try:
-            trigger = cron_to_trigger(asset.cron)
+            trigger = cron_to_trigger(asset.cron, tz)
             nxt = trigger.get_next_fire_time(None, now)
             next_run = _iso(nxt)
         except Exception:

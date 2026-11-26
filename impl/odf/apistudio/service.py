@@ -43,6 +43,17 @@ def _run(session, asset, content, params, limit=None, include_sql=False,
     ds = session.get(Datasource, ds_id) if ds_id else None
     if not ds or ds.project_id != asset.project_id:
         raise ApiError("datasource does not belong to project")
+    if content.get("mode") == "visual":
+        from odf.services.policies import (dataset_asset_for_query,
+                                           filters_for)
+        query = content.get("query") or {}
+        dataset_asset = dataset_asset_for_query(
+            session, asset.project_id, query.get("datasource_id"),
+            query.get("table"))
+        extra = filters_for(session, dataset_asset.id, role)             if dataset_asset else []
+        if extra:
+            content = {**content, "query": {
+                **query, "filters": [*(query.get("filters") or []), *extra]}}
     try:
         if content.get("mode") == "visual":
             columns = table_columns(session, ds, content["query"]["table"])

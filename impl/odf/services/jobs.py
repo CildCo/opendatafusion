@@ -27,20 +27,45 @@ def enqueue_skipped(session, reason: str,
     return job
 
 
+def _claimable(session, job, cache):
+    from odf.services.quota import running_count, running_limit
+    project_id = _job_project(session, job)
+    if project_id is None:
+        return True
+    if project_id not in cache:
+        cache[project_id] = (running_limit(session, project_id),
+                             running_count(session, project_id))
+    limit, running = cache[project_id]
+    return not limit or running < limit
+
+
 def claim(session, worker_id: str) -> Job | None:
+    candidates = []
     if session.bind.dialect.name == "postgresql":
-        row = session.execute(text(
+        rows = session.execute(text(
             "select id from job where status='queued' and run_at <= now() "
             "order by priority desc, run_at for update skip locked "
-            "limit 1")).first()
-        if not row:
-            return None
-        job = session.get(Job, row[0])
+            "limit 50")).all()
+        for row in rows:
+            job = session.get(Job, row[0])
+            if job:
+                candidates.append(job)
     else:
-        job = (session.query(Job)
-               .filter(Job.status == "queued", Job.run_at <= _now())
-               .order_by(Job.priority.desc(), Job.run_at).first())
-        if not job:
+        candidates = (session.query(Job)
+                      .filter(Job.status == "queued",
+                              Job.run_at <= _now())
+                      .order_by(Job.priority.desc(), Job.run_at)
+                      .limit(50).all())
+    cache = {}
+    job = next((item for item in candidates
+                if _claimable(session, item, cache)), None)
+    if not job:
+        return None
+    project_id = _job_project(session, job)
+    if project_id is not None:
+        cache.setdefault(project_id, (None, 0))
+        limit, running = cache[project_id]
+        if limit and running >= limit:
             return None
     job.status = "running"
     job.locked_by = worker_id
@@ -209,6 +234,7 @@ def enqueue_asset(session, asset_id, asset_type="pipeline", payload=None):
             raise ValueError("another backfill is already queued")
         return existing
     job = Job(asset_id=asset_id, asset_type=asset_type, status="queued",
+              project_id=asset.project_id if asset else None,
               run_at=_now(), attempts=0, payload_json=body,
               max_attempts=attempts, priority=priority)
     session.add(job)
@@ -371,8 +397,9 @@ def worker_loop(worker_id: str, poll_s: int = 2) -> None:
 def scheduler_tick(session, now=None):
     from odf.models import Asset
     from odf.webhooks.service import deliver_due
-    from odf.services.scheduler import cron_to_trigger
+    from odf.services.scheduler import cron_to_trigger, project_timezone
     now = now or _now()
+    tz_cache = {}
     for a in (session.query(Asset)
               .filter(Asset.type.in_(("pipeline", "model")),
                       Asset.enabled == True,  # noqa: E712
@@ -384,7 +411,10 @@ def scheduler_tick(session, now=None):
                         Job.asset_type == a.type)
                 .order_by(Job.id.desc()).first())
         try:
-            trig = cron_to_trigger(a.cron)
+            if a.project_id not in tz_cache:
+                tz_cache[a.project_id] = project_timezone(session,
+                                                          a.project_id)
+            trig = cron_to_trigger(a.cron, tz_cache[a.project_id])
         except Exception:
             continue
         if last:
@@ -465,7 +495,9 @@ def _scheduled_quality(session, now):
                      QualityRule.schedule_cron.isnot(None)).all())
     for rule in rules:
         try:
-            trigger = cron_to_trigger(rule.schedule_cron)
+            trigger = cron_to_trigger(
+                rule.schedule_cron,
+                project_timezone(session, rule.project_id))
         except Exception:
             continue
         last = rule.last_run_at

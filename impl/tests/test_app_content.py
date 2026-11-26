@@ -312,3 +312,43 @@ def test_container_depth_is_limited(tmp_path):
         "components": [inner]}]}
     messages = [e["message"] for e in validate_app(s, content, 1)]
     assert any("nesting" in m or "depth" in m for m in messages)
+
+
+def test_page_roles_and_component_style_validation(tmp_path):
+    s = _env(tmp_path)
+    content = {
+        "start_page": "p1",
+        "pages": [{
+            "id": "p1", "title": "P", "params": [
+                {"name": "city", "type": "string", "default": "a"}],
+            "visible_roles": ["admin", "editor"],
+            "components": [
+                {"id": "t", "type": "text", "text": "hello",
+                 "style": {"background": "#ffffff", "color": "#0f172a",
+                           "align": "center", "padding": 8,
+                           "radius": 6, "font_size": 14},
+                 "highlight_when": {"param": "city", "op": "=",
+                                     "value": "a", "tone": "success"}}]}]}
+    assert validate_app(s, content, 1) == []
+
+    bad = {**content, "pages": [{**content["pages"][0],
+           "visible_roles": ["owner"]}]}
+    assert any("page.visible_roles" == e["field"]
+               for e in validate_app(s, bad, 1))
+
+    bad_style = {**content, "pages": [{**content["pages"][0], "components": [
+        {"id": "t", "type": "text", "text": "hello",
+         "style": {"background": "url(x)", "shadow": "1px"}}]}]}
+    messages = [e["message"] for e in validate_app(s, bad_style, 1)]
+    assert any("style.background" in e["field"] for e in
+               validate_app(s, bad_style, 1))
+    assert any("unsupported style" in m or "style.shadow" in m
+               for m in messages)
+
+    bad_hl = {**content, "pages": [{**content["pages"][0], "components": [
+        {"id": "t", "type": "text", "text": "hello",
+         "highlight_when": {"param": "missing", "op": "=",
+                             "value": "a", "tone": "loud"}}]}]}
+    fields = [e["field"] for e in validate_app(s, bad_hl, 1)]
+    assert "component.highlight_when.param" in fields
+    assert "component.highlight_when.tone" in fields

@@ -44,9 +44,13 @@ function same(a, b) {
   return display(a) === display(b);
 }
 
+export function rolesAllow(item, role = "") {
+  const roles = item?.visible_roles;
+  return !roles || !roles.length || roles.includes(role);
+}
+
 export function isVisible(component, params, role = "") {
-  const roles = component?.visible_roles;
-  if (roles && roles.length && !roles.includes(role)) return false;
+  if (!rolesAllow(component, role)) return false;
   const rule = component?.visible_when;
   if (!rule || !rule.param) return true;
   const value = (params || {})[rule.param];
@@ -56,6 +60,30 @@ export function isVisible(component, params, role = "") {
     return list.some((item) => same(item, value));
   }
   return same(value, rule.value);
+}
+
+export function highlightTone(component, params) {
+  const rule = component?.highlight_when;
+  if (!rule || !rule.param) return "";
+  const enabled = isVisible({ visible_when: rule }, params);
+  return enabled ? (rule.tone || "") : "";
+}
+
+export function visualStyle(component) {
+  const style = component?.style;
+  if (!style || typeof style !== "object") return {};
+  const out = {};
+  if (style.background) out.background = style.background;
+  if (style.color) out.color = style.color;
+  if (style.align) out.textAlign = style.align;
+  if (style.padding !== undefined) out.padding = `${style.padding}px`;
+  if (style.radius !== undefined) {
+    out.borderRadius = `${style.radius}px`;
+  }
+  if (style.font_size !== undefined) {
+    out.fontSize = `${style.font_size}px`;
+  }
+  return out;
 }
 
 export function progressValue(component, params) {

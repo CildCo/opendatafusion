@@ -199,3 +199,23 @@ def test_container_children_load_data(tmp_path):
     assert out["components"]["d"]["rows"] == [{"city": "a", "amount": 10},
                                               {"city": "a", "amount": 5}]
     assert "box" not in out["components"]
+
+
+def test_page_roles_are_enforced_at_runtime(tmp_path):
+    s = _env(tmp_path)
+    content = {"start_page": "p1", "pages": [
+        {"id": "p1", "title": "P", "params": [],
+         "visible_roles": ["admin"],
+         "components": [{"id": "t", "type": "text", "text": "secret"}]},
+        {"id": "p2", "title": "Q", "params": [],
+         "components": [{"id": "u", "type": "text", "text": "public"}]}]}
+    a = create_asset(s, 1, "app", "A", content, "admin", enabled=False)
+    try:
+        app_data(s, a.id, role="viewer")
+    except ValueError as e:
+        assert "page not found" in str(e)
+    else:
+        raise AssertionError("hidden page must not load")
+    assert app_data(s, a.id, role="admin")["components"]["t"]["text"] == "secret"
+    assert app_data(s, a.id, role="viewer", design=True)["components"]["t"][
+        "text"] == "secret"

@@ -22,16 +22,18 @@
       </el-empty>
     </div>
     <template v-else>
-      <div v-if="content.pages.length > 1" class="tabs">
+      <div v-if="visiblePages.length > 1" class="tabs">
         <el-radio-group v-model="currentId" size="small">
-          <el-radio-button v-for="p in content.pages" :key="p.id"
+          <el-radio-button v-for="p in visiblePages" :key="p.id"
                            :value="p.id">
             {{ p.title || p.id }}
           </el-radio-button>
         </el-radio-group>
       </div>
       <main class="canvas" v-loading="loading">
-        <AppRuntime v-if="currentPage" :key="currentPage.id"
+        <el-empty v-if="!visiblePages.length"
+                  :description="t('acomp.noComponents')" />
+        <AppRuntime v-else-if="currentPage" :key="currentPage.id"
                     :page="currentPage" :data="data" :params="paramValues"
                     :on-submit="submitForm"
                     @update:params="setParams" @refresh="refresh"
@@ -45,9 +47,10 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
-import { api, errMsg } from "../api";
+import { api, errMsg, getRole } from "../api";
 import { t } from "../i18n";
 import AppRuntime from "../studio/app/AppRuntime.vue";
+import { rolesAllow } from "../studio/app/bindings";
 
 const route = useRoute();
 const router = useRouter();
@@ -60,8 +63,11 @@ const paramValues = ref({});
 const data = ref({});
 const loading = ref(false);
 
+const role = () => getRole() || "viewer";
+const visiblePages = computed(() => (content.value?.pages || [])
+  .filter((page) => rolesAllow(page, role())));
 const currentPage = computed(() =>
-  content.value?.pages?.find((p) => p.id === currentId.value) || null);
+  visiblePages.value.find((p) => p.id === currentId.value) || null);
 
 function resetParams() {
   const values = {};
@@ -91,10 +97,12 @@ async function load() {
     published.value = Boolean(a.published_version);
     content.value = a.published || null;
     if (content.value) {
-      currentId.value = content.value.start_page
-        || content.value.pages[0]?.id || "";
+      const start = content.value.pages.find(
+        (p) => p.id === content.value.start_page
+          && rolesAllow(p, role()));
+      currentId.value = (start || visiblePages.value[0])?.id || "";
       resetParams();
-      await refresh();
+      if (currentPage.value) await refresh();
     }
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -102,7 +110,7 @@ async function load() {
 }
 
 function navigate(pageId) {
-  if (content.value?.pages?.some((p) => p.id === pageId)) {
+  if (visiblePages.value.some((p) => p.id === pageId)) {
     currentId.value = pageId;
   }
 }

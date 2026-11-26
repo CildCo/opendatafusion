@@ -55,6 +55,13 @@
           <div v-if="currentPage" class="page-actions">
             <el-input v-model="currentPage.title" size="small"
                       :placeholder="t('aedit.pageTitle')" />
+            <el-select :model-value="currentPage.visible_roles || []"
+                       multiple clearable size="small" style="width: 100%"
+                       :placeholder="t('aedit.pageRolesAll')"
+                       @update:model-value="setPageRoles">
+              <el-option v-for="r in formRoles" :key="r" :value="r"
+                         :label="t('role.' + r)" />
+            </el-select>
             <el-button link size="small" :disabled="content.start_page ===
               currentPage.id" @click="content.start_page = currentPage.id">
               {{ t("aedit.setHome") }}
@@ -421,8 +428,85 @@
                                :aria-label="t('aedit.layoutH')" />
             </div>
             <p class="hint">{{ t("aedit.layoutHint") }}</p>
+            <div class="style-box">
+              <h4>{{ t("aedit.style") }}</h4>
+              <div class="style-grid">
+                <div class="style-field">
+                  <span>{{ t("aedit.styleBackground") }}</span>
+                  <el-color-picker color-format="hex" size="small"
+                                   :model-value="selected.style?.background || ''"
+                                   @change="setStyle('background', $event)" />
+                </div>
+                <div class="style-field">
+                  <span>{{ t("aedit.styleColor") }}</span>
+                  <el-color-picker color-format="hex" size="small"
+                                   :model-value="selected.style?.color || ''"
+                                   @change="setStyle('color', $event)" />
+                </div>
+                <div class="style-field">
+                  <span>{{ t("aedit.styleAlign") }}</span>
+                  <el-select size="small"
+                             :model-value="selected.style?.align || ''"
+                             clearable
+                             @update:model-value="setStyle('align', $event)">
+                    <el-option value="left" :label="t('aedit.styleLeft')" />
+                    <el-option value="center" :label="t('aedit.styleCenter')" />
+                    <el-option value="right" :label="t('aedit.styleRight')" />
+                  </el-select>
+                </div>
+                <div class="style-field">
+                  <span>{{ t("aedit.stylePadding") }}</span>
+                  <el-input-number size="small" :min="0" :max="64"
+                                   :controls="false"
+                                   :model-value="selected.style?.padding"
+                                   @update:model-value="setStyle('padding', $event)" />
+                </div>
+                <div class="style-field">
+                  <span>{{ t("aedit.styleRadius") }}</span>
+                  <el-input-number size="small" :min="0" :max="64"
+                                   :controls="false"
+                                   :model-value="selected.style?.radius"
+                                   @update:model-value="setStyle('radius', $event)" />
+                </div>
+                <div class="style-field">
+                  <span>{{ t("aedit.styleFontSize") }}</span>
+                  <el-input-number size="small" :min="8" :max="48"
+                                   :controls="false"
+                                   :model-value="selected.style?.font_size"
+                                   @update:model-value="setStyle('font_size', $event)" />
+                </div>
+              </div>
+            </div>
           </div>
           <div v-show="configTab === 'interaction'" class="interaction-pane">
+            <div class="visibility-box">
+              <h4>{{ t("aedit.highlight") }}</h4>
+              <el-select :model-value="selected.highlight_when?.param || ''"
+                         clearable size="small" style="width: 100%"
+                         :placeholder="t('aedit.visibilityNone')"
+                         @update:model-value="setHighlightParam">
+                <el-option v-for="p in currentPage.params || []"
+                           :key="p.name" :value="p.name" :label="p.name" />
+              </el-select>
+              <div v-if="selected.highlight_when?.param" class="vis-row">
+                <el-select v-model="selected.highlight_when.op" size="small"
+                           style="width: 80px">
+                  <el-option value="=" label="=" />
+                  <el-option value="!=" label="!=" />
+                  <el-option value="in" :label="t('aedit.visibilityIn')" />
+                </el-select>
+                <el-input v-model="highlightValueText" size="small"
+                          :placeholder="t('aedit.visibilityValue')" />
+                <el-select v-model="selected.highlight_when.tone" size="small"
+                           style="width: 100px">
+                  <el-option value="info" :label="t('aedit.toneInfo')" />
+                  <el-option value="success" :label="t('aedit.toneSuccess')" />
+                  <el-option value="warning" :label="t('aedit.toneWarning')" />
+                  <el-option value="danger" :label="t('aedit.toneDanger')" />
+                </el-select>
+              </div>
+              <p class="hint">{{ t("aedit.highlightHint") }}</p>
+            </div>
             <template v-if="selected.type === 'button'">
               <div class="visibility-box">
                 <h4>{{ t("aedit.actions") }}</h4>
@@ -854,6 +938,7 @@ async function refresh() {
       params: paramValues.value,
       limit: 100,
       content: content.value,
+      design: true,
     });
     data.value = r.components || {};
   } catch (e) {
@@ -1015,6 +1100,53 @@ function insertBinding() {
   selected.value.text = `${selected.value.text || ""}${token}`;
   bindingPick.value = "";
 }
+
+function setPageRoles(roles) {
+  if (!currentPage.value) return;
+  currentPage.value.visible_roles = roles?.length ? roles : undefined;
+}
+
+function setStyle(key, value) {
+  if (!selected.value) return;
+  if (value === null || value === undefined || value === "") {
+    if (selected.value.style) {
+      delete selected.value.style[key];
+      if (!Object.keys(selected.value.style).length) {
+        selected.value.style = undefined;
+      }
+    }
+    return;
+  }
+  selected.value.style = { ...(selected.value.style || {}), [key]: value };
+}
+
+function setHighlightParam(name) {
+  if (!selected.value) return;
+  if (!name) {
+    delete selected.value.highlight_when;
+    return;
+  }
+  selected.value.highlight_when = {
+    param: name,
+    op: selected.value.highlight_when?.op || "=",
+    value: selected.value.highlight_when?.value ?? "",
+    tone: selected.value.highlight_when?.tone || "info",
+  };
+}
+
+const highlightValueText = computed({
+  get: () => {
+    const value = selected.value?.highlight_when?.value;
+    return Array.isArray(value) ? value.join(",") : (value ?? "");
+  },
+  set: (text) => {
+    const rule = selected.value?.highlight_when;
+    if (!rule) return;
+    rule.value = rule.op === "in"
+      ? String(text || "").split(",").map((x) => x.trim()).filter(Boolean)
+      : text;
+  },
+});
 
 function setVisibleRoles(roles) {
   if (!selected.value) return;
@@ -1407,5 +1539,12 @@ onMounted(load);
                      font-weight: 600; }
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 11px;
          color: #475569; margin-bottom: 8px; }
+.style-box { border-top: 1px solid #eef2f7; margin-top: 10px; padding-top: 10px; }
+.style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.style-field { display: flex; flex-direction: column; gap: 4px;
+               font-size: 11px; color: #475569; }
+.style-field :deep(.el-select), .style-field :deep(.el-input-number) {
+  width: 100%;
+}
 h4 { margin: 0 0 12px; font-size: 13px; }
 </style>

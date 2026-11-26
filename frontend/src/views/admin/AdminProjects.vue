@@ -43,6 +43,7 @@
             <el-button link @click="openUsage(row)">{{ t("adm.usage") }}</el-button>
             <el-button link @click="openMembers(row)">{{ t("adm.members") }}</el-button>
             <el-button link @click="openQuota(row)">{{ t("adm.quotaEdit") }}</el-button>
+            <el-button link @click="openPromote(row)">{{ t("adm.promote") }}</el-button>
             <el-button link @click="openEdit(row)">{{ t("adm.edit") }}</el-button>
             <el-button link @click="exportBundle(row)">
               {{ t("adm.exportBundle") }}
@@ -108,6 +109,31 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="promoteOpen" :title="t('adm.promoteTitle')"
+               width="500px">
+      <p class="hint">{{ t("adm.promoteHint") }}</p>
+      <el-form label-width="100px" style="margin-top: 10px">
+        <el-form-item :label="t('adm.promoteSource')">
+          <el-select v-model="promoteForm.source_id" style="width: 100%">
+            <el-option v-for="p in promoteSources" :key="p.id"
+                       :value="p.id" :label="`${p.name} (${p.environment})`" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <el-alert v-if="promoteResult" type="success" :closable="false"
+                :title="t('adm.promoteDone')
+                  .replace('{created}', promoteResult.import.created)
+                  .replace('{updated}', promoteResult.import.updated)
+                  .replace('{skipped}', promoteResult.import.skipped)" />
+      <template #footer>
+        <el-button @click="promoteOpen = false">{{ t("adm.cancel") }}</el-button>
+        <el-button type="primary" :loading="promoting"
+                   :disabled="!promoteForm.source_id" @click="runPromote">
+          {{ t("adm.promoteAction") }}
+        </el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="quotaOpen" :title="t('adm.quotaEdit')" width="520px">
       <el-form label-width="110px">
         <el-form-item label="CPU">
@@ -124,6 +150,12 @@
         </el-form-item>
         <el-form-item :label="t('adm.maxJobs')">
           <el-input v-model="quota.max_jobs" placeholder="20" />
+        </el-form-item>
+        <el-form-item :label="t('adm.maxRunningJobs')">
+          <el-input v-model="quota.max_running_jobs" placeholder="4" />
+        </el-form-item>
+        <el-form-item :label="t('adm.timezone')">
+          <el-input v-model="quota.timezone" placeholder="Asia/Shanghai" />
         </el-form-item>
         <el-form-item :label="t('adm.maxAssets')">
           <el-input v-model="quota.max_assets" placeholder="200" />
@@ -203,6 +235,8 @@ import StatTile from "../../components/StatTile.vue";
 import JsonView from "../../components/JsonView.vue";
 
 const projects = ref([]);
+const promoteSources = computed(() => projects.value.filter(
+  (p) => p.id !== promoteForm.target_id));
 const users = ref([]);
 const members = ref([]);
 const loading = ref(false);
@@ -210,12 +244,17 @@ const saving = ref(false);
 const dialog = ref(false);
 const editOpen = ref(false);
 const quotaOpen = ref(false);
+const promoteOpen = ref(false);
+const promoteForm = reactive({ target_id: null, source_id: null });
+const promoteResult = ref(null);
+const promoting = ref(false);
 const membersOpen = ref(false);
 const current = ref(null);
 const formRef = ref(null);
 const form = reactive({ code: "", name: "", environment: "dev" });
 const edit = reactive({ name: "", enabled: true, environment: "dev" });
 const quota = reactive({ cpu: "", memory: "", pods: "", storage: "",
+                         max_running_jobs: "", timezone: "",
                          max_jobs: "", max_assets: "" });
 const usageOpen = ref(false);
 const usage = ref({});
@@ -303,10 +342,36 @@ async function saveEdit() {
   }
 }
 
+function openPromote(row) {
+  promoteForm.target_id = row.id;
+  promoteForm.source_id = null;
+  promoteResult.value = null;
+  promoteOpen.value = true;
+}
+
+async function runPromote() {
+  if (!promoteForm.source_id) return;
+  promoting.value = true;
+  try {
+    promoteResult.value = await api.post(
+      `/projects/${promoteForm.target_id}/promote`,
+      { source_project_id: promoteForm.source_id });
+    ElMessage.success(t("adm.promoteDone")
+      .replace("{created}", promoteResult.value.import.created)
+      .replace("{updated}", promoteResult.value.import.updated)
+      .replace("{skipped}", promoteResult.value.import.skipped));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    promoting.value = false;
+  }
+}
+
 function openQuota(row) {
   current.value = row;
   Object.assign(quota, { cpu: "", memory: "", pods: "", storage: "",
-                         max_jobs: "", max_assets: "" }, row.quota || {});
+                         max_jobs: "", max_assets: "", max_running_jobs: "",
+                         timezone: "" }, row.quota || {});
   quotaOpen.value = true;
 }
 

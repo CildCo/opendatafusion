@@ -13,7 +13,8 @@
 
     <template v-else>
       <div v-for="c in page.components" v-show="visible(c)" :key="c.id"
-           class="component">
+           class="component" :class="toneFor(c)"
+           :style="visualStyle(c)">
         <div class="title">{{ c.title || c.type }}</div>
         <AppComponent :component="c" :entry="data?.[c.id]" :params="values"
                       :component-state="componentState" :on-submit="onSubmit"
@@ -43,7 +44,7 @@ import { t } from "../../i18n";
 import AppCanvas from "./AppCanvas.vue";
 import AppComponent from "./AppComponent.vue";
 import ParamBar from "../shared/ParamBar.vue";
-import { isVisible } from "./bindings";
+import { highlightTone, isVisible, visualStyle } from "./bindings";
 
 const props = defineProps({
   page: { type: Object, required: true },
@@ -81,6 +82,11 @@ function resetValues() {
 
 function visible(c) {
   return isVisible(c, values, getRole() || "viewer");
+}
+
+function toneFor(c) {
+  const tone = highlightTone(c, values);
+  return tone ? `tone-${tone}` : "";
 }
 
 function onComponentChange(componentId, next) {
@@ -136,4 +142,8 @@ function openDetail(row) {
              border-radius: 0; padding: 12px; margin-bottom: 12px; }
 .title { font-weight: 600; font-size: 13px; margin-bottom: 8px;
          color: #0f172a; }
+.component.tone-info { border-color: #93c5fd; background: #eff6ff; }
+.component.tone-success { border-color: #86efac; background: #f0fdf4; }
+.component.tone-warning { border-color: #fcd34d; background: #fffbeb; }
+.component.tone-danger { border-color: #fca5a5; background: #fef2f2; }
 </style>

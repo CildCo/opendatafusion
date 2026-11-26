@@ -81,3 +81,21 @@ def test_bundle_remaps_asset_references():
     refs = [v.content_json.get("dataset_id") for v in imported
             if v.content_json.get("dataset_id")]
     assert refs and all(ref in {a.id for a in target_base} for ref in refs)
+
+
+def test_promote_project_creates_target_drafts():
+    from odf.services.bundles import promote_project
+    s = _session()
+    _publish(s, 1, {"query": {"datasource_id": 1}, "widgets": []})
+    out = promote_project(s, 1, 2, "admin")
+    assert out["import"]["created"] == 1
+    asset = s.query(Asset).filter_by(project_id=2).one()
+    assert asset.published_version_id is None
+    assert s.get(AssetVersion, asset.draft_version_id).content_json[
+        "query"]["datasource_id"] == 2
+    try:
+        promote_project(s, 1, 1, "admin")
+    except ValueError as e:
+        assert "differ" in str(e)
+    else:
+        raise AssertionError("same-project promotion must fail")

@@ -42,6 +42,7 @@ class DataIn(BaseModel):
     limit: int = Field(100, ge=1, le=10000)
     content: dict | None = None
     published: bool = False
+    design: bool = False
 
 
 class SubmitIn(BaseModel):
@@ -156,7 +157,8 @@ def data(asset_id: int, body: DataIn, s: Session = Depends(get_session),
         result = app_data(s, a.id, page_id=body.page_id, params=body.params,
                           content=body.content, limit=body.limit,
                           published_only=body.published,
-                          role=claims_role(s, claims))
+                          role=None if body.design else claims_role(s, claims),
+                          design=body.design)
     except ValueError as e:
         raise HTTPException(400, str(e))
     write_audit(s, claims["sub"], "query_app", str(a.id),

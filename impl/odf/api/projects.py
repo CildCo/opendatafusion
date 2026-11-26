@@ -47,6 +47,10 @@ class BundleIn(BaseModel):
     bundle: dict
 
 
+class PromoteIn(BaseModel):
+    source_project_id: int
+
+
 def _project(p):
     return {"id": p.id, "code": p.code, "name": p.name,
             "status": p.status, "environment": p.environment,
@@ -152,6 +156,26 @@ def import_project_bundle(project_id: int, body: BundleIn,
     write_audit(s, claims["sub"], "import_project_bundle",
                 str(project_id), {k: result[k] for k in
                                   ("created", "updated", "skipped")})
+    return result
+
+
+@router.post("/projects/{project_id}/promote")
+def promote_project(project_id: int, body: PromoteIn,
+                    s: Session = Depends(get_session),
+                    claims: dict = Depends(require_platform_admin)):
+    from odf.models import Project
+    from odf.services.bundles import promote_project as promote
+    source = s.get(Project, body.source_project_id)
+    target = s.get(Project, project_id)
+    if not source or not target:
+        raise HTTPException(404, "project not found")
+    try:
+        result = promote(s, source.id, target.id, claims["sub"])
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    write_audit(s, claims["sub"], "promote_project_bundle",
+                str(target.id), {"source_project_id": source.id,
+                                 "import": result["import"]})
     return result
 
 

@@ -368,3 +368,90 @@ def asset_usage(session, project_id, asset_id):
             "reference_count": len(refs), "runs": runs,
             "downstream": downstream, "api_calls_30d": calls,
             "api_errors_30d": errors}
+
+
+def import_terms(session, project_id, text, format="csv", actor="admin"):
+    import csv
+    import io
+    import json
+    from odf.models import Domain, GlossaryTerm
+    from odf.services.audit import write_audit
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("import text is required")
+    if len(text) > 1_000_000:
+        raise ValueError("import text is too large")
+    fmt = (format or "csv").lower()
+    rows = []
+    if fmt == "json":
+        try:
+            payload = json.loads(text)
+        except ValueError:
+            raise ValueError("invalid JSON")
+        if isinstance(payload, dict):
+            payload = payload.get("items")
+        if not isinstance(payload, list):
+            raise ValueError("JSON must be an array or {items: []}")
+        rows = payload
+    elif fmt == "csv":
+        try:
+            reader = csv.DictReader(io.StringIO(text.lstrip("\ufeff")))
+            rows = [{str(k).strip().lower(): (v or "").strip()
+                     for k, v in row.items() if k is not None}
+                    for row in reader]
+        except csv.Error as error:
+            raise ValueError("invalid CSV: %s" % error)
+    else:
+        raise ValueError("format must be csv or json")
+    if not isinstance(rows, list) or len(rows) > 2000:
+        raise ValueError("import accepts at most 2000 terms")
+    domains = {row.name.casefold(): row.id for row in
+               session.query(Domain).filter_by(project_id=project_id).all()}
+    existing = {row.term.casefold(): row for row in
+                session.query(GlossaryTerm)
+                .filter_by(project_id=project_id).all()}
+    created = updated = 0
+    errors = []
+    for index, item in enumerate(rows, start=1):
+        if not isinstance(item, dict):
+            errors.append({"row": index, "message": "row must be an object"})
+            continue
+        term = str(item.get("term") or "").strip()
+        if not term:
+            errors.append({"row": index, "message": "term is required"})
+            continue
+        if len(term) > 128:
+            errors.append({"row": index, "message": "term is too long"})
+            continue
+        definition = str(item.get("definition") or "").strip()[:4000]
+        owner = str(item.get("owner") or "").strip()[:64]
+        domain_name = str(item.get("domain") or "").strip()
+        domain_id = None
+        if domain_name:
+            domain_id = domains.get(domain_name.casefold())
+            if domain_id is None:
+                errors.append({"row": index,
+                               "message": "domain not found: %s"
+                                          % domain_name[:128]})
+                continue
+        row = existing.get(term.casefold())
+        try:
+            if row:
+                row.definition = definition
+                row.owner = owner
+                row.domain_id = domain_id
+                updated += 1
+            else:
+                row = GlossaryTerm(project_id=project_id, term=term,
+                                   definition=definition, domain_id=domain_id,
+                                   owner=owner)
+                session.add(row)
+                existing[term.casefold()] = row
+                created += 1
+        except Exception as error:
+            errors.append({"row": index, "message": str(error)[:200]})
+    session.commit()
+    write_audit(session, actor, "import_glossary_terms",
+                str(project_id), {"created": created, "updated": updated,
+                                  "errors": len(errors)})
+    return {"created": created, "updated": updated,
+            "skipped": len(errors), "errors": errors[:100]}

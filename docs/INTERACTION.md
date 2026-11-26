@@ -156,3 +156,24 @@ day (failed, running, queued, success, skipped). The window can be 7, 14 or
 - The SDK mounts an iframe, forwards optional parameters and resizes the
   frame from `postMessage` height events.
 - Share and embed use the same revocable token; the button is editor-only.
+
+## Page roles, styles and highlights
+
+- Page-level roles sit beside the page title and are enforced twice: the
+  runtime removes the tab, and the data endpoint rejects a hidden page.
+- Styles are whitelisted tokens (background, text color, alignment, padding,
+  radius, font size); the editor exposes them in Layout.
+- Conditional highlight reuses the visibility comparator and applies one of
+  four tones. It is evaluated with the same parameter state as bindings.
+
+## Bulk import and project controls
+
+- Glossary import accepts CSV or JSON and returns created, updated, skipped and
+  per-row errors; unknown domains do not create implicit domains.
+- Row policies are part of every read path: dataset preview, metric, dashboard,
+  visual API and catalog sample. SQL-mode APIs are blocked when a datasource
+  has row policies.
+- Project quota carries `max_running_jobs` and an IANA timezone. The worker
+  filters saturated projects in the claim query rather than re-queueing them.
+- Promotion reuses bundle export/validate/import and stops before writing when
+  types conflict or datasources are missing.

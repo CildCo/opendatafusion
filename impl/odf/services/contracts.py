@@ -263,7 +263,7 @@ def schedule_of(contract):
 
 
 def due_schedules(session, now):
-    from odf.services.scheduler import cron_to_trigger
+    from odf.services.scheduler import cron_to_trigger, project_timezone
     assets = (session.query(Asset)
               .filter(Asset.type.in_(("dataset", "model")),
                       Asset.contract_json.isnot(None)).all())
@@ -273,7 +273,8 @@ def due_schedules(session, now):
         if not schedule:
             continue
         try:
-            trigger = cron_to_trigger(schedule)
+            trigger = cron_to_trigger(
+                schedule, project_timezone(session, asset.project_id))
         except Exception:
             continue
         last = (session.query(ContractCheck)
