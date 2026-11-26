@@ -1,9 +1,14 @@
 <template>
-  <el-button size="small" :disabled="!published" @click="open">
+  <el-button v-if="canShare" size="small" :disabled="!published"
+             @click="open">
     {{ t("share.share") }}
   </el-button>
   <el-dialog v-model="visible" :title="t('share.title')" width="600px">
     <div class="row">
+      <el-radio-group v-model="mode" size="small">
+        <el-radio-button value="share">{{ t("share.modeShare") }}</el-radio-button>
+        <el-radio-button value="embed">{{ t("share.modeEmbed") }}</el-radio-button>
+      </el-radio-group>
       <span class="hint">{{ t("share.validity") }}</span>
       <el-select v-model="days" size="small" style="width: 120px">
         <el-option :value="1" :label="t('share.days1')" />
@@ -31,7 +36,13 @@
     </el-alert>
     <el-table :data="shares" size="small" :empty-text="t('share.empty')"
               style="margin-top: 12px">
-      <el-table-column prop="id" label="ID" width="70" />
+      <el-table-column prop="id" label="ID" width="60" />
+      <el-table-column :label="t('share.mode')" width="90">
+        <template #default="{ row }">
+          {{ row.mode === "embed" ? t("share.modeEmbed")
+            : t("share.modeShare") }}
+        </template>
+      </el-table-column>
       <el-table-column :label="t('share.createdAt')" width="170">
         <template #default="{ row }">{{ fmt(row.created_at) }}</template>
       </el-table-column>
@@ -61,7 +72,7 @@
 <script setup>
 import { computed, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { api, errMsg } from "../../api";
+import { api, errMsg, getRole } from "../../api";
 import { fmtDate, t } from "../../i18n";
 
 const props = defineProps({
@@ -69,15 +80,29 @@ const props = defineProps({
   assetId: { type: Number, required: true },
   published: Boolean,
 });
+const canShare = computed(() =>
+  ["editor", "approver", "admin"].includes(getRole()));
 const visible = ref(false);
 const days = ref(7);
+const mode = ref("share");
 const creating = ref(false);
 const createdUrl = ref("");
+const createdToken = ref("");
 const shares = ref([]);
-const embedCode = computed(() => createdUrl.value
-  ? `<iframe src="${createdUrl.value}" width="100%" height="720" ` +
-    `style="border:0" loading="lazy"></iframe>`
-  : "");
+const embedCode = computed(() => {
+  if (!createdUrl.value) return "";
+  if (mode.value === "share") {
+    return `<iframe src="${createdUrl.value}" width="100%" height="720" ` +
+      `style="border:0" loading="lazy"></iframe>`;
+  }
+  const base = `${location.origin}${location.pathname}`;
+  return `<div id="odf-embed"></div>
+` +
+    `<script src="${base}odf-embed.js"><\/script>
+` +
+    `<script>ODFEmbed.mount({target:"#odf-embed", ` +
+    `token:"${createdToken.value}", height:720});<\/script>`;
+});
 
 function fmt(v) {
   if (!v) return "-";
@@ -102,9 +127,10 @@ async function create() {
   creating.value = true;
   try {
     const r = await api.post(`/${props.kind}/${props.assetId}/share`,
-                             { expires_days: days.value });
-    createdUrl.value =
-      `${location.origin}${location.pathname}#/share/${r.token}`;
+                             { expires_days: days.value, mode: mode.value });
+    createdToken.value = r.token;
+    createdUrl.value = `${location.origin}${location.pathname}`
+      + (r.mode === "embed" ? "#/embed/" : "#/share/") + r.token;
     await load();
   } catch (e) {
     ElMessage.error(errMsg(e));

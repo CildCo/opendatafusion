@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+import math
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import or_, select
 
@@ -51,6 +52,9 @@ def _job_dict(session, job):
             "cancel_requested": bool(job.cancel_requested),
             "retry_backoff_seconds": (job.payload_json or {}).get(
                 "retry_backoff_seconds", 30),
+            "priority": job.priority or 0,
+            "max_duration_seconds": (job.payload_json or {}).get(
+                "max_duration_seconds"),
             **_target(session, job)}
 
 
@@ -257,9 +261,73 @@ def run_matrix(session, project_id, days=7):
             "truncated": len(assets) > 50}
 
 
+def run_health(session, project_id, days=30):
+    try:
+        days = max(1, min(int(days or 30), 90))
+    except (TypeError, ValueError):
+        days = 30
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    assets = (session.query(Asset).filter(Asset.project_id == project_id)
+              .order_by(Asset.type, Asset.name).all())
+    items = []
+    for asset in assets:
+        jobs = (_job_query(session, project_id)
+                .filter(Job.asset_id == asset.id,
+                        Job.created_at >= since)
+                .order_by(Job.id.desc()).limit(50).all())
+        if not jobs and not asset.cron:
+            continue
+        finished = [job for job in jobs if job.status in ("success", "failed")]
+        success = sum(1 for job in finished if job.status == "success")
+        failed = len(finished) - success
+        durations = []
+        breaches = 0
+        limit = asset.max_duration_seconds
+        for job in finished:
+            started = _aware(job.created_at)
+            ended = _aware(job.finished_at)
+            if not started or not ended:
+                continue
+            duration = max(0.0, (ended - started).total_seconds())
+            durations.append(duration)
+            if limit and duration > limit:
+                breaches += 1
+        success_rate = round(success * 100.0 / len(finished), 1)             if finished else None
+        durations.sort()
+        p95 = durations[min(len(durations) - 1,
+                            max(0, math.ceil(len(durations) * 0.95) - 1))]             if durations else None
+        avg = round(sum(durations) / len(durations), 1) if durations else None
+        score = 100.0
+        if success_rate is not None:
+            score = success_rate
+        if breaches and finished:
+            score -= min(30.0, breaches * 100.0 / len(finished))
+        last = jobs[0] if jobs else None
+        items.append({
+            "id": asset.id, "name": asset.name, "type": asset.type,
+            "cron": asset.cron, "enabled": bool(asset.enabled),
+            "priority": asset.priority or 0,
+            "max_duration_seconds": asset.max_duration_seconds,
+            "total": len(finished), "success": success, "failed": failed,
+            "success_rate": success_rate,
+            "avg_duration_seconds": avg,
+            "p95_duration_seconds": round(p95, 1) if p95 is not None else None,
+            "sla_breaches": breaches,
+            "health_score": round(max(0.0, score), 1),
+            "last_status": last.status if last else None,
+            "last_run_at": _iso(last.finished_at or last.created_at)
+            if last else None,
+        })
+    items.sort(key=lambda item: (item["health_score"],
+                                 item["last_run_at"] or ""))
+    return {"days": days, "items": items}
+
+
 def _asset_job(asset):
     return {"max_attempts": asset.max_attempts or 3,
-            "retry_backoff_seconds": asset.retry_backoff_seconds or 0}
+            "retry_backoff_seconds": asset.retry_backoff_seconds or 0,
+            "priority": asset.priority or 0,
+            "max_duration_seconds": asset.max_duration_seconds}
 
 
 def run_policies(session, project_id):
@@ -280,7 +348,8 @@ def run_policies(session, project_id):
 
 
 def update_run_policy(session, project_id, asset_id, max_attempts,
-                      retry_backoff_seconds, actor):
+                      retry_backoff_seconds, actor, priority=0,
+                      max_duration_seconds=0):
     asset = session.get(Asset, asset_id)
     if not asset or asset.project_id != project_id:
         raise ValueError("asset not found")
@@ -293,12 +362,24 @@ def update_run_policy(session, project_id, asset_id, max_attempts,
         raise ValueError("max attempts must be between 1 and 10")
     if not 0 <= backoff <= 3600:
         raise ValueError("retry backoff must be between 0 and 3600 seconds")
+    try:
+        priority = int(priority or 0)
+        duration = int(max_duration_seconds or 0)
+    except (TypeError, ValueError):
+        raise ValueError("priority and duration must be numbers")
+    if not 0 <= priority <= 100:
+        raise ValueError("priority must be between 0 and 100")
+    if not 0 <= duration <= 86400:
+        raise ValueError("max duration must be between 0 and 86400 seconds")
     asset.max_attempts = attempts
     asset.retry_backoff_seconds = backoff
+    asset.priority = priority
+    asset.max_duration_seconds = duration or None
     session.commit()
     write_audit(session, actor, "update_run_policy", str(asset.id),
                 {"max_attempts": attempts,
-                 "retry_backoff_seconds": backoff})
+                 "retry_backoff_seconds": backoff, "priority": priority,
+                 "max_duration_seconds": duration or None})
     session.refresh(asset)
     return {"id": asset.id, "name": asset.name, "type": asset.type,
             **_asset_job(asset)}

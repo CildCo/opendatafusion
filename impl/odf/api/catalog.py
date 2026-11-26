@@ -4,7 +4,9 @@ from sqlalchemy.orm import Session
 
 from odf.db import get_session
 from odf.models import User
-from odf.services.auth import claims_role, require_editor, require_user
+from odf.services.auth import (claims_role, require_approver,
+                               require_editor, require_user)
+from odf.services import asset_catalog
 from odf.services.catalog import (add_comment, create_tag, dataset_detail,
                                   dataset_history, dataset_profile,
                                   dataset_sample, impact, lineage,
@@ -37,6 +39,16 @@ class CommentStatusIn(BaseModel):
 
 class TermLinkIn(BaseModel):
     term_id: int
+
+
+class CertificationIn(BaseModel):
+    certified: bool = True
+    note: str = ""
+
+
+class LifecycleIn(BaseModel):
+    lifecycle: str
+    note: str = ""
 
 
 @router.get("/catalog/datasets")
@@ -196,6 +208,63 @@ def term_columns_(term_id: int, s: Session = Depends(get_session),
         return term_columns(s, claims["project_id"], term_id)
     except ValueError as e:
         raise HTTPException(404, str(e))
+
+
+@router.get("/catalog/assets")
+def assets(q: str | None = None, type: str | None = None,
+           certification: str | None = None, lifecycle: str | None = None,
+           sort: str = "relevance", limit: int = 100, offset: int = 0,
+           s: Session = Depends(get_session),
+           claims: dict = Depends(require_user)):
+    try:
+        return asset_catalog.list_assets(
+            s, claims["project_id"], q=q, type=type,
+            certification=certification, lifecycle=lifecycle, sort=sort,
+            limit=limit, offset=offset)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/catalog/assets/recommended")
+def recommended_assets(limit: int = 6,
+                       s: Session = Depends(get_session),
+                       claims: dict = Depends(require_user)):
+    return asset_catalog.recommended(s, claims["project_id"], limit)
+
+
+@router.get("/catalog/assets/{asset_id}/similar")
+def similar_assets(asset_id: int, limit: int = 6,
+                   s: Session = Depends(get_session),
+                   claims: dict = Depends(require_user)):
+    try:
+        return asset_catalog.similar(s, claims["project_id"], asset_id,
+                                     limit)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+@router.post("/catalog/assets/{asset_id}/certification")
+def certify_asset(asset_id: int, body: CertificationIn,
+                  s: Session = Depends(get_session),
+                  claims: dict = Depends(require_approver)):
+    try:
+        return asset_catalog.certify(s, claims["project_id"], asset_id,
+                                     body.certified, claims["sub"],
+                                     body.note)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/catalog/assets/{asset_id}/lifecycle")
+def asset_lifecycle(asset_id: int, body: LifecycleIn,
+                    s: Session = Depends(get_session),
+                    claims: dict = Depends(require_approver)):
+    try:
+        return asset_catalog.set_lifecycle(
+            s, claims["project_id"], asset_id, body.lifecycle, body.note,
+            claims["sub"])
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @router.get("/catalog/search")

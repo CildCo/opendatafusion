@@ -52,7 +52,8 @@ def test_failed_job_emits(monkeypatch):
     s.refresh(job)
     assert job.status == "failed"
     events = [d.event for d in s.query(WebhookDelivery).all()]
-    assert events == ["job.failed"]
+    assert "job.failed" in events
+    assert "alert.raised" in events
 
 
 def test_scheduler_tick_delivers(monkeypatch):

@@ -13,6 +13,7 @@ public_router = APIRouter()
 
 class ShareIn(BaseModel):
     expires_days: int = 7
+    mode: str = "share"
 
 
 class PublicDataIn(BaseModel):
@@ -31,11 +32,13 @@ def _asset(s, asset_id, claims, type_):
 def _create(s, a, type_, body, claims):
     try:
         out = service.create_share(s, a.project_id, a.id, type_,
-                                   body.expires_days, claims["sub"])
+                                   body.expires_days, claims["sub"],
+                                   body.mode)
     except ValueError as e:
         raise HTTPException(404 if "share not found" in str(e) else 400,
                             str(e))
-    out["url_path"] = "#/share/" + out["token"]
+    out["url_path"] = ("#/embed/" if out.get("mode") == "embed"
+                       else "#/share/") + out["token"]
     return out
 
 

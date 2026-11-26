@@ -54,6 +54,7 @@ const Audit = () => import("./views/Audit.vue");
 const routes = [
   { path: "/login", component: Login },
   { path: "/share/:token", component: PublicShare },
+  { path: "/embed/:token", component: PublicShare },
   { path: "/oidc", component: OidcCallback },
   {
     path: "/",
@@ -128,7 +129,8 @@ const router = createRouter({
 });
 
 router.beforeEach((to) => {
-  if (to.path.startsWith("/share/") || to.path === "/oidc") return true;
+  if (to.path.startsWith("/share/") || to.path.startsWith("/embed/")
+      || to.path === "/oidc") return true;
   if (to.path !== "/login" && !getToken()) return "/login";
   if (to.path === "/login" && getToken()) return "/dashboard";
   if (to.path.startsWith("/admin") && !getPlatformAdmin()) return "/dashboard";

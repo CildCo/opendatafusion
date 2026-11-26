@@ -138,3 +138,17 @@ def test_public_data_hides_sql_and_errors(tmp_path):
     bad = public_data(s, out["token"])
     assert bad["components"]["t"]["error"] == "数据加载失败"
     assert "SQL" not in bad["components"]["t"]["error"]
+
+
+def test_embed_mode_is_preserved_and_validated():
+    s = _env()
+    a = create_asset(s, 1, "app", "A", APP, "admin", enabled=False)
+    publish_asset(s, a.id, "admin")
+    out = create_share(s, 1, a.id, "app", 7, "admin", "embed")
+    assert out["mode"] == "embed"
+    view = public_view(s, out["token"])
+    assert view["mode"] == "embed"
+    listed = list_shares(s, 1, a.id, "app")
+    assert listed[0]["mode"] == "embed"
+    with pytest.raises(ValueError):
+        create_share(s, 1, a.id, "app", 7, "admin", "portal")

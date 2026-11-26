@@ -1,6 +1,6 @@
 <template>
-  <div class="public">
-    <header class="head">
+  <div class="public" :class="{ embed }">
+    <header v-if="!embed" class="head">
       <div class="brand">OD</div>
       <div class="name">{{ view?.name || t("aed.shareContent") }}</div>
       <el-tag size="small" type="info">{{ t("aed.readonlyShare") }}</el-tag>
@@ -38,7 +38,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref,
+         watch } from "vue";
 import { useRoute } from "vue-router";
 import AppRuntime from "../studio/app/AppRuntime.vue";
 import DashboardRuntime from "../studio/dashboard/DashboardRuntime.vue";
@@ -46,6 +47,8 @@ import { t } from "../i18n";
 
 const route = useRoute();
 const token = computed(() => String(route.params.token || ""));
+const embed = computed(() => route.path.startsWith("/embed/"));
+let embedObserver = null;
 const view = ref(null);
 const error = ref("");
 const dataError = ref("");
@@ -171,6 +174,18 @@ watch(currentId, () => {
   data.value = {};
   refresh();
 });
+function notifyParent() {
+  if (!embed.value || window.parent === window) return;
+  window.parent.postMessage({
+    type: "odf-embed:resize",
+    height: Math.ceil(document.documentElement.scrollHeight),
+  }, "*");
+}
+
+watch([view, data, loading, error], () => {
+  nextTick(notifyParent);
+}, { deep: true });
+
 watch(() => route.params.token, () => {
   view.value = null;
   error.value = "";
@@ -179,7 +194,20 @@ watch(() => route.params.token, () => {
   load();
 });
 
-onMounted(load);
+onMounted(() => {
+  load();
+  if (embed.value) {
+    embedObserver = new ResizeObserver(() => notifyParent());
+    embedObserver.observe(document.body);
+    window.addEventListener("resize", notifyParent);
+    nextTick(notifyParent);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (embedObserver) embedObserver.disconnect();
+  window.removeEventListener("resize", notifyParent);
+});
 </script>
 
 <style scoped>
@@ -194,4 +222,6 @@ onMounted(load);
 .body { max-width: 1200px; margin: 0 auto; padding: 16px; }
 .tabs { margin-bottom: 10px; }
 .error { display: grid; place-items: center; min-height: 60vh; }
+.public.embed { min-height: 0; }
+.public.embed .body { max-width: none; padding: 8px; }
 </style>

@@ -50,6 +50,75 @@
           </el-table>
         </el-tab-pane>
 
+        <el-tab-pane :label="t('ops.tabHealth')" name="health">
+          <div class="filters">
+            <el-select v-model="healthDays" size="small" style="width: 120px"
+                       @change="loadHealth">
+              <el-option :value="7" :label="t('ops.matrix7')" />
+              <el-option :value="30" :label="t('ops.matrix30')" />
+              <el-option :value="90" :label="t('ops.matrix90')" />
+            </el-select>
+            <span class="updated">{{ t("ops.healthHint") }}</span>
+            <div class="spacer" />
+            <el-button size="small" :loading="healthLoading"
+                       @click="loadHealth">{{ t("ops.refresh") }}</el-button>
+          </div>
+          <el-table :data="health.items || []" size="small"
+                    :empty-text="t('ops.healthEmpty')"
+                    v-loading="healthLoading">
+            <el-table-column prop="name" :label="t('ops.target')"
+                             min-width="190">
+              <template #default="{ row }">
+                <b>{{ row.name }}</b>
+                <div class="muted">{{ row.type }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('ops.healthScore')" width="120">
+              <template #default="{ row }">
+                <div class="health-score">
+                  <el-progress :percentage="row.health_score"
+                               :stroke-width="6" :show-text="false"
+                               :color="healthColor(row.health_score)" />
+                  <b>{{ row.health_score }}</b>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('ops.successRate')" width="100">
+              <template #default="{ row }">
+                {{ row.success_rate === null ? "-" : row.success_rate + "%" }}
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('ops.avgDuration')" width="110">
+              <template #default="{ row }">
+                {{ row.avg_duration_seconds === null ? "-"
+                  : row.avg_duration_seconds + "s" }}
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('ops.p95Duration')" width="110">
+              <template #default="{ row }">
+                {{ row.p95_duration_seconds === null ? "-"
+                  : row.p95_duration_seconds + "s" }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="sla_breaches"
+                             :label="t('ops.slaBreaches')" width="100" />
+            <el-table-column prop="priority" :label="t('ops.priority')"
+                             width="90" />
+            <el-table-column :label="t('ops.lastStatus')" width="100">
+              <template #default="{ row }">
+                <el-tag v-if="row.last_status" size="small"
+                        :type="jobTone(row.last_status)">
+                  {{ row.last_status }}
+                </el-tag>
+                <span v-else class="muted">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('ops.lastRun')" width="180">
+              <template #default="{ row }">{{ fmt(row.last_run_at) }}</template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
         <el-tab-pane :label="t('ops.tabJobs')" name="jobs">
           <div class="filters">
             <el-select v-model="jobStatus" clearable
@@ -295,6 +364,27 @@
           </el-table>
         </el-tab-pane>
 
+        <el-tab-pane :label="t('ops.tabCalendar')" name="calendar">
+          <div class="filters">
+            <span class="updated">{{ t("ops.calendarHint") }}</span>
+            <div class="spacer" />
+            <el-button size="small" :loading="matrixLoading"
+                       @click="loadMatrix">{{ t("ops.refresh") }}</el-button>
+          </div>
+          <div class="calendar-grid">
+            <div v-for="day in calendarCells" :key="day.key"
+                 class="calendar-cell" :class="[day.status, { empty: day.blank }]">
+              <template v-if="!day.blank">
+                <b>{{ day.label }}</b>
+                <span v-if="day.total">
+                  {{ day.total }} {{ t("ops.calendarJobs") }}
+                </span>
+                <span v-else class="muted">-</span>
+              </template>
+            </div>
+          </div>
+        </el-tab-pane>
+
         <el-tab-pane :label="t('ops.tabSchedules')" name="schedules">
           <div class="filters">
             <span class="updated">{{ t("ops.schedulesHint") }}</span>
@@ -365,6 +455,21 @@
               <template #default="{ row }">
                 <el-input-number v-model="row.retry_backoff_seconds" :min="0"
                                  :max="3600" size="small" :controls="false"
+                                 :disabled="!canOperate" style="width: 100px" />
+                <span class="unit">{{ t("ops.seconds") }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('ops.priority')" width="130">
+              <template #default="{ row }">
+                <el-input-number v-model="row.priority" :min="0" :max="100"
+                                 size="small" :controls="false"
+                                 :disabled="!canOperate" style="width: 80px" />
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('ops.maxDuration')" width="170">
+              <template #default="{ row }">
+                <el-input-number v-model="row.max_duration_seconds" :min="0"
+                                 :max="86400" size="small" :controls="false"
                                  :disabled="!canOperate" style="width: 100px" />
                 <span class="unit">{{ t("ops.seconds") }}</span>
               </template>
@@ -628,6 +733,35 @@ const statuses = ["queued", "running", "failed", "success"];
 const schedules = ref([]);
 const scheduleLoading = ref(false);
 const policies = ref([]);
+const health = ref({ items: [] });
+const healthLoading = ref(false);
+const healthDays = ref(30);
+const calendarCells = computed(() => {
+  const days = matrix.value.days || [];
+  const cells = [];
+  if (days.length) {
+    const first = new Date(days[0] + "T00:00:00");
+    for (let i = 0; i < first.getDay(); i += 1) {
+      cells.push({ key: "blank-" + i, blank: true });
+    }
+  }
+  for (const key of days) {
+    let total = 0;
+    let status = "";
+    const order = ["failed", "running", "queued", "success", "skipped",
+                   "cancelled"];
+    const seen = new Set();
+    for (const row of matrix.value.rows || []) {
+      const cell = (row.cells || {})[key];
+      if (!cell) continue;
+      total += cell.count;
+      seen.add(cell.status);
+    }
+    status = order.find((name) => seen.has(name)) || "";
+    cells.push({ key, label: key.slice(5), total, status });
+  }
+  return cells;
+});
 const policyLoading = ref(false);
 const detailOpen = ref(false);
 const detailLoading = ref(false);
@@ -802,6 +936,24 @@ async function loadSchedules() {
   }
 }
 
+async function loadHealth() {
+  healthLoading.value = true;
+  try {
+    health.value = await api.get(`/ops/run-health?days=${healthDays.value}`);
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    healthLoading.value = false;
+  }
+}
+
+function healthColor(score) {
+  if (score >= 90) return "#15803d";
+  if (score >= 70) return "#2563eb";
+  if (score >= 50) return "#d97706";
+  return "#dc2626";
+}
+
 async function loadPolicies() {
   policyLoading.value = true;
   try {
@@ -819,6 +971,8 @@ async function savePolicy(row) {
     await api.put(`/ops/run-policies/${row.id}`, {
       max_attempts: row.max_attempts,
       retry_backoff_seconds: row.retry_backoff_seconds,
+      priority: row.priority || 0,
+      max_duration_seconds: row.max_duration_seconds || 0,
     });
     ElMessage.success(t("ops.policySaved"));
   } catch (e) {
@@ -914,6 +1068,11 @@ watch(tab, (name) => {
   if (name === "matrix") loadMatrix();
   if (name === "schedules") loadSchedules();
   if (name === "policies") loadPolicies();
+  if (name === "health") loadHealth();
+  if (name === "calendar") {
+    matrixDays.value = 30;
+    loadMatrix();
+  }
 });
 
 onMounted(load);
@@ -971,4 +1130,17 @@ onBeforeUnmount(() => {
 @media (max-width: 1100px) {
   .cards { grid-template-columns: repeat(3, 1fr); }
 }
+.health-score { display: flex; align-items: center; gap: 6px; }
+.health-score :deep(.el-progress) { width: 54px; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr);
+                 gap: 5px; }
+.calendar-cell { min-height: 62px; border: 1px solid #e5e7eb;
+                 border-radius: 7px; padding: 6px; display: flex;
+                 flex-direction: column; gap: 3px; font-size: 12px;
+                 background: #fff; }
+.calendar-cell.empty { background: transparent; border-color: transparent; }
+.calendar-cell.failed { border-color: #fecaca; background: #fef2f2; }
+.calendar-cell.success { border-color: #bbf7d0; background: #f0fdf4; }
+.calendar-cell.running { border-color: #bfdbfe; background: #eff6ff; }
+.calendar-cell.queued { border-color: #fde68a; background: #fffbeb; }
 </style>

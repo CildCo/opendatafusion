@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from odf.db import SessionLocal
 from odf.models import Alert, Asset, Job, Project
 from odf.ops.service import (ack_alert, list_alerts, list_jobs,
-                             retry_job, summary, timeline)
+                             retry_job, run_health, summary, timeline)
 
 
 def _fixture():
@@ -121,3 +121,36 @@ def test_retry_refuses_when_target_already_queued():
             assert "already" in str(e)
         else:
             raise AssertionError("duplicate queue entry must be rejected")
+
+
+def test_run_health_reports_success_rate_and_sla_breaches():
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    with SessionLocal() as s:
+        if not s.get(Project, 901):
+            s.add(Project(id=901, code="ops901", name="ops901"))
+            s.commit()
+        s.query(Job).filter(Job.id.in_([9311, 9312])).delete(
+            synchronize_session=False)
+        s.query(Asset).filter(Asset.id == 9211).delete(
+            synchronize_session=False)
+        s.add(Asset(id=9211, project_id=901, type="pipeline",
+                    key="health-a1", name="health asset", owner="ops",
+                    max_duration_seconds=5, priority=7))
+        s.flush()
+        s.add_all([
+            Job(id=9311, asset_id=9211, asset_type="pipeline",
+                status="success", created_at=now - timedelta(seconds=20),
+                finished_at=now - timedelta(seconds=5)),
+            Job(id=9312, asset_id=9211, asset_type="pipeline",
+                status="failed", created_at=now - timedelta(seconds=10),
+                finished_at=now),
+        ])
+        s.commit()
+        out = run_health(s, 901, 30)
+        row = next(item for item in out["items"] if item["id"] == 9211)
+        assert row["total"] == 2 and row["success"] == 1
+        assert row["success_rate"] == 50.0
+        assert row["sla_breaches"] == 2
+        assert row["priority"] == 7
+        assert row["health_score"] < 50
