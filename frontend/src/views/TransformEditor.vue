@@ -10,6 +10,7 @@
       <el-tag v-if="target" size="small" type="info" class="mono">
         {{ target }}
       </el-tag>
+      <favorite-button type="model" :id="id" />
       <div class="spacer" />
       <history-controls :can-undo="canUndo" :can-redo="canRedo"
                         @undo="history.undo" @redo="history.redo" />
@@ -182,6 +183,7 @@ import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getProject, getRole } from "../api";
 import { t } from "../i18n";
+import FavoriteButton from "../components/FavoriteButton.vue";
 import SqlEditor from "../studio/api/SqlEditor.vue";
 import HistoryControls from "../components/HistoryControls.vue";
 import { bindHistoryKeys, useHistory } from "../composables/useHistory";

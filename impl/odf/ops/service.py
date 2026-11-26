@@ -140,6 +140,7 @@ def ack_alert(session, project_id, alert_id, actor):
     if a.status != "closed":
         a.status = "acked"
         a.acked_at = datetime.now(timezone.utc)
+        a.acked_by = actor
     session.commit()
     write_audit(session, actor, "ack_alert", str(a.id), {})
     return {"id": a.id, "status": a.status}
@@ -149,6 +150,7 @@ def close_alert(session, project_id, alert_id, actor):
     a = _alert(session, project_id, alert_id)
     a.status = "closed"
     a.closed_at = datetime.now(timezone.utc)
+    a.closed_by = actor
     session.commit()
     write_audit(session, actor, "close_alert", str(a.id), {})
     return {"id": a.id, "status": a.status}

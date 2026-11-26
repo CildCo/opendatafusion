@@ -27,7 +27,7 @@
           <el-button type="primary" size="small" :loading="loading"
                      @click="runSingle">{{ t("wb.run") }}</el-button>
         </div>
-        <SqlEditor v-model="singleSql" />
+        <SqlEditor v-model="singleSql" :schema="sqlSchema" />
       </el-tab-pane>
 
       <el-tab-pane :label="t('wb.federated')" name="federated">
@@ -80,9 +80,31 @@
           {{ t("wb.truncated") }}
         </el-tag>
         <div class="spacer" />
+        <el-select v-model="chartType" size="small" style="width: 96px"
+                   :aria-label="t('wb.chartType')">
+          <el-option value="table" :label="t('wb.chartTable')" />
+          <el-option value="bar" :label="t('wb.chartBar')" />
+          <el-option value="line" :label="t('wb.chartLine')" />
+          <el-option value="area" :label="t('wb.chartArea')" />
+          <el-option value="pie" :label="t('wb.chartPie')" />
+        </el-select>
+        <template v-if="chartType !== 'table'">
+          <el-select v-model="chartDim" size="small" style="width: 130px"
+                     :placeholder="t('wb.dimension')">
+            <el-option v-for="c in result.columns" :key="'d' + c" :value="c"
+                       :label="c" />
+          </el-select>
+          <el-select v-model="chartVal" size="small" style="width: 130px"
+                     :placeholder="t('wb.measure')">
+            <el-option v-for="c in result.columns" :key="'v' + c" :value="c"
+                       :label="c" />
+          </el-select>
+        </template>
         <el-button size="small" @click="exportCsv">{{ t("wb.exportCsv") }}</el-button>
       </div>
-      <el-table :data="result.rows" size="small" height="380" border>
+      <chart-view v-if="chartType !== 'table' && chartOption"
+                  :option="chartOption" class="result-chart" />
+      <el-table v-else :data="result.rows" size="small" height="380" border>
         <el-table-column v-for="c in result.columns" :key="c" :prop="c"
                          :label="c" min-width="130" show-overflow-tooltip />
       </el-table>
@@ -140,11 +162,12 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
 import SqlEditor from "../studio/api/SqlEditor.vue";
+import ChartView from "../studio/dashboard/ChartView.vue";
 
 const tab = ref("single");
 const datasources = ref([]);
@@ -164,6 +187,50 @@ const plan = ref({ columns: [], rows: [], ms: 0 });
 const planError = ref("");
 const historyOpen = ref(false);
 const runs = ref([]);
+const chartType = ref("table");
+const chartDim = ref("");
+const chartVal = ref("");
+
+const sqlSchema = computed(() => {
+  const out = {};
+  for (const table of tables.value[datasourceId.value] || []) {
+    const name = table.schema ? `${table.schema}.${table.table}`
+      : table.table;
+    const columns = (table.columns || []).map((c) => c.name);
+    out[name] = columns;
+    if (!out[table.table]) out[table.table] = columns;
+  }
+  return out;
+});
+
+const chartOption = computed(() => {
+  if (!result.value || !chartDim.value || !chartVal.value) return null;
+  const rows = result.value.rows || [];
+  const labels = rows.map((r) => r[chartDim.value]);
+  const values = rows.map((r) => r[chartVal.value]);
+  if (chartType.value === "pie") {
+    return {
+      tooltip: { trigger: "item" },
+      series: [{
+        type: "pie", radius: "65%",
+        data: rows.map((r) => ({
+          name: r[chartDim.value], value: r[chartVal.value],
+        })),
+      }],
+    };
+  }
+  return {
+    tooltip: { trigger: "axis" },
+    grid: { left: 46, right: 20, top: 24, bottom: 34 },
+    xAxis: { type: "category", data: labels },
+    yAxis: { type: "value" },
+    series: [{
+      type: chartType.value === "area" ? "line" : chartType.value,
+      data: values, smooth: true,
+      areaStyle: chartType.value === "area" ? {} : undefined,
+    }],
+  };
+});
 
 function fmt(value) {
   return value ? new Date(value).toLocaleString() : "-";
@@ -282,6 +349,10 @@ async function run(path, body) {
   result.value = null;
   try {
     result.value = await api.post(path, body);
+    chartDim.value = result.value.columns?.[0] || "";
+    chartVal.value = result.value.columns?.[result.value.columns.length - 1]
+      || "";
+    chartType.value = "table";
   } catch (e) {
     error.value = errMsg(e);
   } finally {
@@ -370,6 +441,10 @@ async function removeSaved(row) {
   }
 }
 
+watch(datasourceId, (id) => {
+  if (id) loadTables(id);
+});
+
 onMounted(async () => {
   await loadDatasources();
   for (const s of sources.value) {
@@ -401,7 +476,9 @@ onMounted(async () => {
 .result { margin-top: 14px; background: #fff; border: 1px solid #e5e7eb;
           border-radius: 8px; padding: 10px; }
 .result-head { display: flex; align-items: center; gap: 10px;
-               margin-bottom: 8px; font-size: 12px; color: #475569; }
+               margin-bottom: 8px; font-size: 12px; color: #475569;
+               flex-wrap: wrap; }
+.result-chart { height: 360px; width: 100%; }
 .hist-row { border-bottom: 1px solid #eef2f7; padding: 10px 2px; cursor: pointer; }
 .hist-row:hover { background: #f8fafc; }
 .hist-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }

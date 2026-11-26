@@ -10,6 +10,7 @@
       <el-tag v-if="detail.datasource_kind" size="small" effect="plain">
         {{ detail.datasource_kind }}
       </el-tag>
+      <favorite-button type="table" :id="Number(route.params.id)" />
       <div class="spacer" />
       <el-button v-if="isLakehouse" @click="openProperties">
         {{ t("cat.tableProperties") }}
@@ -270,6 +271,15 @@
                 <span v-else class="muted">-</span>
               </template>
             </el-table-column>
+            <el-table-column :label="t('catd.terms')" width="180">
+              <template #default="{ row }">
+                <el-tag v-for="term in row.terms || []" :key="term.id"
+                        size="small" class="term-chip">
+                  {{ term.term }}
+                </el-tag>
+                <span v-if="!(row.terms || []).length" class="muted">-</span>
+              </template>
+            </el-table-column>
             <el-table-column :label="t('catd.columnRules')" width="110">
               <template #default="{ row }">
                 {{ rulesFor(row.name).length }}
@@ -458,6 +468,25 @@
             {{ (selectedColumn.exempt_roles || []).join(", ") || "-" }}
           </el-descriptions-item>
         </el-descriptions>
+        <h4 class="drawer-head">{{ t("catd.terms") }}</h4>
+        <div class="term-links">
+          <el-tag v-for="term in selectedColumn.terms || []" :key="term.id"
+                  size="small" closable @close="removeColumnTerm(term.id)">
+            {{ term.term }}
+          </el-tag>
+          <span v-if="!(selectedColumn.terms || []).length" class="muted">
+            {{ t("catd.noColumnTerms") }}
+          </span>
+        </div>
+        <div class="term-add">
+          <el-select v-model="newTermId" size="small" filterable clearable
+                     style="flex: 1" :placeholder="t('catd.addTerm')">
+            <el-option v-for="term in terms" :key="term.id" :value="term.id"
+                       :label="term.term" />
+          </el-select>
+          <el-button size="small" :disabled="!newTermId"
+                     @click="addColumnTerm">{{ t("catd.bindTerm") }}</el-button>
+        </div>
         <h4 class="drawer-head">{{ t("catd.columnRules") }}</h4>
         <el-table :data="rulesFor(selectedColumn.name)" size="small">
           <el-table-column prop="name" :label="t('quality.name')" />
@@ -525,6 +554,7 @@ import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { api, canWrite, errMsg, getProject } from "../api";
 import { fmtDate, t } from "../i18n";
+import FavoriteButton from "../components/FavoriteButton.vue";
 import LineageExplorer from "../components/LineageExplorer.vue";
 import JsonView from "../components/JsonView.vue";
 import PropertyEditor from "../components/PropertyEditor.vue";
@@ -554,6 +584,7 @@ const commentSaving = ref(false);
 const columnQuery = ref("");
 const columnOpen = ref(false);
 const selectedColumn = ref(null);
+const newTermId = ref(null);
 
 const lineageRef = computed(() => detail.value.datasource_id
   ? `${detail.value.datasource_id}:${detail.value.table}` : "");
@@ -686,8 +717,43 @@ function rulesFor(name) {
 
 function openColumn(row) {
   selectedColumn.value = row;
+  newTermId.value = null;
   columnOpen.value = true;
   if (!rules.value.length) loadRules();
+}
+
+async function refreshSelectedColumn() {
+  const name = selectedColumn.value?.name;
+  await load();
+  selectedColumn.value = (detail.value.columns || [])
+    .find((row) => row.name === name) || selectedColumn.value;
+}
+
+async function addColumnTerm() {
+  if (!selectedColumn.value || !newTermId.value) return;
+  try {
+    await api.post(
+      `/catalog/datasets/${datasetId.value}/columns/`
+      + `${encodeURIComponent(selectedColumn.value.name)}/terms`,
+      { term_id: newTermId.value });
+    newTermId.value = null;
+    await refreshSelectedColumn();
+    ElMessage.success(t("catd.termBound"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function removeColumnTerm(termId) {
+  if (!selectedColumn.value) return;
+  try {
+    await api.del(
+      `/catalog/datasets/${datasetId.value}/columns/`
+      + `${encodeURIComponent(selectedColumn.value.name)}/terms/${termId}`);
+    await refreshSelectedColumn();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
 }
 
 async function loadComments() {
@@ -966,6 +1032,9 @@ onMounted(async () => {
 .comment-body { margin-top: 6px; font-size: 13px; color: #334155;
                 white-space: pre-wrap; }
 .drawer-head { margin: 16px 0 8px; font-size: 13px; }
+.term-chip { margin-right: 4px; }
+.term-links { display: flex; gap: 6px; flex-wrap: wrap; min-height: 24px; }
+.term-add { display: flex; gap: 8px; margin-top: 8px; }
 @media (max-width: 1100px) {
   .detail-layout { grid-template-columns: 1fr; }
 }

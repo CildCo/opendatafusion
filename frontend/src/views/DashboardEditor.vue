@@ -7,6 +7,7 @@
       <el-tag size="small" :type="published ? 'success' : 'info'">
         {{ published ? t("dedit.published") : t("dedit.draft") }}
       </el-tag>
+      <favorite-button type="dashboard" :id="id" />
       <div class="spacer" />
       <history-controls :can-undo="canUndo" :can-redo="canRedo"
                         @undo="history.undo" @redo="history.redo" />
@@ -271,6 +272,7 @@ import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
+import FavoriteButton from "../components/FavoriteButton.vue";
 import DashboardGrid from "../studio/dashboard/DashboardGrid.vue";
 import DashboardFilters from "../studio/dashboard/DashboardFilters.vue";
 import HistoryControls from "../components/HistoryControls.vue";

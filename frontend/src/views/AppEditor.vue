@@ -7,6 +7,7 @@
       <el-tag size="small" :type="published ? 'success' : 'info'">
         {{ published ? t("aedit.published") : t("aedit.draft") }}
       </el-tag>
+      <favorite-button type="app" :id="id" />
       <div class="spacer" />
       <history-controls :can-undo="canUndo" :can-redo="canRedo"
                         @undo="history.undo" @redo="history.redo" />
@@ -408,6 +409,7 @@ import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
+import FavoriteButton from "../components/FavoriteButton.vue";
 import AppCanvas from "../studio/app/AppCanvas.vue";
 import { normalizeLayouts, nextLayout } from "../studio/app/bindings";
 import HistoryControls from "../components/HistoryControls.vue";

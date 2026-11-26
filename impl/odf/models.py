@@ -201,6 +201,25 @@ class Alert(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
     acked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    assigned_to: Mapped[str | None] = mapped_column(String(64), nullable=True,
+                                                    index=True)
+    acked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    closed_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class AlertNote(Base):
+    __tablename__ = "alert_note"
+    __table_args__ = (Index("ix_alert_note_alert_created", "alert_id",
+                            "created_at"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"),
+                                            index=True)
+    alert_id: Mapped[int] = mapped_column(BigInteger,
+                                          ForeignKey("alert.id"), index=True)
+    actor: Mapped[str] = mapped_column(String(64))
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now, index=True)
 
 
 class Notification(Base):
@@ -271,6 +290,21 @@ class CatalogComment(Base):
         DateTime(timezone=True), nullable=True)
     resolved_by: Mapped[str | None] = mapped_column(String(64),
                                                     nullable=True)
+
+
+class Favorite(Base):
+    __tablename__ = "favorite"
+    __table_args__ = (UniqueConstraint("project_id", "user_id", "object_type",
+                                       "object_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"),
+                                            index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("app_user.id"),
+                                         index=True)
+    object_type: Mapped[str] = mapped_column(String(32))
+    object_id: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now, index=True)
 
 
 class SavedQuery(Base):
@@ -345,6 +379,22 @@ class ColumnPolicy(Base):
     mask_type: Mapped[str] = mapped_column(String(32), default="redact")
     exempt_roles_json: Mapped[list] = mapped_column(JSON, default=list)
     source: Mapped[str] = mapped_column(String(16), default="manual")
+    created_by: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                 default=now)
+
+
+class ColumnTerm(Base):
+    __tablename__ = "column_term"
+    __table_args__ = (UniqueConstraint("dataset_id", "column_name", "term_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project.id"),
+                                            index=True)
+    dataset_id: Mapped[int] = mapped_column(ForeignKey("dataset.id"),
+                                            index=True)
+    column_name: Mapped[str] = mapped_column(String(128))
+    term_id: Mapped[int] = mapped_column(ForeignKey("glossary_term.id"),
+                                         index=True)
     created_by: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                  default=now)

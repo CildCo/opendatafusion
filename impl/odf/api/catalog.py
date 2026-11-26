@@ -8,9 +8,11 @@ from odf.services.auth import claims_role, require_editor, require_user
 from odf.services.catalog import (add_comment, create_tag, dataset_detail,
                                   dataset_history, dataset_profile,
                                   dataset_sample, impact, lineage,
-                                  list_comments, list_datasets, list_tags,
-                                  search_catalog, set_comment_status,
-                                  tag_dataset, untag_dataset)
+                                  link_column_term, list_comments,
+                                  list_datasets, list_tags, search_catalog,
+                                  set_comment_status, tag_dataset,
+                                  term_columns, unlink_column_term,
+                                  untag_dataset)
 
 router = APIRouter()
 
@@ -31,6 +33,10 @@ class CommentIn(BaseModel):
 
 class CommentStatusIn(BaseModel):
     status: str
+
+
+class TermLinkIn(BaseModel):
+    term_id: int
 
 
 @router.get("/catalog/datasets")
@@ -158,6 +164,38 @@ def update_comment(comment_id: int, body: CommentStatusIn,
                                   actor, body.status)
     except ValueError as e:
         raise HTTPException(404 if "not found" in str(e) else 400, str(e))
+
+
+@router.post("/catalog/datasets/{dataset_id}/columns/{column}/terms",
+             status_code=201)
+def link_term(dataset_id: int, column: str, body: TermLinkIn,
+              s: Session = Depends(get_session),
+              claims: dict = Depends(require_editor)):
+    try:
+        return link_column_term(s, claims["project_id"], dataset_id, column,
+                                body.term_id, claims["sub"])
+    except ValueError as e:
+        raise HTTPException(404 if "not found" in str(e) else 400, str(e))
+
+
+@router.delete("/catalog/datasets/{dataset_id}/columns/{column}/terms/{term_id}")
+def unlink_term(dataset_id: int, column: str, term_id: int,
+                s: Session = Depends(get_session),
+                claims: dict = Depends(require_editor)):
+    try:
+        return {"removed": unlink_column_term(
+            s, claims["project_id"], dataset_id, column, term_id)}
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+@router.get("/catalog/terms/{term_id}/columns")
+def term_columns_(term_id: int, s: Session = Depends(get_session),
+                  claims: dict = Depends(require_user)):
+    try:
+        return term_columns(s, claims["project_id"], term_id)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
 
 
 @router.get("/catalog/search")
