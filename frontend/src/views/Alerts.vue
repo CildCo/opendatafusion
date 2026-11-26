@@ -137,14 +137,16 @@
       </el-descriptions>
 
       <div class="drawer-actions">
-        <el-select v-model="assigneeDraft" clearable filterable
-                   size="small" style="flex: 1"
-                   :placeholder="t('alerts.assignee')">
-          <el-option v-for="name in assignees" :key="name" :value="name"
-                     :label="name" />
-        </el-select>
-        <el-button size="small" type="primary" :loading="assigning"
-                   @click="saveAssignee">{{ t("alerts.assign") }}</el-button>
+        <template v-if="canEdit">
+          <el-select v-model="assigneeDraft" clearable filterable
+                     size="small" style="flex: 1"
+                     :placeholder="t('alerts.assignee')">
+            <el-option v-for="name in assignees" :key="name" :value="name"
+                       :label="name" />
+          </el-select>
+          <el-button size="small" type="primary" :loading="assigning"
+                     @click="saveAssignee">{{ t("alerts.assign") }}</el-button>
+        </template>
         <el-button v-if="canEdit" size="small"
                    :disabled="current.status !== 'open'"
                    @click="ack(current)">{{ t("alerts.ack") }}</el-button>

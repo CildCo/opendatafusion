@@ -471,14 +471,15 @@
         <h4 class="drawer-head">{{ t("catd.terms") }}</h4>
         <div class="term-links">
           <el-tag v-for="term in selectedColumn.terms || []" :key="term.id"
-                  size="small" closable @close="removeColumnTerm(term.id)">
+                  size="small" :closable="canCreate"
+                  @close="removeColumnTerm(term.id)">
             {{ term.term }}
           </el-tag>
           <span v-if="!(selectedColumn.terms || []).length" class="muted">
             {{ t("catd.noColumnTerms") }}
           </span>
         </div>
-        <div class="term-add">
+        <div v-if="canCreate" class="term-add">
           <el-select v-model="newTermId" size="small" filterable clearable
                      style="flex: 1" :placeholder="t('catd.addTerm')">
             <el-option v-for="term in terms" :key="term.id" :value="term.id"
