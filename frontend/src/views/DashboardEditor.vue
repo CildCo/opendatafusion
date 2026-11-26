@@ -58,7 +58,7 @@
         <DashboardFilters :params="content.params || []"
                           :value="paramValues"
                           @update:value="setParams"
-                          @refresh="refresh" @reset="resetParams" />
+                          @refresh="refresh" @reset="resetFilterParams" />
         <DashboardGrid :widgets="content.widgets" :data="data"
                        :columns="content.columns"
                        :row-height="content.row_height"
@@ -573,6 +573,11 @@ function resetParams() {
     if (p.name) values[p.name] = p.default ?? "";
   }
   paramValues.value = values;
+}
+
+function resetFilterParams() {
+  resetParams();
+  refresh();
 }
 
 function setParams(p) {
