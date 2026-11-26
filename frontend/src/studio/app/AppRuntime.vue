@@ -17,7 +17,8 @@
            :style="visualStyle(c)">
         <div class="title">{{ c.title || c.type }}</div>
         <AppComponent :component="c" :entry="data?.[c.id]" :params="values"
-                      :component-state="componentState" :on-submit="onSubmit"
+                      :component-state="componentState"
+                      :visual="visualStyle(c)" :on-submit="onSubmit"
                       @navigate="$emit('navigate', $event)"
                       @row="onRow({ componentId: c.id, row: $event })"
                       @action="runActions"

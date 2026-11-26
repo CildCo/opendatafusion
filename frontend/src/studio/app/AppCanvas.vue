@@ -99,6 +99,7 @@
         </template>
         <AppComponent v-else :component="c" :entry="entryFor(c)"
                       :params="params" :components="componentState"
+                      :visual="visualStyle(c)"
                       :on-submit="onSubmit" :design="design"
                       @navigate="$emit('navigate', $event)"
                       @row="$emit('row', { componentId: c.id, row: $event })"
