@@ -88,3 +88,13 @@ day (failed, running, queued, success, skipped). The window can be 7, 14 or
   accepts only active project members, and the list filters by assignee.
 - Column glossary links live in `column_term`; the column drawer adds and
   removes them, and catalog search folds term matches into table hits.
+
+## Scheduling resilience
+
+- A schedule view and a run-policy board live in the operations centre.
+  Policies are stored on the asset and copied to each job when it is queued.
+- Retry backoff is read from the job payload, so changing an asset policy
+  affects future jobs without rewriting existing queued work.
+- Job rows open a detail drawer with node runs; the comparison block selects
+  the previous non-skipped job for the same asset and computes per-node
+  duration and output deltas.

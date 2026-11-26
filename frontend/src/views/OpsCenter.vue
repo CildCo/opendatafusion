@@ -25,7 +25,8 @@
         <el-tab-pane :label="t('ops.tabOverview')" name="overview">
           <div class="section-title">{{ t("ops.recentFailures") }}</div>
           <el-table :data="summary.recent_failures || []" size="small"
-                    :empty-text="t('ops.emptyFailures')">
+                    :empty-text="t('ops.emptyFailures')"
+                    @row-click="openJob">
             <el-table-column prop="id" :label="t('ops.job')" width="80" />
             <el-table-column prop="target_name" :label="t('ops.target')" min-width="140" />
             <el-table-column prop="target_type" :label="t('ops.type')" width="90" />
@@ -38,10 +39,10 @@
             <el-table-column :label="t('ops.actions')" width="130">
               <template #default="{ row }">
                 <el-button v-if="canOperate" link type="primary"
-                           @click="retry(row)">
+                           @click.stop="retry(row)">
                   {{ t("ops.retry") }}
                 </el-button>
-                <el-button v-if="targetPath(row)" link @click="openTarget(row)">
+                <el-button v-if="targetPath(row)" link @click.stop="openTarget(row)">
                   {{ t("ops.view") }}
                 </el-button>
               </template>
@@ -73,7 +74,8 @@
               </el-table-column>
             </el-table>
           </template>
-          <el-table :data="jobs" size="small" :empty-text="t('ops.emptyJobs')">
+          <el-table :data="jobs" size="small" :empty-text="t('ops.emptyJobs')"
+                    @row-click="openJob">
             <el-table-column prop="id" :label="t('ops.job')" width="80" />
             <el-table-column prop="target_name" :label="t('ops.target')" min-width="160" />
             <el-table-column prop="asset_type" :label="t('ops.assetType')" width="100" />
@@ -97,15 +99,15 @@
             <el-table-column :label="t('ops.actions')" width="190">
               <template #default="{ row }">
                 <el-button v-if="canOperate && row.status === 'failed'"
-                           link type="primary" @click="retry(row)">
+                           link type="primary" @click.stop="retry(row)">
                   {{ t("ops.retry") }}
                 </el-button>
                 <el-button v-if="canOperate
                                && ['queued', 'running'].includes(row.status)"
-                           link type="warning" @click="cancel(row)">
+                           link type="warning" @click.stop="cancel(row)">
                   {{ t("ops.cancel") }}
                 </el-button>
-                <el-button v-if="targetPath(row)" link @click="openTarget(row)">
+                <el-button v-if="targetPath(row)" link @click.stop="openTarget(row)">
                   {{ t("ops.view") }}
                 </el-button>
               </template>
@@ -293,6 +295,100 @@
           </el-table>
         </el-tab-pane>
 
+        <el-tab-pane :label="t('ops.tabSchedules')" name="schedules">
+          <div class="filters">
+            <span class="updated">{{ t("ops.schedulesHint") }}</span>
+            <div class="spacer" />
+            <el-button size="small" :loading="scheduleLoading"
+                       @click="loadSchedules">{{ t("ops.refresh") }}</el-button>
+          </div>
+          <el-table :data="schedules" size="small"
+                    :empty-text="t('ops.emptySchedules')"
+                    v-loading="scheduleLoading">
+            <el-table-column prop="name" :label="t('ops.target')"
+                             min-width="190" />
+            <el-table-column prop="type" :label="t('ops.type')" width="100" />
+            <el-table-column prop="cron" :label="t('ops.cron')" width="140" />
+            <el-table-column :label="t('ops.nextRun')" width="180">
+              <template #default="{ row }">{{ fmt(row.next_run) }}</template>
+            </el-table-column>
+            <el-table-column :label="t('ops.lastStatus')" width="110">
+              <template #default="{ row }">
+                <el-tag v-if="row.last_status" size="small"
+                        :type="jobTone(row.last_status)">
+                  {{ row.last_status }}
+                </el-tag>
+                <span v-else class="muted">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('ops.lastRun')" width="180">
+              <template #default="{ row }">{{ fmt(row.last_run_at) }}</template>
+            </el-table-column>
+            <el-table-column :label="t('ops.enabled')" width="90">
+              <template #default="{ row }">
+                <el-tag size="small" :type="row.enabled ? 'success' : 'info'">
+                  {{ row.enabled ? t("ops.on") : t("ops.off") }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('ops.actions')" width="90">
+              <template #default="{ row }">
+                <el-button link @click.stop="openTarget(row)">
+                  {{ t("ops.view") }}
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane :label="t('ops.tabPolicies')" name="policies">
+          <div class="filters">
+            <span class="updated">{{ t("ops.policiesHint") }}</span>
+            <div class="spacer" />
+            <el-button size="small" :loading="policyLoading"
+                       @click="loadPolicies">{{ t("ops.refresh") }}</el-button>
+          </div>
+          <el-table :data="policies" size="small"
+                    :empty-text="t('ops.emptyPolicies')"
+                    v-loading="policyLoading">
+            <el-table-column prop="name" :label="t('ops.target')"
+                             min-width="190" />
+            <el-table-column prop="type" :label="t('ops.type')" width="100" />
+            <el-table-column :label="t('ops.maxAttempts')" width="150">
+              <template #default="{ row }">
+                <el-input-number v-model="row.max_attempts" :min="1" :max="10"
+                                 size="small" :controls="false"
+                                 style="width: 80px" />
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('ops.retryBackoff')" width="170">
+              <template #default="{ row }">
+                <el-input-number v-model="row.retry_backoff_seconds" :min="0"
+                                 :max="3600" size="small" :controls="false"
+                                 style="width: 100px" />
+                <span class="unit">{{ t("ops.seconds") }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('ops.lastStatus')" width="110">
+              <template #default="{ row }">
+                <el-tag v-if="row.last_status" size="small"
+                        :type="jobTone(row.last_status)">
+                  {{ row.last_status }}
+                </el-tag>
+                <span v-else class="muted">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('ops.actions')" width="110">
+              <template #default="{ row }">
+                <el-button link type="primary" :loading="row.saving"
+                           @click.stop="savePolicy(row)">
+                  {{ t("ops.save") }}
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
         <el-tab-pane :label="t('ops.tabDead')" name="dead">
           <div class="filters">
             <el-select v-model="deadType" clearable size="small"
@@ -379,6 +475,96 @@
         </el-tab-pane>
       </el-tabs>
     </el-card>
+
+    <el-drawer v-model="detailOpen" :title="`Job #${detail.id || ''}`"
+               size="680px">
+      <div v-loading="detailLoading">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item :label="t('ops.target')">
+            {{ detail.target_name || "-" }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('ops.status')">
+            <el-tag size="small" :type="jobTone(detail.status)">
+              {{ detail.status }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('ops.attempts')">
+            {{ detail.attempts }}/{{ detail.max_attempts }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('ops.retryBackoff')">
+            {{ detail.retry_backoff_seconds }} {{ t("ops.seconds") }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('ops.createdAt')">
+            {{ fmt(detail.created_at) }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('ops.finishedAt')">
+            {{ fmt(detail.finished_at) }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="t('ops.worker')" :span="2">
+            {{ detail.locked_by || "-" }}
+          </el-descriptions-item>
+        </el-descriptions>
+        <el-alert v-if="detail.last_error" :title="detail.last_error"
+                  type="error" :closable="false" style="margin-top: 10px" />
+        <div class="drawer-actions" v-if="canOperate">
+          <el-button v-if="detail.status === 'failed'" size="small"
+                     type="primary" @click="retry(detail)">
+            {{ t("ops.retry") }}
+          </el-button>
+          <el-button v-if="['queued', 'running'].includes(detail.status)"
+                     size="small" type="warning" @click="cancel(detail)">
+            {{ t("ops.cancel") }}
+          </el-button>
+        </div>
+
+        <h4>{{ t("ops.nodeRuns") }}</h4>
+        <el-table :data="detail.nodes || []" size="small"
+                  :empty-text="t('ops.noNodeRuns')">
+          <el-table-column prop="node_id" :label="t('ops.node')" min-width="120" />
+          <el-table-column prop="status" :label="t('ops.status')" width="90" />
+          <el-table-column prop="in_num" :label="t('ops.inRows')" width="90" />
+          <el-table-column prop="out_num" :label="t('ops.outRows')" width="90" />
+          <el-table-column prop="ms" :label="t('ops.duration')" width="90" />
+          <el-table-column prop="error" :label="t('ops.error')" min-width="160"
+                           show-overflow-tooltip />
+        </el-table>
+
+        <h4>{{ t("ops.compareTitle") }}</h4>
+        <p v-if="!compare.previous" class="muted">{{ t("ops.noPrevious") }}</p>
+        <template v-else>
+          <div class="compare-head">
+            <span>{{ t("ops.previousJob") }} #{{ compare.previous.id }}</span>
+            <span>{{ fmt(compare.previous.finished_at) }}</span>
+            <span v-if="compare.totals">
+              {{ t("ops.compareTotals") }}
+              {{ compare.totals.previous_ms }} → {{ compare.totals.ms }} ms
+            </span>
+          </div>
+          <el-table :data="compare.nodes || []" size="small">
+            <el-table-column prop="node_id" :label="t('ops.node')"
+                             min-width="120" />
+            <el-table-column :label="t('ops.duration')" width="150">
+              <template #default="{ row }">
+                {{ row.ms }} ms
+                <span v-if="row.ms_delta !== null && row.ms_delta !== undefined"
+                      :class="row.ms_delta > 0 ? 'delta-up' : 'delta-down'">
+                  ({{ row.ms_delta > 0 ? "+" : "" }}{{ row.ms_delta }})
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('ops.outRows')" width="150">
+              <template #default="{ row }">
+                {{ row.out_num }}
+                <span v-if="row.out_delta !== null && row.out_delta !== undefined"
+                      :class="row.out_delta > 0 ? 'delta-up' : 'delta-down'">
+                  ({{ row.out_delta > 0 ? "+" : "" }}{{ row.out_delta }})
+                </span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -439,6 +625,14 @@ const loading = ref(false);
 const auto = ref(false);
 const updated = ref("");
 const statuses = ["queued", "running", "failed", "success"];
+const schedules = ref([]);
+const scheduleLoading = ref(false);
+const policies = ref([]);
+const policyLoading = ref(false);
+const detailOpen = ref(false);
+const detailLoading = ref(false);
+const detail = ref({});
+const compare = ref({ previous: null, nodes: [], totals: null });
 let timer = null;
 
 const cards = computed(() => {
@@ -468,7 +662,7 @@ function jobTone(s) {
 }
 
 function targetPath(row) {
-  const type = row.asset_type || row.target_type || "";
+  const type = row.asset_type || row.target_type || row.type || "";
   return { pipeline: "/pipelines", api: "/apis",
            dashboard: "/dashboards", app: "/apps", dataset: "/datasets",
            metric: "/metrics", model: "/models", lakehouse: "/lakehouse" }[type] || "";
@@ -597,6 +791,63 @@ async function load() {
   }
 }
 
+async function loadSchedules() {
+  scheduleLoading.value = true;
+  try {
+    schedules.value = await api.get("/ops/schedules");
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    scheduleLoading.value = false;
+  }
+}
+
+async function loadPolicies() {
+  policyLoading.value = true;
+  try {
+    policies.value = await api.get("/ops/run-policies");
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    policyLoading.value = false;
+  }
+}
+
+async function savePolicy(row) {
+  row.saving = true;
+  try {
+    await api.put(`/ops/run-policies/${row.id}`, {
+      max_attempts: row.max_attempts,
+      retry_backoff_seconds: row.retry_backoff_seconds,
+    });
+    ElMessage.success(t("ops.policySaved"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    row.saving = false;
+  }
+}
+
+async function openJob(row) {
+  if (!row?.id) return;
+  detailOpen.value = true;
+  detailLoading.value = true;
+  detail.value = { ...row, nodes: [] };
+  compare.value = { previous: null, nodes: [], totals: null };
+  try {
+    const [one, diff] = await Promise.all([
+      api.get(`/ops/jobs/${row.id}/detail`),
+      api.get(`/ops/jobs/${row.id}/compare`),
+    ]);
+    detail.value = one;
+    compare.value = diff;
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    detailLoading.value = false;
+  }
+}
+
 async function retry(row) {
   try {
     await ElMessageBox.confirm(
@@ -661,6 +912,8 @@ watch(tab, (name) => {
   if (name === "perf") loadPerf();
   if (name === "dead") loadDead();
   if (name === "matrix") loadMatrix();
+  if (name === "schedules") loadSchedules();
+  if (name === "policies") loadPolicies();
 });
 
 onMounted(load);

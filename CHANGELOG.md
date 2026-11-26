@@ -4,6 +4,21 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [3.2.0] - 2026-11-26
+
+### Added
+
+- Per-asset run policies: maximum attempts (1–10) and retry backoff
+  (0–3600 seconds). Jobs inherit the policy when queued, and retries follow
+  the configured backoff.
+- An operations schedule view lists every scheduled asset with its cron, next
+  run, enabled state and latest job status.
+- A run policy board in the operations centre edits attempts and backoff
+  inline for every asset.
+- Job detail shows the payload, worker, attempts and per-node rows/duration.
+  The comparison view diffs the latest run against the previous job for the
+  same asset.
+
 ## [3.1.1] - 2026-11-26
 
 ### Fixed

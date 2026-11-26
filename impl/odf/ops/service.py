@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import or_, select
 
-from odf.models import Alert, Asset, Job
+from odf.models import Alert, Asset, Job, PipelineNodeRun
 from odf.services.audit import write_audit
 
 
@@ -45,9 +45,12 @@ def _target(session, job):
 def _job_dict(session, job):
     return {"id": job.id, "status": job.status, "attempts": job.attempts,
             "max_attempts": job.max_attempts, "run_at": _iso(job.run_at),
+            "created_at": _iso(job.created_at),
             "finished_at": _iso(job.finished_at),
             "last_error": job.last_error, "locked_by": job.locked_by,
             "cancel_requested": bool(job.cancel_requested),
+            "retry_backoff_seconds": (job.payload_json or {}).get(
+                "retry_backoff_seconds", 30),
             **_target(session, job)}
 
 
@@ -252,3 +255,134 @@ def run_matrix(session, project_id, days=7):
     rows.sort(key=lambda item: item["name"].lower())
     return {"days": day_keys, "rows": rows[:50],
             "truncated": len(assets) > 50}
+
+
+def _asset_job(asset):
+    return {"max_attempts": asset.max_attempts or 3,
+            "retry_backoff_seconds": asset.retry_backoff_seconds or 0}
+
+
+def run_policies(session, project_id):
+    assets = (session.query(Asset).filter_by(project_id=project_id)
+              .order_by(Asset.type, Asset.name).all())
+    out = []
+    for asset in assets:
+        last = (session.query(Job).filter_by(asset_id=asset.id)
+                .order_by(Job.id.desc()).first())
+        out.append({"id": asset.id, "asset_id": asset.id,
+                    "name": asset.name, "type": asset.type,
+                    "cron": asset.cron, "enabled": bool(asset.enabled),
+                    **_asset_job(asset),
+                    "last_status": last.status if last else None,
+                    "last_run_at": _iso(last.finished_at
+                                        or last.created_at) if last else None})
+    return out
+
+
+def update_run_policy(session, project_id, asset_id, max_attempts,
+                      retry_backoff_seconds, actor):
+    asset = session.get(Asset, asset_id)
+    if not asset or asset.project_id != project_id:
+        raise ValueError("asset not found")
+    try:
+        attempts = int(max_attempts)
+        backoff = int(retry_backoff_seconds)
+    except (TypeError, ValueError):
+        raise ValueError("run policy values must be numbers")
+    if not 1 <= attempts <= 10:
+        raise ValueError("max attempts must be between 1 and 10")
+    if not 0 <= backoff <= 3600:
+        raise ValueError("retry backoff must be between 0 and 3600 seconds")
+    asset.max_attempts = attempts
+    asset.retry_backoff_seconds = backoff
+    session.commit()
+    write_audit(session, actor, "update_run_policy", str(asset.id),
+                {"max_attempts": attempts,
+                 "retry_backoff_seconds": backoff})
+    session.refresh(asset)
+    return {"id": asset.id, "name": asset.name, "type": asset.type,
+            **_asset_job(asset)}
+
+
+def job_detail(session, project_id, job_id):
+    job = _job_query(session, project_id).filter(Job.id == job_id).first()
+    if not job:
+        raise ValueError("job not found")
+    nodes = (session.query(PipelineNodeRun)
+             .filter_by(job_id=job.id)
+             .order_by(PipelineNodeRun.id).all())
+    return {**_job_dict(session, job), "payload": job.payload_json or {},
+            "nodes": [{"node_id": n.node_id, "status": n.status,
+                       "in_num": n.in_num, "out_num": n.out_num,
+                       "ms": n.ms, "error": n.error} for n in nodes]}
+
+
+def job_compare(session, project_id, job_id):
+    job = _job_query(session, project_id).filter(Job.id == job_id).first()
+    if not job:
+        raise ValueError("job not found")
+    previous = None
+    if job.asset_id:
+        previous = (session.query(Job)
+                    .filter(Job.asset_id == job.asset_id, Job.id < job.id,
+                            Job.status.notin_(("skipped", "queued",
+                                               "running")))
+                    .order_by(Job.id.desc()).first())
+    if not previous:
+        return {"current": _job_dict(session, job), "previous": None,
+                "nodes": [], "totals": None}
+    previous_nodes = {n.node_id: n for n in
+                      session.query(PipelineNodeRun)
+                      .filter_by(job_id=previous.id).all()}
+    current_nodes = (session.query(PipelineNodeRun)
+                     .filter_by(job_id=job.id)
+                     .order_by(PipelineNodeRun.id).all())
+    nodes = []
+    for node in current_nodes:
+        old = previous_nodes.get(node.node_id)
+        nodes.append({
+            "node_id": node.node_id, "status": node.status,
+            "out_num": node.out_num,
+            "previous_out_num": old.out_num if old else None,
+            "ms": node.ms, "previous_ms": old.ms if old else None,
+            "ms_delta": node.ms - old.ms if old else None,
+            "out_delta": node.out_num - old.out_num if old else None,
+        })
+    return {
+        "current": _job_dict(session, job),
+        "previous": _job_dict(session, previous),
+        "nodes": nodes,
+        "totals": {
+            "ms": sum(n.ms or 0 for n in current_nodes),
+            "previous_ms": sum(n.ms or 0 for n in previous_nodes.values()),
+            "out_num": sum(n.out_num or 0 for n in current_nodes),
+            "previous_out_num": sum(n.out_num or 0
+                                    for n in previous_nodes.values()),
+        },
+    }
+
+
+def schedules(session, project_id):
+    from odf.services.scheduler import cron_to_trigger
+    now = datetime.now(timezone.utc)
+    out = []
+    for asset in (session.query(Asset)
+                  .filter(Asset.project_id == project_id,
+                          Asset.cron.isnot(None)).all()):
+        try:
+            trigger = cron_to_trigger(asset.cron)
+            nxt = trigger.get_next_fire_time(None, now)
+            next_run = _iso(nxt)
+        except Exception:
+            next_run = None
+        last = (session.query(Job).filter_by(asset_id=asset.id)
+                .order_by(Job.id.desc()).first())
+        out.append({"id": asset.id, "asset_id": asset.id,
+                    "name": asset.name, "type": asset.type,
+                    "cron": asset.cron, "enabled": bool(asset.enabled),
+                    "next_run": next_run,
+                    "last_status": last.status if last else None,
+                    "last_run_at": _iso(last.finished_at
+                                        or last.created_at) if last else None,
+                    "last_error": last.last_error if last else None})
+    return sorted(out, key=lambda row: (row["next_run"] or "", row["name"]))
