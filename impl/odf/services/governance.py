@@ -447,8 +447,8 @@ def import_terms(session, project_id, text, format="csv", actor="admin"):
                 session.add(row)
                 existing[term.casefold()] = row
                 created += 1
-        except Exception as error:
-            errors.append({"row": index, "message": str(error)[:200]})
+        except Exception:
+            errors.append({"row": index, "message": "could not import row"})
     session.commit()
     write_audit(session, actor, "import_glossary_terms",
                 str(project_id), {"created": created, "updated": updated,
