@@ -129,3 +129,30 @@ day (failed, running, queued, success, skipped). The window can be 7, 14 or
 - Dashboard click behavior is stored per widget as `interaction`
   (`navigate`/`url`); the runtime opens the target or route. `emit` remains
   the filter-parameter behavior.
+
+## Asset catalog and trust
+
+- The catalog switches between **Tables** and **Asset catalog**; both are
+  views over existing models, not separate catalogs.
+- Asset search combines text relevance with certification, trust and 30-day
+  usage. Type, certification and lifecycle filters narrow the list.
+- The trust drawer explains the score factor by factor, shows usage counts
+  and links to similar assets through lineage, domain and name overlap.
+- Approvers certify, deprecate, archive and restore from the drawer; write
+  controls are hidden for viewers and editors.
+
+## Run operations
+
+- Run policies add priority and a duration limit next to attempts and
+  backoff. Priority controls queue order; duration breaches raise a warning
+  alert and final failures raise a critical alert.
+- **Run health** ranks assets by success rate, P95 duration and SLA breaches;
+  **Run calendar** aggregates the same jobs into a 30-day grid.
+
+## Embedding
+
+- The share dialog has a **Public link / Embed** switch. Embed mode returns a
+  chromeless page and a snippet for `odf-embed.js`.
+- The SDK mounts an iframe, forwards optional parameters and resizes the
+  frame from `postMessage` height events.
+- Share and embed use the same revocable token; the button is editor-only.

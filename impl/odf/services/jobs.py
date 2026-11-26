@@ -31,14 +31,15 @@ def claim(session, worker_id: str) -> Job | None:
     if session.bind.dialect.name == "postgresql":
         row = session.execute(text(
             "select id from job where status='queued' and run_at <= now() "
-            "order by run_at for update skip locked limit 1")).first()
+            "order by priority desc, run_at for update skip locked "
+            "limit 1")).first()
         if not row:
             return None
         job = session.get(Job, row[0])
     else:
         job = (session.query(Job)
                .filter(Job.status == "queued", Job.run_at <= _now())
-               .order_by(Job.run_at).first())
+               .order_by(Job.priority.desc(), Job.run_at).first())
         if not job:
             return None
     job.status = "running"
@@ -118,21 +119,41 @@ def complete(session, job_id: int, success: bool,
     session.commit()
     from odf.api.metrics import inc
     inc("jobs_total", status=job.status)
-    if not success and job.status == "failed":
-        project_id = None
-        if job.asset_id:
-            from odf.models import Asset
-            a = session.get(Asset, job.asset_id)
-            project_id = a.project_id if a else None
-        if project_id is not None:
-            from odf.webhooks.service import emit_safe
-            emit_safe(session, project_id, "job.failed",
-                      {"job_id": job.id, "asset_id": job.asset_id})
-            from odf.services.notifications import notify
-            notify(session, project_id, "job",
-                   "任务失败 #%d" % job.id,
-                   (job.last_error or "")[:300], "/ops")
+    if job.status in ("success", "failed"):
+        _run_alerts(session, job)
     return job
+
+
+def _run_alerts(session, job):
+    from odf.models import Asset
+    from odf.services.alerts import raise_alert
+    asset = session.get(Asset, job.asset_id) if job.asset_id else None
+    project_id = job.project_id or (asset.project_id if asset else None)
+    if project_id is None:
+        return
+    name = asset.name if asset else "job #%d" % job.id
+    if job.status == "failed":
+        from odf.webhooks.service import emit_safe
+        emit_safe(session, project_id, "job.failed",
+                  {"job_id": job.id, "asset_id": job.asset_id})
+        from odf.services.notifications import notify
+        notify(session, project_id, "job", "任务失败 #%d" % job.id,
+               (job.last_error or "")[:300], "/ops")
+        raise_alert(session, project_id, "critical",
+                    "任务失败：%s" % name,
+                    {"job_id": job.id, "asset_id": job.asset_id,
+                     "error": (job.last_error or "")[:500]})
+    limit = (job.payload_json or {}).get("max_duration_seconds")
+    finished = _aware(job.finished_at)
+    created = _aware(job.created_at)
+    if limit and finished and created:
+        duration = max(0.0, (finished - created).total_seconds())
+        if duration > float(limit):
+            raise_alert(session, project_id, "warning",
+                        "运行超时：%s" % name,
+                        {"job_id": job.id, "asset_id": job.asset_id,
+                         "duration_seconds": round(duration, 1),
+                         "limit_seconds": int(limit)})
 
 
 def requeue_stale(session, timeout_s: int = 300) -> int:
@@ -157,7 +178,7 @@ def enqueue_asset(session, asset_id, asset_type="pipeline", payload=None):
     asset = session.get(Asset, asset_id)
     if asset:
         check_job(session, asset.project_id)
-    attempts, backoff = 3, 30
+    attempts, backoff, priority, duration = 3, 30, 0, None
     if asset:
         try:
             attempts = max(1, min(int(asset.max_attempts or 3), 10))
@@ -167,8 +188,19 @@ def enqueue_asset(session, asset_id, asset_type="pipeline", payload=None):
             backoff = max(0, min(int(asset.retry_backoff_seconds or 0), 3600))
         except (TypeError, ValueError):
             backoff = 30
+        try:
+            priority = max(0, min(int(asset.priority or 0), 100))
+        except (TypeError, ValueError):
+            priority = 0
+        if asset.max_duration_seconds:
+            try:
+                duration = max(1, min(int(asset.max_duration_seconds), 86400))
+            except (TypeError, ValueError):
+                duration = None
     body = dict(payload or {})
     body["retry_backoff_seconds"] = backoff
+    if duration:
+        body["max_duration_seconds"] = duration
     existing = (session.query(Job)
                 .filter(Job.asset_id == asset_id, Job.asset_type == asset_type,
                         Job.status.in_(("queued", "running"))).first())
@@ -178,7 +210,7 @@ def enqueue_asset(session, asset_id, asset_type="pipeline", payload=None):
         return existing
     job = Job(asset_id=asset_id, asset_type=asset_type, status="queued",
               run_at=_now(), attempts=0, payload_json=body,
-              max_attempts=attempts)
+              max_attempts=attempts, priority=priority)
     session.add(job)
     session.commit()
     session.refresh(job)

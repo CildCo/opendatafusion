@@ -9,6 +9,7 @@ from odf.models import AssetVersion, ShareLink
 from odf.services.audit import write_audit
 
 ASSET_TYPES = {"app", "dashboard"}
+SHARE_MODES = {"share", "embed"}
 
 
 def _now():
@@ -33,25 +34,29 @@ def _asset(session, project_id, asset_id, asset_type):
     return a
 
 
-def create_share(session, project_id, asset_id, asset_type, days, actor):
+def create_share(session, project_id, asset_id, asset_type, days, actor,
+                 mode="share"):
     a = _asset(session, project_id, asset_id, asset_type)
     if not a.published_version_id:
         raise ValueError("asset is not published")
     if not isinstance(days, int) or isinstance(days, bool) or \
             not 1 <= days <= 30:
         raise ValueError("expires_days must be 1..30")
+    if mode not in SHARE_MODES:
+        raise ValueError("unsupported share mode")
     token = secrets.token_urlsafe(32)
     expires = _now() + timedelta(days=days)
     sh = ShareLink(project_id=project_id, asset_id=a.id,
                    asset_type=asset_type, token_hash=_hash(token),
-                   created_by=actor, expires_at=expires)
+                   mode=mode, created_by=actor, expires_at=expires)
     session.add(sh)
     session.commit()
     session.refresh(sh)
     write_audit(session, actor, "create_share", str(a.id),
                 {"share_id": sh.id, "asset_type": asset_type,
-                 "expires_at": expires.isoformat()})
-    return {"id": sh.id, "token": token, "expires_at": expires}
+                 "mode": mode, "expires_at": expires.isoformat()})
+    return {"id": sh.id, "token": token, "mode": mode,
+            "expires_at": expires}
 
 
 def list_shares(session, project_id, asset_id, asset_type):
@@ -61,7 +66,8 @@ def list_shares(session, project_id, asset_id, asset_type):
                        asset_type=asset_type)
             .order_by(ShareLink.id.desc()).all())
     now = _now()
-    return [{"id": s.id, "created_by": s.created_by,
+    return [{"id": s.id, "mode": s.mode or "share",
+             "created_by": s.created_by,
              "created_at": _aware(s.created_at),
              "expires_at": _aware(s.expires_at),
              "revoked_at": _aware(s.revoked_at),
@@ -129,8 +135,10 @@ def _public_result(result, list_key):
 
 
 def public_view(session, token):
+    sh = (session.query(ShareLink)
+          .filter_by(token_hash=_hash(token)).first())
     a, content = resolve(session, token)
-    return {"kind": a.type, "name": a.name,
+    return {"kind": a.type, "name": a.name, "mode": sh.mode or "share",
             "content": _public_content(a.type, content)}
 
 

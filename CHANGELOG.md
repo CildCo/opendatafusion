@@ -4,6 +4,38 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [4.0.0] - 2026-11-26
+
+### Added
+
+- Asset catalog view beside physical tables, with text relevance ranking,
+  type, certification and lifecycle filters, recommendations and similar
+  assets.
+- Asset trust score (certification, owner, domain, contract, latest contract
+  check and 30-day usage) with a factor-by-factor drawer.
+- Approver-only asset certification, deprecation, archive and restore.
+  Deprecation/archive require a note and revoke certification.
+- Run-policy priority (0–100) and maximum duration (0–86400 seconds). Queued
+  jobs are claimed by priority, then schedule time.
+- Duration breaches raise a warning alert; final job failures raise a critical
+  alert in addition to the job notification and `job.failed` webhook.
+- Run health view (success rate, average/P95 duration, SLA breaches, health
+  score) and a 30-day run calendar.
+- Share links gain an embed mode, a chromeless embed route and the
+  `odf-embed.js` SDK with automatic iframe resizing and parameter forwarding.
+
+### Changed
+
+- Share creation is editor-only in the console; viewers no longer see the
+  share button.
+- New jobs inherit priority and duration limits from the asset run policy;
+  editing a policy affects subsequent jobs.
+
+### Fixed
+
+- Job failures now appear in the alert centre instead of only as
+  notifications and webhooks.
+
 ## [3.4.0] - 2026-11-26
 
 ### Added

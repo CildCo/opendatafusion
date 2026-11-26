@@ -1,14 +1,20 @@
 ﻿<template>
   <div class="page">
     <div class="toolbar">
-      <el-input v-model="q" :placeholder="t('cat.searchPlaceholder')" clearable style="width: 240px"
-                :prefix-icon="Search" />
+      <el-radio-group v-model="mode" size="small">
+        <el-radio-button value="tables">{{ t("cat.tabTables") }}</el-radio-button>
+        <el-radio-button value="assets">{{ t("cat.tabAssets") }}</el-radio-button>
+      </el-radio-group>
+      <el-input v-if="mode === 'tables'" v-model="q"
+                :placeholder="t('cat.searchPlaceholder')" clearable
+                style="width: 240px" :prefix-icon="Search" />
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("cat.refresh") }}</el-button>
       <el-button @click="exportCatalog">{{ t("cat.export") }}</el-button>
     </div>
 
-    <div class="layout">
+    <asset-catalog v-if="mode === 'assets'" />
+    <div v-else class="layout">
       <div class="left">
         <el-card class="tree-card" shadow="never">
           <template #header>
@@ -127,6 +133,7 @@ import { Coin, Folder, Grid, Search } from "@element-plus/icons-vue";
 import { api, errMsg, getProject } from "../api";
 import { t } from "../i18n";
 import LineageExplorer from "../components/LineageExplorer.vue";
+import AssetCatalog from "./AssetCatalog.vue";
 
 const router = useRouter();
 const datasources = ref([]);
@@ -134,6 +141,7 @@ const datasets = ref([]);
 const terms = ref([]);
 const loading = ref(false);
 const q = ref("");
+const mode = ref("tables");
 const groupBy = ref("source");
 const domainFilter = ref(null);
 const search = reactive({ tables: [], columns: [] });

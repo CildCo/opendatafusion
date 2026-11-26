@@ -570,6 +570,7 @@ class ShareLink(Base):
     asset_id: Mapped[int] = mapped_column(ForeignKey("asset.id"), index=True)
     asset_type: Mapped[str] = mapped_column(String(32))
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    mode: Mapped[str] = mapped_column(String(16), default="share")
     created_by: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -618,6 +619,7 @@ class Job(Base):
     project_id: Mapped[int | None] = mapped_column(
         ForeignKey("project.id"), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(16), default="queued", index=True)
+    priority: Mapped[int] = mapped_column(Integer, default=0)
     run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
     payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
@@ -674,6 +676,19 @@ class Asset(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     max_attempts: Mapped[int] = mapped_column(Integer, default=3)
     retry_backoff_seconds: Mapped[int] = mapped_column(Integer, default=30)
+    priority: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    max_duration_seconds: Mapped[int | None] = mapped_column(
+        Integer, nullable=True)
+    certification: Mapped[str] = mapped_column(String(16), default="none",
+                                               index=True)
+    certified_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    certified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    lifecycle: Mapped[str] = mapped_column(String(16), default="active",
+                                           index=True)
+    lifecycle_note: Mapped[str] = mapped_column(Text, default="")
+    lifecycle_changed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
     draft_version_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     published_version_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cursor_json: Mapped[dict | None] = mapped_column(JSON, default=dict,

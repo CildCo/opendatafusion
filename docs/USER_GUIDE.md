@@ -461,3 +461,46 @@ share one history stack.
 
 The shared chart, grid and parameter primitives serve dashboards, the
 workbench and the app runtime.
+
+## 40. Asset trust and lifecycle
+
+- The catalog has two views: **Tables** for physical metadata and **Asset
+  catalog** for logical assets (datasets, metrics, pipelines, APIs,
+  dashboards, apps and models).
+- Asset catalog search ranks exact names, certified assets, trust and usage;
+  filters cover type, certification and lifecycle.
+- **Trust** is a 0–100 score built from certification, owner, domain,
+  contract, the latest contract check and 30-day usage (job runs, API calls
+  and downstream references). The drawer shows every factor and similar
+  assets.
+- Approvers can certify an asset, revoke certification, deprecate, archive or
+  restore it. Deprecation and archive require a note; both revoke
+  certification. Archived assets are hidden from the default list and from
+  recommendations.
+- The **Recommended** strip surfaces published, active assets with the
+  strongest trust and usage signals.
+
+## 41. Run health, priority and duration SLA
+
+- **Run policies** add a priority (0–100) and an optional maximum duration
+  (0–86400 seconds, 0 disables it). New jobs inherit both.
+- Queued jobs are claimed by priority first, then by scheduled time.
+- A job that exceeds its duration limit raises a warning alert; a job that
+  finally fails raises a critical alert, in addition to the job
+  notification and `job.failed` webhook.
+- **Run health** shows the last 7/30/90 days per asset: success rate, average
+  and P95 duration, SLA breaches, priority, last status and a health score.
+- **Run calendar** renders a 30-day grid with failed, running, queued and
+  successful days.
+
+## 42. Embedded dashboards and applications
+
+- Shared links support two modes: **Public link** and **Embed**.
+- Embed mode opens a chromeless page and reports its content height to the
+  parent window. The share dialog generates a ready-to-use snippet with
+  `odf-embed.js`.
+- The SDK is served at `/ui/odf-embed.js` and exposes
+  `ODFEmbed.mount({target, token, height, params})` plus
+  `ODFEmbed.url(token, params)`.
+- Embed tokens are the same bearer share tokens described in
+  [EMBEDDING.md](EMBEDDING.md); revocation and expiry apply immediately.

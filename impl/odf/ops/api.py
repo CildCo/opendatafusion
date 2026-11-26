@@ -18,6 +18,8 @@ class ReplayIn(BaseModel):
 class RunPolicyIn(BaseModel):
     max_attempts: int = 3
     retry_backoff_seconds: int = 30
+    priority: int = 0
+    max_duration_seconds: int = 0
 
 
 def _value_error(e):
@@ -35,6 +37,12 @@ def summary(s: Session = Depends(get_session),
 def run_matrix(days: int = 7, s: Session = Depends(get_session),
                claims: dict = Depends(require_user)):
     return service.run_matrix(s, claims["project_id"], days)
+
+
+@router.get("/ops/run-health")
+def run_health(days: int = 30, s: Session = Depends(get_session),
+               claims: dict = Depends(require_user)):
+    return service.run_health(s, claims["project_id"], days)
 
 
 @router.get("/ops/schedules")
@@ -56,7 +64,8 @@ def update_run_policy(asset_id: int, body: RunPolicyIn,
     try:
         return service.update_run_policy(
             s, claims["project_id"], asset_id, body.max_attempts,
-            body.retry_backoff_seconds, claims["sub"])
+            body.retry_backoff_seconds, claims["sub"],
+            body.priority, body.max_duration_seconds)
     except ValueError as e:
         _value_error(e)
 

@@ -16,8 +16,8 @@ def _session():
     return sessionmaker(bind=e)()
 
 
-def _pipeline(s):
-    asset = Asset(project_id=1, type="pipeline", key="p1", name="copy",
+def _pipeline(s, key="p1"):
+    asset = Asset(project_id=1, type="pipeline", key=key, name="copy",
                   owner="admin")
     s.add(asset)
     s.commit()
@@ -129,3 +129,48 @@ def test_ops_run_policy_detail_compare_and_schedules():
     schedule = schedules(s, 1)[0]
     assert schedule["cron"] == "0 0 2 * * *"
     assert schedule["next_run"]
+
+
+def test_claim_prefers_higher_priority():
+    s = _session()
+    low = _pipeline(s, "p1")
+    high = _pipeline(s, "p2")
+    low.priority = 1
+    high.priority = 10
+    s.commit()
+    a = enqueue_asset(s, low.id, "pipeline")
+    b = enqueue_asset(s, high.id, "pipeline")
+    got = claim(s, "w1")
+    assert got.id == b.id
+    got = claim(s, "w1")
+    assert got.id == a.id
+
+
+def test_failed_job_raises_alert_after_last_attempt():
+    from odf.models import Alert
+    s = _session()
+    a = _pipeline(s)
+    a.max_attempts = 1
+    s.commit()
+    job = enqueue_asset(s, a.id, "pipeline")
+    claim(s, "w1")
+    complete(s, job.id, False, "boom")
+    alerts = s.query(Alert).all()
+    assert alerts and alerts[0].title == "任务失败：copy"
+    assert alerts[0].detail_json["job_id"] == job.id
+
+
+def test_breached_duration_raises_alert():
+    from odf.models import Alert
+    s = _session()
+    a = _pipeline(s)
+    a.max_duration_seconds = 1
+    s.commit()
+    job = enqueue_asset(s, a.id, "pipeline")
+    job.created_at = datetime.now(timezone.utc) - timedelta(seconds=30)
+    s.commit()
+    claim(s, "w1")
+    complete(s, job.id, True)
+    alerts = s.query(Alert).all()
+    assert alerts and alerts[0].title == "运行超时：copy"
+    assert alerts[0].severity == "warning"
