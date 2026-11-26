@@ -214,7 +214,8 @@ class AlertNote(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("project.id"),
                                             index=True)
-    alert_id: Mapped[int] = mapped_column(ForeignKey("alert.id"), index=True)
+    alert_id: Mapped[int] = mapped_column(BigInteger,
+                                          ForeignKey("alert.id"), index=True)
     actor: Mapped[str] = mapped_column(String(64))
     body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),

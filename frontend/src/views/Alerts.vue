@@ -312,10 +312,11 @@ async function saveAssignee() {
   if (!current.value?.id) return;
   assigning.value = true;
   try {
-    current.value = await api.post(`/alerts/${current.value.id}/assign`, {
+    await api.post(`/alerts/${current.value.id}/assign`, {
       assignee: assigneeDraft.value || "",
     });
     await load();
+    await refreshDetail();
     ElMessage.success(t("alerts.assigned"));
   } catch (e) {
     ElMessage.error(errMsg(e));
