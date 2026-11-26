@@ -13,14 +13,14 @@
       <el-form-item :label="t('tpl.name')">
         <el-input v-model="form.name" />
       </el-form-item>
-      <el-form-item :label="mode === 'pipeline'
+      <el-form-item v-if="isData" :label="mode === 'pipeline'
                       ? t('tpl.sourceDatasource') : t('tpl.datasource')">
         <el-select v-model="form.datasource_id" style="width: 100%">
           <el-option v-for="d in sourceOptions" :key="d.id" :value="d.id"
                      :label="`${d.name} (${d.kind})`" />
         </el-select>
       </el-form-item>
-      <el-form-item :label="mode === 'pipeline'
+      <el-form-item v-if="isData" :label="mode === 'pipeline'
                       ? t('tpl.sourceTable') : t('tpl.table')">
         <el-input v-model="form.table" placeholder="schema.table" />
       </el-form-item>
@@ -38,7 +38,7 @@
           <el-input v-model="form.pk" placeholder="id" />
         </el-form-item>
       </template>
-      <el-form-item v-else :label="t('tpl.schema')">
+      <el-form-item v-else-if="isData" :label="t('tpl.schema')">
         <el-input v-model="form.schema_name"
                   :placeholder="t('tpl.schemaHint')" />
       </el-form-item>
@@ -73,6 +73,8 @@ const form = reactive({
   target_datasource_id: null, target_table: "", pk: "id",
 });
 
+const isData = computed(() =>
+  ["model", "pipeline"].includes(props.mode));
 const sourceOptions = computed(() => datasources.value.filter(
   (d) => d.capabilities && (props.mode === "pipeline"
     ? d.capabilities.source : d.capabilities.query)));
@@ -90,12 +92,9 @@ function close(value) {
 
 async function load() {
   try {
-    const [list, ds] = await Promise.all([
-      api.get(`/templates?type=${props.mode}`),
-      api.get("/datasources"),
-    ]);
+    const list = await api.get(`/templates?type=${props.mode}`);
     templates.value = list.items || [];
-    datasources.value = ds || [];
+    if (isData.value) datasources.value = await api.get("/datasources");
     if (templates.value.length && !selected.value) pick(templates.value[0]);
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -108,7 +107,7 @@ function pick(item) {
 }
 
 async function submit() {
-  if (!form.datasource_id || !form.table) {
+  if (isData.value && (!form.datasource_id || !form.table)) {
     ElMessage.error(t("tpl.required"));
     return;
   }

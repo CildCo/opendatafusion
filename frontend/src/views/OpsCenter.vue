@@ -364,6 +364,55 @@
           </el-table>
         </el-tab-pane>
 
+        <el-tab-pane :label="t('ops.tabCost')" name="cost">
+          <div class="filters">
+            <el-select v-model="costDays" size="small" style="width: 120px"
+                       @change="loadCost">
+              <el-option :value="7" :label="t('ops.matrix7')" />
+              <el-option :value="30" :label="t('ops.matrix30')" />
+              <el-option :value="90" :label="t('ops.matrix90')" />
+            </el-select>
+            <span class="updated">{{ t("ops.costHint") }}</span>
+            <div class="spacer" />
+            <el-button size="small" :loading="costLoading"
+                       @click="loadCost">{{ t("ops.refresh") }}</el-button>
+          </div>
+          <div class="cost-cards">
+            <div class="cost-card">
+              <b>{{ cost.total_hours || 0 }}</b>
+              <span>{{ t("ops.costHours") }}</span>
+            </div>
+            <div class="cost-card">
+              <b>{{ cost.total_cost || 0 }} {{ cost.currency }}</b>
+              <span>{{ t("ops.costTotal") }}</span>
+            </div>
+            <div class="cost-card">
+              <b>{{ cost.rate_per_hour || 0 }} {{ cost.currency }}/h</b>
+              <span>{{ t("ops.costRate") }}</span>
+            </div>
+          </div>
+          <el-table :data="cost.items || []" size="small"
+                    v-loading="costLoading" :empty-text="t('ops.costEmpty')">
+            <el-table-column prop="name" :label="t('ops.target')"
+                             min-width="190">
+              <template #default="{ row }">
+                <b>{{ row.name }}</b>
+                <div class="muted">{{ row.asset_type }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="jobs" :label="t('ops.job')" width="80" />
+            <el-table-column prop="failed" :label="t('ops.status')"
+                             width="80" />
+            <el-table-column prop="hours" :label="t('ops.costHours')"
+                             width="110" />
+            <el-table-column :label="t('ops.costTotal')" width="140">
+              <template #default="{ row }">
+                {{ row.cost }} {{ cost.currency }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
         <el-tab-pane :label="t('ops.tabCalendar')" name="calendar">
           <div class="filters">
             <span class="updated">{{ t("ops.calendarHint") }}</span>
@@ -736,6 +785,9 @@ const policies = ref([]);
 const health = ref({ items: [] });
 const healthLoading = ref(false);
 const healthDays = ref(30);
+const cost = ref({ items: [] });
+const costLoading = ref(false);
+const costDays = ref(30);
 const calendarCells = computed(() => {
   const days = matrix.value.days || [];
   const cells = [];
@@ -936,6 +988,17 @@ async function loadSchedules() {
   }
 }
 
+async function loadCost() {
+  costLoading.value = true;
+  try {
+    cost.value = await api.get(`/ops/cost?days=${costDays.value}`);
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    costLoading.value = false;
+  }
+}
+
 async function loadHealth() {
   healthLoading.value = true;
   try {
@@ -1069,6 +1132,7 @@ watch(tab, (name) => {
   if (name === "schedules") loadSchedules();
   if (name === "policies") loadPolicies();
   if (name === "health") loadHealth();
+  if (name === "cost") loadCost();
   if (name === "calendar") {
     matrixDays.value = 30;
     loadMatrix();
@@ -1132,6 +1196,13 @@ onBeforeUnmount(() => {
 }
 .health-score { display: flex; align-items: center; gap: 6px; }
 .health-score :deep(.el-progress) { width: 54px; }
+.cost-cards { display: grid; grid-template-columns: repeat(3, 1fr);
+              gap: 10px; margin-bottom: 12px; }
+.cost-card { background: #f8fafc; border: 1px solid #e5e7eb;
+             border-radius: 9px; padding: 12px; display: flex;
+             flex-direction: column; gap: 3px; }
+.cost-card b { font-size: 22px; color: #0f172a; }
+.cost-card span { font-size: 11px; color: #64748b; }
 .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr);
                  gap: 5px; }
 .calendar-cell { min-height: 62px; border: 1px solid #e5e7eb;

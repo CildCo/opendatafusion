@@ -352,3 +352,29 @@ def test_page_roles_and_component_style_validation(tmp_path):
     fields = [e["field"] for e in validate_app(s, bad_hl, 1)]
     assert "component.highlight_when.param" in fields
     assert "component.highlight_when.tone" in fields
+
+
+def test_upload_approval_and_list_components(tmp_path):
+    s = _env(tmp_path)
+    dsid, _ = _models(s)
+    content = {"start_page": "p1", "pages": [{
+        "id": "p1", "title": "P",
+        "params": [{"name": "city", "type": "string"}],
+        "components": [
+            {"id": "u", "type": "upload", "label": "Upload",
+             "accept": ["csv", "xlsx"], "max_mb": 10},
+            {"id": "a", "type": "approval", "title": "Pending",
+             "limit": 5},
+            {"id": "l", "type": "list", "dataset_id": dsid,
+             "columns": ["city", "amount"], "title_column": "city",
+             "value_column": "amount", "limit": 20}]}]}
+    assert validate_app(s, content, 1) == []
+    bad = {**content, "pages": [{**content["pages"][0], "components": [
+        {"id": "u", "type": "upload", "accept": ["csv"], "max_mb": 99},
+        {"id": "a", "type": "approval", "limit": 100},
+        {"id": "l", "type": "list", "dataset_id": dsid,
+         "title_column": "missing"}]}]}
+    messages = [e["message"] for e in validate_app(s, bad, 1)]
+    assert any("max_mb" in m for m in messages)
+    assert any("approval limit" in m for m in messages)
+    assert any("column not in dataset output" in m for m in messages)

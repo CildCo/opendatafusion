@@ -45,6 +45,12 @@ def run_health(days: int = 30, s: Session = Depends(get_session),
     return service.run_health(s, claims["project_id"], days)
 
 
+@router.get("/ops/cost")
+def cost(days: int = 30, s: Session = Depends(get_session),
+         claims: dict = Depends(require_user)):
+    return service.cost_report(s, claims["project_id"], days)
+
+
 @router.get("/ops/schedules")
 def schedules(s: Session = Depends(get_session),
               claims: dict = Depends(require_user)):

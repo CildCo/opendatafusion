@@ -61,10 +61,10 @@ def app_data(session, asset_id, page_id=None, params=None, content=None,
                             "ms": 0, "text": comp.get("text"),
                             "error": None}
             elif comp.get("type") in ("divider", "image", "button",
-                                      "progress"):
+                                      "progress", "upload", "approval"):
                 out[cid] = {"columns": [], "rows": [], "row_count": 0,
                             "ms": 0, "error": None}
-            elif comp.get("type") == "table" and comp.get("dataset_id"):
+            elif comp.get("type") in ("table", "list")                     and comp.get("dataset_id"):
                 r = preview_dataset(session, comp["dataset_id"],
                                     limit=comp.get("limit") or limit,
                                     published_only=True, params=values,

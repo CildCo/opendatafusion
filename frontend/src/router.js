@@ -31,6 +31,8 @@ const DashboardHome = () => import("./views/DashboardHome.vue");
 const DashboardEditor = () => import("./views/DashboardEditor.vue");
 const DashboardRun = () => import("./views/DashboardRun.vue");
 const AppHome = () => import("./views/AppHome.vue");
+const ProductHome = () => import("./views/ProductHome.vue");
+const ProductEditor = () => import("./views/ProductEditor.vue");
 const Dependencies = () => import("./views/Dependencies.vue");
 const AppEditor = () => import("./views/AppEditor.vue");
 const AppRun = () => import("./views/AppRun.vue");
@@ -88,6 +90,10 @@ const routes = [
       { path: "apps", component: AppHome, meta: { title: "数据应用" } },
       { path: "apps/:id", component: AppEditor, meta: { title: "应用编辑" } },
       { path: "apps/:id/run", component: AppRun, meta: { title: "应用运行" } },
+      { path: "data-products", component: ProductHome,
+        meta: { title: "数据产品" } },
+      { path: "data-products/:id", component: ProductEditor,
+        meta: { title: "数据产品编辑" } },
       { path: "ops", component: OpsCenter, meta: { title: "运维中心" } },
       { path: "dependencies", component: Dependencies, meta: { title: "调度依赖" } },
       { path: "workbench", component: Workbench, meta: { title: "SQL 工作台" } },

@@ -129,6 +129,70 @@ def _anomaly_result(session, rule, n, cfg):
                 "threshold_pct": threshold, "samples": len(history)}
 
 
+def _drift_stats(rows, nulls, values):
+    numeric = []
+    for value in values:
+        try:
+            numeric.append(float(value))
+        except (TypeError, ValueError):
+            continue
+    total = int(rows or 0)
+    null_count = int(nulls or 0)
+    mean = sum(numeric) / len(numeric) if numeric else None
+    variance = (sum((x - mean) ** 2 for x in numeric) / len(numeric)
+                if numeric and mean is not None else None)
+    return {"rows": total, "null_pct": round(
+        null_count * 100.0 / total, 4) if total else 0.0,
+        "mean": round(mean, 6) if mean is not None else None,
+        "stddev": round(variance ** 0.5, 6)
+        if variance is not None else None,
+        "numeric": len(numeric)}
+
+
+def _drift_result(session, rule, stats, cfg):
+    try:
+        window = max(3, min(int(cfg.get("window") or 10), 50))
+        mean_threshold = max(1.0, min(float(
+            cfg.get("mean_deviation_pct") or 30), 500))
+        null_threshold = max(0.0, min(float(
+            cfg.get("null_delta_pct") or 10), 100))
+    except (TypeError, ValueError):
+        window, mean_threshold, null_threshold = 10, 30.0, 10.0
+    rows = (session.query(QualityResult)
+            .filter_by(rule_id=rule.id)
+            .order_by(QualityResult.id.desc()).limit(window).all())
+    history = [r.detail_json.get("drift") for r in rows
+               if isinstance(r.detail_json, dict)
+               and isinstance(r.detail_json.get("drift"), dict)]
+    history = [item for item in history
+               if isinstance(item.get("null_pct"), (int, float))]
+    if len(history) < 3:
+        return True, {"drift": stats, "baseline": "building",
+                      "samples": len(history),
+                      "mean_threshold_pct": mean_threshold,
+                      "null_threshold_pct": null_threshold}
+    means = [item.get("mean") for item in history
+             if isinstance(item.get("mean"), (int, float))]
+    nulls = [float(item.get("null_pct") or 0) for item in history]
+    mean_base = sum(means) / len(means) if means else None
+    null_base = sum(nulls) / len(nulls)
+    mean_dev = None
+    if stats.get("mean") is not None and mean_base not in (None, 0):
+        mean_dev = abs(stats["mean"] - mean_base) / abs(mean_base) * 100
+    null_delta = abs(stats["null_pct"] - null_base)
+    ok = ((mean_dev is None or mean_dev <= mean_threshold)
+          and null_delta <= null_threshold)
+    return ok, {"drift": stats, "mean_baseline": round(mean_base, 6)
+                if mean_base is not None else None,
+                "null_baseline_pct": round(null_base, 4),
+                "mean_deviation_pct": round(mean_dev, 4)
+                if mean_dev is not None else None,
+                "null_delta_pct": round(null_delta, 4),
+                "mean_threshold_pct": mean_threshold,
+                "null_threshold_pct": null_threshold,
+                "samples": len(history)}
+
+
 def _run_simple(session, datasource, ds, rule, runner=None, schema=None):
     from odf.apistudio.compiler import quote_ident
     runner = runner or _simple_runner(datasource)
@@ -233,6 +297,19 @@ def _run_simple(session, datasource, ds, rule, runner=None, schema=None):
         rows = runner.execute(
             datasource, "SELECT count(*) AS n FROM %s" % table, {}, 1)["rows"]
         ok, detail = _anomaly_result(session, rule, rows[0]["n"], cfg)
+    elif rule.kind == "distribution_drift":
+        if not col:
+            return False, {"error": "drift requires a column"}
+        rows = runner.execute(
+            datasource,
+            "SELECT count(*) AS n, sum(CASE WHEN %s IS NULL THEN 1 "
+            "ELSE 0 END) AS nulls FROM %s" % (col, table), {}, 1)["rows"]
+        values = runner.execute(
+            datasource, "SELECT %s AS v FROM %s WHERE %s IS NOT NULL "
+            "LIMIT 10000" % (col, table, col), {}, 10000)["rows"]
+        stats = _drift_stats(rows[0]["n"], rows[0].get("nulls"),
+                             [row.get("v") for row in values])
+        ok, detail = _drift_result(session, rule, stats, cfg)
     else:
         ok, detail = False, {"error": "unsupported kind"}
     return ok, detail
@@ -428,6 +505,21 @@ def run_rule(session, rule_id: int, project_id: int | None = None) -> QualityRes
                 n = c.execute(select(func.count()).select_from(t)).scalar()
                 ok, detail = _anomaly_result(
                     session, rule, n, rule.config_json or {})
+            elif rule.kind == "distribution_drift":
+                col = rule.column_name
+                if not col:
+                    ok, detail = False, {"error": "drift requires a column"}
+                else:
+                    n = c.execute(select(func.count()).select_from(t)).scalar()
+                    nulls = c.execute(
+                        select(func.count()).select_from(t).where(
+                            t.c[col].is_(None))).scalar()
+                    values = [row[0] for row in c.execute(
+                        select(t.c[col]).where(
+                            t.c[col].isnot(None)).limit(10000)).fetchall()]
+                    stats = _drift_stats(n, nulls, values)
+                    ok, detail = _drift_result(
+                        session, rule, stats, rule.config_json or {})
             else:
                 ok, detail = False, {"error": "unsupported kind"}
 

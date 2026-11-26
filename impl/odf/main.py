@@ -60,6 +60,9 @@ app.include_router(modelstudio_api.router, prefix="/api/v1",
                    dependencies=[Depends(require_user)])
 app.include_router(transform_api.router, prefix="/api/v1",
                    dependencies=[Depends(require_user)])
+from odf.products import api as product_api
+app.include_router(product_api.router, prefix="/api/v1",
+                   tags=["data-products"])
 app.include_router(app_api.router, prefix="/api/v1",
                    tags=["apps"], dependencies=[Depends(require_user)])
 app.include_router(ops_api.router, prefix="/api/v1",

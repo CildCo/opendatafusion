@@ -36,6 +36,29 @@ TEMPLATES = [
      "description": "把源表按主键 upsert 到目标表。",
      "description_en": "Upserts the source table into a target table by primary key.",
      "content": {"mode": "upsert"}},
+    {"id": "app-approval", "type": "app", "mode": "app",
+     "title": "审批工作台",
+     "title_en": "Approval workbench",
+     "description": "集中查看并处理项目待审批事项。",
+     "description_en": "Review and apply pending project approvals.",
+     "content": {"start_page": "p1", "pages": [{
+         "id": "p1", "title": "审批", "params": [], "components": [
+             {"id": "h", "type": "heading", "text": "待审批事项",
+              "layout": {"x": 0, "y": 0, "w": 12, "h": 2}},
+             {"id": "q", "type": "approval", "title": "待审批",
+              "limit": 10, "layout": {"x": 0, "y": 2, "w": 12, "h": 8}}]}]}},
+    {"id": "app-upload", "type": "app", "mode": "app",
+     "title": "文件收集",
+     "title_en": "File intake",
+     "description": "提供一个受控的文件上传入口。",
+     "description_en": "Collect files through a controlled upload page.",
+     "content": {"start_page": "p1", "pages": [{
+         "id": "p1", "title": "上传", "params": [], "components": [
+             {"id": "h", "type": "heading", "text": "上传文件",
+              "layout": {"x": 0, "y": 0, "w": 12, "h": 2}},
+             {"id": "u", "type": "upload", "label": "选择文件",
+              "accept": ["csv", "xlsx", "pdf"], "max_mb": 20,
+              "layout": {"x": 0, "y": 2, "w": 6, "h": 4}}]}]}},
 ]
 
 
@@ -80,6 +103,19 @@ def apply_template(session, project_id, template_id, fields, actor):
     name = str(fields.get("name") or template["title"]).strip()
     if not 1 <= len(name) <= 128:
         raise ValueError("invalid name")
+    if template["type"] in ("app", "dashboard"):
+        content = template["content"]
+        if template["type"] == "app":
+            from odf.appstudio.content import validate_app
+            errors = validate_app(session, content, project_id)
+        else:
+            from odf.dashboards.content import validate_dashboard
+            errors = validate_dashboard(session, content, project_id)
+        if errors:
+            raise ValueError("; ".join(item["message"] for item in errors))
+        asset = create_asset(session, project_id, template["type"], name,
+                             content, actor)
+        return {"id": asset.id, "type": template["type"]}
     table = _table(fields.get("table"))
     if template["type"] == "model":
         datasource = _datasource(session, project_id,

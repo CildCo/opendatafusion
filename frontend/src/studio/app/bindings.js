@@ -120,6 +120,12 @@ export function defaultSize(type) {
       return { w: 12, h: 5 };
     case "modal":
       return { w: 3, h: 2 };
+    case "upload":
+      return { w: 4, h: 3 };
+    case "approval":
+      return { w: 12, h: 5 };
+    case "list":
+      return { w: 6, h: 6 };
     default:
       return { w: 12, h: 5 };
   }

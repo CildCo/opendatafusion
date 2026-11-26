@@ -536,3 +536,52 @@ workbench and the app runtime.
 - Platform administrators can **promote** a project bundle into another
   project. Assets arrive as drafts; type conflicts and missing datasources
   block the promotion before anything is written.
+
+## 46. Low-code upload, approval, list and templates
+
+- **File upload** components use the project file store, enforce an extension
+  list and a maximum size, and expose the uploaded file through component
+  state for bindings.
+- **Approval queue** components read pending change requests in the current
+  project. Approvers can approve and apply directly; other roles see the queue
+  read-only. Public shares remove approval and upload components.
+- **List** components reuse a published dataset and render title, subtitle and
+  value columns; row clicks emit the selected row like a table.
+- The apps page has a **template gallery** with an approval workbench and a
+  file-intake template. Applying a template creates an editable draft.
+
+## 47. External dbt and BI metadata
+
+- The catalog imports dbt `manifest.json` or BI JSON into the existing
+  physical catalog. Models and reports become datasets under a metadata-only
+  `dbt` or `bi` source; columns keep descriptions and types.
+- Imported metadata is read-only: preview, profiling, queries and quality
+  rules are unavailable. Descriptions and owners are shown in catalog detail.
+- BI JSON shape: `{"tool":"tableau","reports":[{"name","schema","owner",
+  "description","columns":[{"name","type","description"}]}]}`.
+
+## 48. Data products and standards
+
+- **Data products** are assets with a summary, owner, SLA, terms and up to 50
+  published member assets. They can be published and exported as a bundle that
+  includes the product manifest and its assets.
+- The governance console manages **data standards** (code, name, description).
+  Catalog column drawers map a column to a standard, and the field table shows
+  the mapped code.
+- Standard writes require editor permission, are scoped to the project and are
+  audited.
+
+## 49. Run cost attribution
+
+- The operations centre **Cost** tab estimates cost from actual worker start
+  and finish timestamps and the project hourly rate.
+- Set the hourly rate and currency in the project quota dialog. The result is
+  an estimate for attribution, not an invoice.
+
+## 50. Distribution drift
+
+- The **Distribution drift** quality rule compares the current numeric mean and
+  null percentage with the previous baseline window.
+- Configure the mean deviation percentage, null delta percentage points and
+  baseline window. The rule builds a baseline for the first three runs, then
+  fails when either threshold is exceeded and can raise an alert on failure.

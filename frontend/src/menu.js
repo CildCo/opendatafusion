@@ -11,6 +11,7 @@ export const MENU_GROUPS = [
   { key: "nav.assets", items: [
     { path: "/datasources", key: "menu.datasources", icon: Coin },
     { path: "/catalog", key: "menu.catalog", icon: Collection },
+    { path: "/data-products", key: "menu.dataProducts", icon: Collection },
     { path: "/lakehouse", key: "menu.lakehouse", icon: Collection },
     { path: "/workbench", key: "menu.workbench", icon: EditPen },
     { path: "/files", key: "menu.files", icon: Folder },

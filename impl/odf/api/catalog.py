@@ -51,6 +51,11 @@ class LifecycleIn(BaseModel):
     note: str = ""
 
 
+class ExternalMetadataIn(BaseModel):
+    source: str
+    text: str
+
+
 @router.get("/catalog/datasets")
 def datasets(s: Session = Depends(get_session),
              claims: dict = Depends(require_user)):
@@ -208,6 +213,18 @@ def term_columns_(term_id: int, s: Session = Depends(get_session),
         return term_columns(s, claims["project_id"], term_id)
     except ValueError as e:
         raise HTTPException(404, str(e))
+
+
+@router.post("/catalog/import/external")
+def import_external_metadata(body: ExternalMetadataIn,
+                             s: Session = Depends(get_session),
+                             claims: dict = Depends(require_editor)):
+    from odf.services.external_metadata import import_external
+    try:
+        return import_external(s, claims["project_id"], body.source,
+                               body.text, claims["sub"])
+    except ValueError:
+        raise HTTPException(400, "invalid external metadata")
 
 
 @router.get("/catalog/assets")

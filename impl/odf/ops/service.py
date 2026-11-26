@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import or_, select
 
-from odf.models import Alert, Asset, Job, PipelineNodeRun
+from odf.models import Alert, Asset, Job, PipelineNodeRun, Project
 from odf.services.audit import write_audit
 
 
@@ -321,6 +321,60 @@ def run_health(session, project_id, days=30):
     items.sort(key=lambda item: (item["health_score"],
                                  item["last_run_at"] or ""))
     return {"days": days, "items": items}
+
+
+def cost_report(session, project_id, days=30):
+    try:
+        days = max(1, min(int(days or 30), 90))
+    except (TypeError, ValueError):
+        days = 30
+    project = session.get(Project, project_id)
+    quota = (project.quota_json or {}) if project else {}
+    try:
+        rate = max(0.0, float(quota.get("cost_per_hour") or 0))
+    except (TypeError, ValueError):
+        rate = 0.0
+    currency = str(quota.get("currency") or "CNY")[:8]
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    jobs = (_job_query(session, project_id)
+            .filter(Job.created_at >= since,
+                    Job.status.in_(("success", "failed")))
+            .all())
+    rows = {}
+    total_hours = 0.0
+    total_cost = 0.0
+    for job in jobs:
+        asset = session.get(Asset, job.asset_id) if job.asset_id else None
+        target = _target(session, job)
+        key = (target.get("asset_type") or "job",
+               target.get("target_id"))
+        row = rows.setdefault(key, {
+            "asset_id": target.get("target_id"),
+            "asset_type": target.get("asset_type") or "job",
+            "name": target.get("target_name") or "-",
+            "jobs": 0, "failed": 0, "seconds": 0.0,
+        })
+        started = _aware(job.locked_at or job.created_at)
+        ended = _aware(job.finished_at)
+        seconds = max(0.0, (ended - started).total_seconds())             if started and ended else 0.0
+        row["jobs"] += 1
+        row["failed"] += 1 if job.status == "failed" else 0
+        row["seconds"] += seconds
+        total_hours += seconds / 3600.0
+    items = []
+    for row in rows.values():
+        hours = row["seconds"] / 3600.0
+        cost = hours * rate
+        total_cost += cost
+        items.append({**row, "seconds": round(row["seconds"], 1),
+                      "hours": round(hours, 3),
+                      "cost": round(cost, 2)})
+    items.sort(key=lambda item: (-item["hours"], item["name"].lower()))
+    return {"days": days, "rate_per_hour": rate, "currency": currency,
+            "estimated": True, "total_hours": round(total_hours, 3),
+            "total_cost": round(total_cost, 2),
+            "items": [{k: v for k, v in item.items() if k != "seconds"}
+                      for item in items]}
 
 
 def _asset_job(asset):

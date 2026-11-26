@@ -11,8 +11,38 @@
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("cat.refresh") }}</el-button>
       <el-button @click="exportCatalog">{{ t("cat.export") }}</el-button>
+      <el-button v-if="canEdit" @click="importOpen = true">
+        {{ t("cat.importExternal") }}
+      </el-button>
     </div>
 
+    <el-dialog v-model="importOpen" :title="t('cat.importExternal')"
+               width="640px">
+      <el-radio-group v-model="importSource" size="small">
+        <el-radio-button value="dbt">dbt</el-radio-button>
+        <el-radio-button value="bi">BI</el-radio-button>
+      </el-radio-group>
+      <el-upload :auto-upload="false" :show-file-list="false"
+                 accept=".json,application/json" style="margin-top: 10px"
+                 :on-change="readImportFile">
+        <el-button size="small">{{ t("cat.chooseManifest") }}</el-button>
+      </el-upload>
+      <el-input v-model="importText" type="textarea" :rows="10"
+                style="margin-top: 10px"
+                :placeholder="t('cat.importPlaceholder')" />
+      <el-alert v-if="importResult" type="success" :closable="false"
+                style="margin-top: 10px"
+                :title="t('cat.importResult')
+                  .replace('{tables}', importResult.tables)
+                  .replace('{columns}', importResult.columns)" />
+      <template #footer>
+        <el-button @click="importOpen = false">{{ t("common.cancel") }}</el-button>
+        <el-button type="primary" :loading="importing"
+                   :disabled="!importText.trim()" @click="runImport">
+          {{ t("cat.importAction") }}
+        </el-button>
+      </template>
+    </el-dialog>
     <asset-catalog v-if="mode === 'assets'" />
     <div v-else class="layout">
       <div class="left">
@@ -130,7 +160,7 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { Coin, Folder, Grid, Search } from "@element-plus/icons-vue";
-import { api, errMsg, getProject } from "../api";
+import { api, canWrite, errMsg, getProject } from "../api";
 import { t } from "../i18n";
 import LineageExplorer from "../components/LineageExplorer.vue";
 import AssetCatalog from "./AssetCatalog.vue";
@@ -142,6 +172,12 @@ const terms = ref([]);
 const loading = ref(false);
 const q = ref("");
 const mode = ref("tables");
+const canEdit = computed(() => canWrite());
+const importOpen = ref(false);
+const importSource = ref("dbt");
+const importText = ref("");
+const importResult = ref(null);
+const importing = ref(false);
 const groupBy = ref("source");
 const domainFilter = ref(null);
 const search = reactive({ tables: [], columns: [] });
@@ -239,6 +275,33 @@ function openDataset(datasetId) {
 function filterNode(value, data) {
   if (!value) return true;
   return data.label.toLowerCase().includes(value.toLowerCase());
+}
+
+function readImportFile(file) {
+  const raw = file?.raw;
+  if (!raw) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    importText.value = String(reader.result || "");
+  };
+  reader.readAsText(raw);
+}
+
+async function runImport() {
+  if (!importText.value.trim()) return;
+  importing.value = true;
+  try {
+    importResult.value = await api.post("/catalog/import/external", {
+      source: importSource.value,
+      text: importText.value,
+    });
+    ElMessage.success(t("cat.importDone"));
+    await load();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    importing.value = false;
+  }
 }
 
 async function exportCatalog() {

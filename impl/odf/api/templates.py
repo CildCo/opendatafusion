@@ -12,8 +12,8 @@ router = APIRouter()
 
 class ApplyIn(BaseModel):
     name: str = ""
-    datasource_id: int
-    table: str
+    datasource_id: int | None = None
+    table: str = ""
     schema_name: str = ""
     target_datasource_id: int | None = None
     target_table: str = ""

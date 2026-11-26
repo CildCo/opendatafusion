@@ -82,3 +82,21 @@ def test_accepted_values_allows_nulls_when_configured(tmp_path):
     s, ds = _env(tmp_path)
     r = _rule(s, ds, "accepted_values", "status", values=["ok", "bad"])
     assert run_rule(s, r.id).status == "pass"
+
+
+def test_distribution_drift_builds_baseline_then_fails(tmp_path):
+    from odf.services.datasource import get_dsn
+    s, ds = _env(tmp_path)
+    rule = _rule(s, ds, "distribution_drift", "id",
+                 mean_deviation_pct=10, null_delta_pct=10, window=5)
+    for _ in range(3):
+        out = run_rule(s, rule.id)
+        assert out.status == "pass"
+        assert out.detail_json["baseline"] == "building"
+    engine = create_engine(get_dsn(s.get(Datasource, 1)))
+    with engine.begin() as c:
+        c.execute(text("update events set id = 100"))
+    out = run_rule(s, rule.id)
+    assert out.status == "fail"
+    assert out.detail_json["mean_deviation_pct"] > 10
+    assert out.detail_json["drift"]["mean"] == 100.0

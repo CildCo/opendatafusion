@@ -156,6 +156,9 @@ def _validate_for(session, asset, content):
     if asset.type == "model":
         from odf.transform.content import validate_model
         return validate_model(session, content, asset.project_id, asset.id)
+    if asset.type == "data_product":
+        from odf.products.content import validate_product
+        return validate_product(session, content, asset.project_id)
     return []
 
 
@@ -194,13 +197,16 @@ def publish_asset(session, asset_id, actor):
 
 
 ASSET_LABELS = {"pipeline": "管道", "dataset": "数据集", "metric": "指标",
-                "api": "API", "dashboard": "看板", "app": "应用"}
+                "api": "API", "dashboard": "看板", "app": "应用",
+                "model": "数据模型", "data_product": "数据产品"}
 
 
 def asset_link(a):
     prefix = {"pipeline": "pipelines", "dataset": "datasets",
               "metric": "metrics", "api": "apis",
-              "dashboard": "dashboards", "app": "apps"}.get(a.type)
+              "dashboard": "dashboards", "app": "apps",
+              "model": "models",
+              "data_product": "data-products"}.get(a.type)
     return "/%s/%d" % (prefix, a.id) if prefix else ""
 
 
