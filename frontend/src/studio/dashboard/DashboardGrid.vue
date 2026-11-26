@@ -28,8 +28,8 @@ const props = defineProps({
   readonly: Boolean,
   drillable: Boolean,
 });
-const emit = defineEmits(["select", "change", "filter", "drill",
-                          "interact"]);
+const emit = defineEmits(["select", "change", "change-end", "drag-start",
+                          "filter", "drill", "interact"]);
 const host = ref(null);
 const width = ref(960);
 let observer = null;
@@ -53,6 +53,7 @@ function resolveCollisions(moved) {
 
 function startDrag(w, event) {
   event.preventDefault();
+  emit("drag-start");
   const sx = event.clientX;
   const sy = event.clientY;
   const ox = w.x;
@@ -69,6 +70,7 @@ function startDrag(w, event) {
 
 function startResize(w, event) {
   event.preventDefault();
+  emit("drag-start");
   const sx = event.clientX;
   const sy = event.clientY;
   const ow = w.w;
@@ -89,7 +91,10 @@ function bind() {
 }
 function onMove(e) { if (drag) drag(e); }
 function stop() {
-  drag = null;
+  if (drag) {
+    drag = null;
+    emit("change-end");
+  }
   window.removeEventListener("pointermove", onMove);
   window.removeEventListener("pointerup", stop);
 }

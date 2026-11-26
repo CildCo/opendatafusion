@@ -62,6 +62,23 @@ test("wave AF2: dashboard style, click behavior and URL filters",
 
   const line = page.locator(".widget").filter({ hasText: "Sales trend" })
     .first();
+  const before = await line.boundingBox();
+  const head = await line.locator(".head").boundingBox();
+  await page.mouse.move(head.x + 40, head.y + 8);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) {
+    await page.mouse.move(head.x + 40, head.y + 8 + i * 16);
+    await page.waitForTimeout(35);
+  }
+  await page.mouse.up();
+  await page.waitForTimeout(600);
+  const after = await line.boundingBox();
+  expect(after.y).toBeGreaterThan(before.y + 40);
+  await page.keyboard.press("Control+z");
+  await page.waitForTimeout(700);
+  const undone = await line.boundingBox();
+  expect(Math.abs(undone.y - before.y)).toBeLessThan(10);
+
   await line.click();
   await expect(page.locator(".config")).toContainText("图表样式");
   await expect(page.locator(".config")).toContainText("配色");
@@ -80,9 +97,20 @@ test("wave AF2: dashboard style, click behavior and URL filters",
     .toContainText("已保存草稿", { timeout: 15000 });
 
   await page.goto(`/ui/#/dashboards/${id}/run`);
+  await expect(page).toHaveURL(new RegExp(`/dashboards/${id}/run`), {
+    timeout: 15000,
+  });
+  await expect(page.locator(".run-page")).toBeVisible({ timeout: 15000 });
+  await expect(page.locator(".widget").first()).toBeVisible({
+    timeout: 15000,
+  });
+  await expect(page.locator(".el-loading-mask")).toHaveCount(0, {
+    timeout: 15000,
+  });
   const filter = page.locator(".param-bar input").first();
   await expect(filter).toBeVisible({ timeout: 15000 });
   await filter.fill("beijing");
+  await expect(filter).toHaveValue("beijing", { timeout: 5000 });
   await page.getByRole("button", { name: "查询" }).click();
   await expect(page).toHaveURL(/city=beijing/, { timeout: 15000 });
   await page.getByRole("button", { name: "重置" }).click();

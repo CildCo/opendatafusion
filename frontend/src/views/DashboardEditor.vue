@@ -65,6 +65,8 @@
                        :selected-id="selected?.id || ''"
                        drillable
                        @select="selectWidget" @change="dirty = true"
+                       @drag-start="history.pause"
+                       @change-end="onCanvasChangeEnd"
                        @filter="onFilter" @drill="onDrill" />
       </main>
 
@@ -575,6 +577,11 @@ function resetParams() {
 
 function setParams(p) {
   paramValues.value = { ...p };
+}
+
+function onCanvasChangeEnd() {
+  history.commit();
+  history.resume();
 }
 
 function onFilter({ param, value }) {
