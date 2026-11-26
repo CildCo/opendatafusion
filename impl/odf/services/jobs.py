@@ -106,7 +106,12 @@ def complete(session, job_id: int, success: bool,
         job.locked_at = None
         if job.attempts < job.max_attempts:
             job.status = "queued"
-            job.run_at = _now() + timedelta(seconds=30 * job.attempts)
+            backoff = (job.payload_json or {}).get("retry_backoff_seconds", 30)
+            try:
+                backoff = max(1, min(int(backoff), 3600))
+            except (TypeError, ValueError):
+                backoff = 30
+            job.run_at = _now() + timedelta(seconds=backoff * job.attempts)
         else:
             job.status = "failed"
             job.finished_at = _now()
@@ -152,15 +157,28 @@ def enqueue_asset(session, asset_id, asset_type="pipeline", payload=None):
     asset = session.get(Asset, asset_id)
     if asset:
         check_job(session, asset.project_id)
+    attempts, backoff = 3, 30
+    if asset:
+        try:
+            attempts = max(1, min(int(asset.max_attempts or 3), 10))
+        except (TypeError, ValueError):
+            attempts = 3
+        try:
+            backoff = max(0, min(int(asset.retry_backoff_seconds or 0), 3600))
+        except (TypeError, ValueError):
+            backoff = 30
+    body = dict(payload or {})
+    body["retry_backoff_seconds"] = backoff
     existing = (session.query(Job)
                 .filter(Job.asset_id == asset_id, Job.asset_type == asset_type,
                         Job.status.in_(("queued", "running"))).first())
     if existing:
-        if asset_type == "pipeline_backfill" and                 (existing.payload_json or {}) != (payload or {}):
+        if asset_type == "pipeline_backfill" and                 (existing.payload_json or {}) != body:
             raise ValueError("another backfill is already queued")
         return existing
     job = Job(asset_id=asset_id, asset_type=asset_type, status="queued",
-              run_at=_now(), attempts=0, payload_json=payload or {})
+              run_at=_now(), attempts=0, payload_json=body,
+              max_attempts=attempts)
     session.add(job)
     session.commit()
     session.refresh(job)

@@ -672,6 +672,8 @@ class Asset(Base):
     contract_json: Mapped[dict] = mapped_column(JSON, default=dict)
     cron: Mapped[str | None] = mapped_column(String(64), nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    retry_backoff_seconds: Mapped[int] = mapped_column(Integer, default=30)
     draft_version_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     published_version_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cursor_json: Mapped[dict | None] = mapped_column(JSON, default=dict,

@@ -15,6 +15,11 @@ class ReplayIn(BaseModel):
     ids: list[int]
 
 
+class RunPolicyIn(BaseModel):
+    max_attempts: int = 3
+    retry_backoff_seconds: int = 30
+
+
 def _value_error(e):
     msg = str(e)
     raise HTTPException(404 if "not found" in msg else 400, msg)
@@ -32,7 +37,32 @@ def run_matrix(days: int = 7, s: Session = Depends(get_session),
     return service.run_matrix(s, claims["project_id"], days)
 
 
+@router.get("/ops/schedules")
+def schedules(s: Session = Depends(get_session),
+              claims: dict = Depends(require_user)):
+    return service.schedules(s, claims["project_id"])
+
+
+@router.get("/ops/run-policies")
+def run_policies(s: Session = Depends(get_session),
+                 claims: dict = Depends(require_user)):
+    return service.run_policies(s, claims["project_id"])
+
+
+@router.put("/ops/run-policies/{asset_id}")
+def update_run_policy(asset_id: int, body: RunPolicyIn,
+                      s: Session = Depends(get_session),
+                      claims: dict = Depends(require_editor)):
+    try:
+        return service.update_run_policy(
+            s, claims["project_id"], asset_id, body.max_attempts,
+            body.retry_backoff_seconds, claims["sub"])
+    except ValueError as e:
+        _value_error(e)
+
+
 @router.get("/ops/jobs")
+
 def jobs(status: str | None = None, limit: int = 50,
          s: Session = Depends(get_session),
          claims: dict = Depends(require_user)):
@@ -58,6 +88,24 @@ def replay_dead_letters(body: ReplayIn, s: Session = Depends(get_session),
                                    claims["sub"])
     except ValueError:
         raise HTTPException(400, "could not replay the selected jobs")
+
+
+@router.get("/ops/jobs/{job_id}/detail")
+def job_detail(job_id: int, s: Session = Depends(get_session),
+               claims: dict = Depends(require_user)):
+    try:
+        return service.job_detail(s, claims["project_id"], job_id)
+    except ValueError as e:
+        _value_error(e)
+
+
+@router.get("/ops/jobs/{job_id}/compare")
+def job_compare(job_id: int, s: Session = Depends(get_session),
+                claims: dict = Depends(require_user)):
+    try:
+        return service.job_compare(s, claims["project_id"], job_id)
+    except ValueError as e:
+        _value_error(e)
 
 
 @router.post("/ops/jobs/{job_id}/retry")

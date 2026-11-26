@@ -422,3 +422,15 @@ share one history stack.
 - **Glossary links**: catalog columns can be linked to glossary terms; the
   field list and column drawer show them, and catalog search matches term
   names to their tables and columns.
+
+## 38. Scheduling resilience and run detail
+
+- **Schedules** lists every scheduled asset with its cron, next run, enabled
+  state, latest status and last run time.
+- **Run policies** set maximum attempts (1–10) and retry backoff seconds
+  (0–3600) per asset; queued jobs inherit the policy and retries use the
+  configured interval.
+- **Job detail** opens from any task row and shows status, attempts, worker,
+  error and per-node input/output rows and duration.
+- **Run comparison** diffs the open job against the previous run of the same
+  asset, including duration and output-row deltas per node.
