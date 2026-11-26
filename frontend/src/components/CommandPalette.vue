@@ -55,6 +55,7 @@ const current = ref(null);
 const lists = ref(null);
 const catalog = ref({ tables: [], columns: [] });
 const recent = ref([]);
+const favorites = ref([]);
 let timer = null;
 
 const TYPE_LABEL = {
@@ -166,8 +167,14 @@ const groups = computed(() => {
   } catch { /* ignore */ }
 
   if (!text) {
+    const out = [];
+    if (favorites.value.length) {
+      out.push({ label: t("search.favorites"),
+                 items: favorites.value.slice(0, 8) });
+    }
     const items = recent.value.slice(0, 8);
-    return items.length ? [{ label: t("search.recent"), items }] : [];
+    if (items.length) out.push({ label: t("search.recent"), items });
+    return out;
   }
   const actions = ACTIONS
     .map((action) => ({
@@ -175,15 +182,21 @@ const groups = computed(() => {
       to: { path: action.path, query: { new: "1" } }, action: true,
     }))
     .filter((item) => matches(item, text));
+  const favoriteRoutes = new Set(favorites.value.map((item) => item.route));
   const grouped = new Map();
   for (const item of source) {
-    if (!matches(item, text)) continue;
+    if (!matches(item, text) || favoriteRoutes.has(item.route)) continue;
     if (!grouped.has(item.type)) grouped.set(item.type, []);
     if (grouped.get(item.type).length < 6) grouped.get(item.type).push(item);
   }
   const out = [];
   if (actions.length) {
     out.push({ label: t("search.group.action"), items: actions });
+  }
+  const favoriteHits = favorites.value
+    .filter((item) => matches(item, text)).slice(0, 5);
+  if (favoriteHits.length) {
+    out.push({ label: t("search.favorites"), items: favoriteHits });
   }
   for (const type of ORDER) {
     if (!grouped.has(type)) continue;
@@ -233,8 +246,16 @@ watch(() => props.modelValue, async (open) => {
   }));
   await nextTick();
   input.value?.focus();
-  await loadLists();
+  await Promise.all([loadLists(), loadFavorites()]);
 });
+
+async function loadFavorites() {
+  try {
+    favorites.value = await api.get("/favorites");
+  } catch {
+    favorites.value = [];
+  }
+}
 
 function move(delta) {
   if (!flat.value.length) return;

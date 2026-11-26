@@ -12,6 +12,8 @@
         <el-tag size="small" :type="published ? 'success' : 'info'">
           {{ published ? t("shell.published") : t("shell.draft") }}
         </el-tag>
+        <favorite-button v-if="assetType && assetId" :type="assetType"
+                         :id="assetId" />
       </div>
       <div class="right">
         <history-controls :can-undo="canUndo" :can-redo="canRedo"
@@ -41,6 +43,7 @@
 
 <script setup>
 import HistoryControls from "../components/HistoryControls.vue";
+import FavoriteButton from "../components/FavoriteButton.vue";
 import { t } from "../i18n";
 
 defineProps({
@@ -51,6 +54,8 @@ defineProps({
   saving: Boolean,
   canUndo: Boolean,
   canRedo: Boolean,
+  assetType: { type: String, default: "" },
+  assetId: { type: Number, default: 0 },
 });
 defineEmits(["save", "validate", "preview", "run", "backfill", "cursors",
              "toggle", "publish", "versions", "rename", "rename-save",

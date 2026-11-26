@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from odf.models import Alert, AlertRule
+from odf.models import (Alert, AlertNote, AlertRule, ProjectMember,
+                        User)
 
 
 def create_rule(session, project_id: int, name: str, kind: str,
@@ -111,3 +112,70 @@ def delete_rule(session, project_id: int, rule_id: int) -> None:
         raise ValueError("rule not found")
     session.delete(rule)
     session.commit()
+
+
+def _alert(session, project_id, alert_id):
+    a = session.get(Alert, alert_id)
+    if not a or a.project_id != project_id:
+        raise ValueError("alert not found")
+    return a
+
+
+def alert_assignees(session, project_id: int):
+    rows = (session.query(User.username)
+            .join(ProjectMember, ProjectMember.user_id == User.id)
+            .filter(ProjectMember.project_id == project_id,
+                    User.active.is_(True))
+            .order_by(User.username).all())
+    return [row[0] for row in rows]
+
+
+def assign_alert(session, project_id: int, alert_id: int, assignee: str,
+                 actor: str):
+    a = _alert(session, project_id, alert_id)
+    value = (assignee or "").strip()
+    if value:
+        user = session.query(User).filter_by(username=value).first()
+        member = (session.query(ProjectMember)
+                  .filter_by(project_id=project_id,
+                             user_id=user.id).first()) if user else None
+        if not user or not user.active or not member:
+            raise ValueError("assignee is not an active project member")
+    a.assigned_to = value or None
+    session.commit()
+    session.refresh(a)
+    from odf.services.audit import write_audit
+    write_audit(session, actor, "assign_alert", str(a.id),
+                {"assigned_to": a.assigned_to or ""})
+    return a
+
+
+def list_alert_notes(session, project_id: int, alert_id: int):
+    _alert(session, project_id, alert_id)
+    return (session.query(AlertNote)
+            .filter_by(project_id=project_id, alert_id=alert_id)
+            .order_by(AlertNote.created_at, AlertNote.id).all())
+
+
+def add_alert_note(session, project_id: int, alert_id: int, actor: str,
+                   body: str):
+    _alert(session, project_id, alert_id)
+    text = (body or "").strip()
+    if not text:
+        raise ValueError("note body is required")
+    if len(text) > 4000:
+        raise ValueError("note body is too long")
+    row = AlertNote(project_id=project_id, alert_id=alert_id, actor=actor,
+                    body=text)
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    from odf.services.audit import write_audit
+    write_audit(session, actor, "note_alert", str(alert_id),
+                {"note_id": row.id})
+    return row
+
+
+def alert_notes_dict(rows):
+    return [{"id": n.id, "actor": n.actor, "body": n.body,
+             "created_at": n.created_at.isoformat()} for n in rows]

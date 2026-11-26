@@ -7,6 +7,7 @@
       <el-tag size="small" :type="published ? 'success' : 'info'">
         {{ published ? t("med.published") : t("med.draft") }}
       </el-tag>
+      <favorite-button type="metric" :id="id" />
       <div class="spacer" />
       <el-button size="small" @click="save()">{{ t("med.save") }}</el-button>
       <el-button size="small" @click="validate">{{ t("med.validate") }}</el-button>
@@ -160,6 +161,7 @@ import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg, getProject, getRole } from "../api";
 import { t } from "../i18n";
+import FavoriteButton from "../components/FavoriteButton.vue";
 import LineageDrawer from "../components/LineageDrawer.vue";
 import GovernanceDrawer from "../components/GovernanceDrawer.vue";
 import { useDraftSafety } from "../draftSafety";

@@ -8,6 +8,7 @@
         {{ enabled ? t("aed.published") : t("aed.draft") }}
       </el-tag>
       <span class="key mono">{{ key }}</span>
+      <favorite-button type="api" :id="id" />
       <div class="spacer" />
       <el-button size="small" @click="save()">{{ t("aed.save") }}</el-button>
       <el-button size="small" @click="validate">{{ t("aed.validate") }}</el-button>
@@ -117,6 +118,7 @@ import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
+import FavoriteButton from "../components/FavoriteButton.vue";
 import AssetTree from "../studio/AssetTree.vue";
 import VisualBuilder from "../studio/api/VisualBuilder.vue";
 import SqlEditor from "../studio/api/SqlEditor.vue";

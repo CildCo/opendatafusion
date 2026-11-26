@@ -4,6 +4,22 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [3.1.0] - 2026-11-26
+
+### Added
+
+- The SQL workbench completes table and column names from the selected
+  datasource's synchronized schema, and renders results as a table, bar,
+  line, area or pie chart with dimension and measure pickers.
+- Favorites: any asset editor and the catalog table detail can be starred.
+  The command palette shows a Favorites group above Recent, and favorited
+  routes are de-duplicated from normal search results.
+- Alerts support assignment to active project members, an activity timeline
+  with notes, and record who acknowledged and closed them.
+- Glossary terms can be linked to catalog columns; the column drawer manages
+  links, the field list shows them, and catalog search matches term names to
+  their tables and columns.
+
 ## [3.0.0] - 2026-11-25
 
 ### Added

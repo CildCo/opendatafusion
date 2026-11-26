@@ -12,6 +12,7 @@
         <el-radio-button value="visual">{{ t("ded.visualMode") }}</el-radio-button>
         <el-radio-button value="sql">{{ t("ded.sqlMode") }}</el-radio-button>
       </el-radio-group>
+      <favorite-button type="dataset" :id="id" />
       <div class="spacer" />
       <el-button size="small" @click="save()">{{ t("ded.save") }}</el-button>
       <el-button size="small" @click="validate">{{ t("ded.validate") }}</el-button>
@@ -182,6 +183,7 @@ import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
 import { t } from "../i18n";
+import FavoriteButton from "../components/FavoriteButton.vue";
 import VisualBuilder from "../studio/api/VisualBuilder.vue";
 import SqlEditor from "../studio/api/SqlEditor.vue";
 import LineageDrawer from "../components/LineageDrawer.vue";

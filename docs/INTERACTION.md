@@ -75,3 +75,16 @@ day (failed, running, queued, success, skipped). The window can be 7, 14 or
 - The lineage explorer focuses on a ref, follows upstream / downstream / both
   up to the chosen depth, highlights the focused node and its edges, filters
   column lineage and exports JSON or CSV.
+
+## Workbench, favorites and alert collaboration
+
+- The SQL editor receives the selected datasource schema and completes table
+  and column names. Results can be switched to a bar, line, area or pie chart
+  with explicit dimension and measure columns.
+- Every asset editor and the catalog table detail expose one star button
+  backed by `favorite`; the command palette loads favorites first and removes
+  duplicate routes from the normal result groups.
+- Alerts use one timeline: raised, acknowledged, notes and closed. Assignment
+  accepts only active project members, and the list filters by assignee.
+- Column glossary links live in `column_term`; the column drawer adds and
+  removes them, and catalog search folds term matches into table hits.

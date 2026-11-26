@@ -407,3 +407,18 @@ share one history stack.
 - **Impact** uses the lineage explorer: choose upstream, downstream or both,
   set a depth, click a node to focus, filter column lineage and export JSON or
   CSV.
+
+## 37. Workbench, favorites and alert collaboration
+
+- **SQL workbench**: after choosing a datasource, the editor completes table
+  and column names from synchronized metadata. Results switch between table,
+  bar, line, area and pie views with dimension and measure pickers.
+- **Favorites**: dataset, metric, model, pipeline, API, dashboard, app and
+  catalog table editors have a star button. The command palette (`Ctrl+K`)
+  shows Favorites before Recent.
+- **Alert collaboration**: alerts can be assigned to active project members.
+  A timeline records acknowledgement, notes and closure; the list filters by
+  assignee and the drawer acknowledges or closes directly.
+- **Glossary links**: catalog columns can be linked to glossary terms; the
+  field list and column drawer show them, and catalog search matches term
+  names to their tables and columns.

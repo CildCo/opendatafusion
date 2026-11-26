@@ -59,5 +59,5 @@ def test_search_is_case_insensitive_and_limited():
     assert [t["table"] for t in out["tables"]] == ["customers"]
     assert out["columns"][0]["column"] == "customer_name"
     assert search_catalog(s, 1, "  ") == {
-        "tables": [], "columns": [], "tags": []}
+        "tables": [], "columns": [], "tags": [], "terms": []}
     assert len(search_catalog(s, 1, "a", limit=1)["columns"]) == 1

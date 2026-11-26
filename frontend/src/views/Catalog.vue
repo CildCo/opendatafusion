@@ -81,6 +81,11 @@
                           size="small" type="info">{{ c }}</el-tag>
                   <el-tag v-for="g in t.matched_tags" :key="'g' + g"
                           size="small">{{ g }}</el-tag>
+                  <el-tag v-for="term in t.matched_terms || []"
+                          :key="'tm' + term.term + term.column" size="small"
+                          type="success">
+                    {{ term.term }} · {{ term.column }}
+                  </el-tag>
                 </span>
               </div>
             </div>

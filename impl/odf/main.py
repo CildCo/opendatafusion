@@ -23,6 +23,7 @@ import odf.ops.api as ops_api
 import odf.share.api as share_api
 import odf.workbench.api as workbench_api
 import odf.api.engine as engine_api
+import odf.api.favorites as favorites_api
 import odf.api.grants as grants_api
 import odf.webhooks.api as webhooks_api
 import odf.files.api as files_api
@@ -47,7 +48,8 @@ for r in (datasources.router, metadata.router, mcp.router, users.router,
           projects.router, catalog.router, quality.router,
           standards.router, alerts.router, changes.router, audit.router,
           notifications.router, saved_queries.router, governance.router,
-          query_runs.router, templates.router, dashboard.router):
+          query_runs.router, templates.router, dashboard.router,
+          favorites_api.router):
     app.include_router(r, prefix="/api/v1",
                        dependencies=[Depends(require_user)])
 app.include_router(pipeline_api.router, prefix="/api/v1",

@@ -16,6 +16,12 @@
         <el-option value="warning" :label="t('alerts.severityWarning')" />
         <el-option value="error" :label="t('alerts.severityError')" />
       </el-select>
+      <el-select v-model="assignee" clearable filterable
+                 :placeholder="t('alerts.allAssignees')"
+                 style="width: 150px">
+        <el-option v-for="name in assignees" :key="name" :value="name"
+                   :label="name" />
+      </el-select>
       <div class="spacer" />
       <el-button @click="$router.push('/webhooks')">
         {{ t("alerts.subscriptions") }}
@@ -41,6 +47,11 @@
         <el-table-column :label="t('alerts.colStatus')" width="110">
           <template #default="{ row }">
             <status-dot :status="row.status" :label="statusLabel(row.status)" />
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('alerts.assignedTo')" width="120">
+          <template #default="{ row }">
+            {{ row.assigned_to || "-" }}
           </template>
         </el-table-column>
         <el-table-column prop="created_at" :label="t('alerts.colTime')"
@@ -103,7 +114,7 @@
 
     <el-drawer v-model="drawer"
                :title="current.title || t('alerts.drawerTitle')"
-               size="520px">
+               size="560px">
       <el-descriptions :column="1" border>
         <el-descriptions-item :label="t('alerts.colSeverity')">
           {{ current.severity }}
@@ -111,10 +122,68 @@
         <el-descriptions-item :label="t('alerts.colStatus')">
           {{ statusLabel(current.status) }}
         </el-descriptions-item>
+        <el-descriptions-item :label="t('alerts.assignedTo')">
+          {{ current.assigned_to || t("alerts.unassigned") }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('alerts.ackedBy')">
+          {{ current.acked_by || "-" }}
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('alerts.closedBy')">
+          {{ current.closed_by || "-" }}
+        </el-descriptions-item>
         <el-descriptions-item :label="t('alerts.colTime')">
           {{ current.created_at }}
         </el-descriptions-item>
       </el-descriptions>
+
+      <div class="drawer-actions">
+        <el-select v-model="assigneeDraft" clearable filterable
+                   size="small" style="flex: 1"
+                   :placeholder="t('alerts.assignee')">
+          <el-option v-for="name in assignees" :key="name" :value="name"
+                     :label="name" />
+        </el-select>
+        <el-button size="small" type="primary" :loading="assigning"
+                   @click="saveAssignee">{{ t("alerts.assign") }}</el-button>
+        <el-button v-if="canEdit" size="small"
+                   :disabled="current.status !== 'open'"
+                   @click="ack(current)">{{ t("alerts.ack") }}</el-button>
+        <el-button v-if="canEdit" size="small"
+                   :disabled="current.status === 'closed'"
+                   @click="close(current)">{{ t("alerts.close") }}</el-button>
+      </div>
+
+      <h4>{{ t("alerts.timeline") }}</h4>
+      <div class="timeline">
+        <div class="tl-row">
+          <span class="tl-time">{{ current.created_at }}</span>
+          <span>{{ t("alerts.raised") }}</span>
+        </div>
+        <div v-if="current.acked_at" class="tl-row">
+          <span class="tl-time">{{ current.acked_at }}</span>
+          <span>{{ t("alerts.ackedBy") }} {{ current.acked_by || "-" }}</span>
+        </div>
+        <div v-for="note in current.notes || []" :key="note.id" class="tl-row">
+          <span class="tl-time">{{ note.created_at }}</span>
+          <span><b>{{ note.actor }}</b> {{ note.body }}</span>
+        </div>
+        <div v-if="current.closed_at" class="tl-row">
+          <span class="tl-time">{{ current.closed_at }}</span>
+          <span>{{ t("alerts.closedBy") }} {{ current.closed_by || "-" }}</span>
+        </div>
+        <p v-if="!current.notes?.length" class="muted">
+          {{ t("alerts.noNotes") }}
+        </p>
+      </div>
+      <div class="note-box">
+        <el-input v-model="noteText" type="textarea" :rows="3"
+                  :placeholder="t('alerts.notePlaceholder')" />
+        <el-button type="primary" :loading="noting"
+                   :disabled="!noteText.trim()" @click="saveNote">
+          {{ t("alerts.addNote") }}
+        </el-button>
+      </div>
+
       <h4>{{ t("alerts.detail") }}</h4>
       <json-view :value="current.detail" />
     </el-drawer>
@@ -158,6 +227,12 @@ const rules = ref([]);
 const loading = ref(false);
 const status = ref("");
 const severity = ref("");
+const assignee = ref("");
+const assignees = ref([]);
+const assigneeDraft = ref("");
+const assigning = ref(false);
+const noteText = ref("");
+const noting = ref(false);
 const drawer = ref(false);
 const current = ref({});
 const ruleDialog = ref(false);
@@ -165,7 +240,9 @@ const ruleForm = reactive({ name: "" });
 const ruleValue = reactive({ kind: "mute", config: {} });
 
 const filtered = computed(() =>
-  rows.value.filter((r) => !severity.value || r.severity === severity.value)
+  rows.value.filter((r) =>
+    (!severity.value || r.severity === severity.value)
+    && (!assignee.value || r.assigned_to === assignee.value))
 );
 
 function statusLabel(s) {
@@ -187,6 +264,11 @@ async function load() {
     rows.value = result.items || [];
     total.value = result.total || 0;
     rules.value = await api.get("/alerts/rules");
+    try {
+      assignees.value = await api.get("/alerts/assignees");
+    } catch {
+      assignees.value = [];
+    }
   } catch (e) {
     ElMessage.error(errMsg(e));
   } finally {
@@ -203,14 +285,64 @@ function search() {
   page.value = 1;
   load();
 }
-function showDetail(row) {
+async function showDetail(row) {
   current.value = row;
+  assigneeDraft.value = row.assigned_to || "";
+  noteText.value = "";
   drawer.value = true;
+  try {
+    current.value = await api.get(`/alerts/${row.id}`);
+    assigneeDraft.value = current.value.assigned_to || "";
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function refreshDetail() {
+  if (!current.value?.id) return;
+  try {
+    current.value = await api.get(`/alerts/${current.value.id}`);
+    assigneeDraft.value = current.value.assigned_to || "";
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+async function saveAssignee() {
+  if (!current.value?.id) return;
+  assigning.value = true;
+  try {
+    current.value = await api.post(`/alerts/${current.value.id}/assign`, {
+      assignee: assigneeDraft.value || "",
+    });
+    await load();
+    ElMessage.success(t("alerts.assigned"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    assigning.value = false;
+  }
+}
+
+async function saveNote() {
+  if (!current.value?.id || !noteText.value.trim()) return;
+  noting.value = true;
+  try {
+    await api.post(`/alerts/${current.value.id}/notes`,
+                   { body: noteText.value });
+    noteText.value = "";
+    await refreshDetail();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    noting.value = false;
+  }
 }
 async function ack(row) {
   try {
     await api.post(`/alerts/${row.id}/ack`);
     await load();
+    if (current.value?.id === row.id) await refreshDetail();
     ElMessage.success(t("alerts.ackedMsg"));
   } catch (e) {
     ElMessage.error(errMsg(e));
@@ -235,6 +367,7 @@ async function close(row) {
                                { type: "warning" });
     await api.post(`/alerts/${row.id}/close`);
     await load();
+    if (current.value?.id === row.id) await refreshDetail();
     ElMessage.success(t("alerts.closedMsg"));
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));
@@ -307,5 +440,15 @@ async function removeRule(row) {
   align-items: center;
 }
 .rule-hint { color: #64748b; font-size: 12px; line-height: 1.5; }
+.drawer-actions { display: flex; gap: 8px; margin-top: 14px;
+                  flex-wrap: wrap; }
+.timeline { border-left: 2px solid #e2e8f0; padding-left: 12px;
+            margin: 8px 0; }
+.tl-row { display: flex; gap: 10px; font-size: 12px; color: #475569;
+          padding: 4px 0; }
+.tl-time { color: #94a3b8; min-width: 138px; }
+.note-box { display: flex; flex-direction: column; gap: 8px;
+            align-items: flex-end; margin-bottom: 8px; }
+.note-box :deep(.el-textarea) { width: 100%; }
 .pager { margin-top: 12px; justify-content: flex-end; }
 </style>
