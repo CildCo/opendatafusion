@@ -4,6 +4,13 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [3.2.1] - 2026-11-26
+
+### Fixed
+
+- Run-policy inputs and save action are read-only for roles that cannot write;
+  viewers can still inspect schedules, policies and job details.
+
 ## [3.2.0] - 2026-11-26
 
 ### Added
