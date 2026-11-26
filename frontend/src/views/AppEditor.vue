@@ -181,7 +181,7 @@
           <AppCanvas v-if="currentPage" :key="currentPage.id" design
                      :page="currentPage" :data="data" :params="paramValues"
                      :component-state="previewComponents"
-                     :stacked="previewDevice === 'tablet' ? true : null"
+                     :stacked="previewDevice === 'tablet'"
                      :selected-id="selectedId" :on-submit="submitForm"
                      @select="selectComponent"
                      @drag-start="history.pause"
