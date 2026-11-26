@@ -234,8 +234,8 @@ def import_glossary(body: TermImportIn, s: Session = Depends(get_session),
     try:
         return import_terms(s, claims["project_id"], body.text, body.format,
                             claims["sub"])
-    except ValueError as error:
-        raise HTTPException(400, str(error))
+    except ValueError:
+        raise HTTPException(400, "invalid glossary import")
 
 
 @router.put("/governance/terms/{term_id}")
