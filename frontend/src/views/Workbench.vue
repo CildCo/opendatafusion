@@ -168,7 +168,7 @@
           {{ result.truncated ? t("wb.yes") : t("wb.no") }}
         </el-descriptions-item>
       </el-descriptions>
-      <pre v-else-if="resultView === 'request'" class="inspector-pre">{{ singleSql }}</pre>
+      <pre v-else-if="resultView === 'request'" class="inspector-pre">{{ activeSql }}</pre>
       <pre v-else class="inspector-pre">{{ JSON.stringify(result.rows, null, 2) }}</pre>
     </div>
     <el-empty v-else :description="t('wb.empty')" />
@@ -298,6 +298,9 @@ const schemaTree = computed(() => {
   }
   return out;
 });
+
+const activeSql = computed(() =>
+  tab.value === "federated" ? fedSql.value : singleSql.value);
 
 const datasourceName = computed(() => {
   const found = datasources.value.find((d) => d.id === datasourceId.value);
