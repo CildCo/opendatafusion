@@ -4,6 +4,33 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [3.4.0] - 2026-11-26
+
+### Added
+
+- Application bindings accept dotted paths for page parameters, form values
+  and table row selections. The editor offers a searchable binding picker and
+  the preview shares form and table state with the canvas.
+- Buttons run an ordered, validated action sequence: navigate, URL, set
+  parameter, refresh and message.
+- Role-based component visibility (`viewer`, `editor`, `approver`, `admin`)
+  alongside parameter visibility rules.
+- Container, tabs and dialog components. Children use the same component model
+  and 12-column grid recursively, with validation for nesting depth, counts,
+  ids and tab structure.
+- The editor sidebar is a searchable outline with nested items and an explicit
+  insertion target for pages, containers and tabs.
+- The inspector is split into Content, Layout and Interaction tabs.
+- A desktop/tablet preview switch; runtime stacks components in reading order
+  below the tablet breakpoint.
+
+### Fixed
+
+- Runtime data loading validates button navigation against every page in the
+  app instead of only the active page, so valid cross-page actions no longer
+  report `target page does not exist`.
+- Form submission can resolve forms nested inside containers, tabs and dialogs.
+
 ## [3.3.0] - 2026-11-26
 
 ### Added

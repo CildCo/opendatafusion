@@ -243,3 +243,21 @@ def test_delete_is_audited(tmp_path):
     assert row.target == str(aid)
     assert row.detail_json["mode"] == "delete"
     assert "1" not in str(row.detail_json.get("values"))
+
+
+def test_submit_nested_form(tmp_path):
+    s, _ = _env(tmp_path)
+    dsid = _dataset(s)
+    content = {"start_page": "p1", "pages": [{
+        "id": "p1", "title": "P", "params": [], "components": [
+            {"id": "box", "type": "container", "children": [
+                {"id": "f", "type": "form", "dataset_id": dsid,
+                 "mode": "insert", "fields": [
+                     {"column": "city", "widget": "input", "required": True},
+                     {"column": "amount", "widget": "number"}]}]}]}]}
+    a = create_asset(s, 1, "app", "A", content, "admin", enabled=False)
+    publish_asset(s, a.id, "admin")
+    out = submit_form(s, a.id, "f", {"city": "nested", "amount": 3},
+                      published_only=True, actor="admin",
+                      actor_role="admin")
+    assert out["affected"] == 1

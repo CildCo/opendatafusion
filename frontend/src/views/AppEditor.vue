@@ -107,48 +107,81 @@
               + {{ t(ct.labelKey) }}
             </el-button>
           </div>
+          <div class="add-target">
+            <span>{{ t("aedit.addTo") }}</span>
+            <el-select v-model="addTarget" size="small" filterable
+                       style="flex: 1">
+              <el-option v-for="opt in addTargets" :key="opt.value"
+                         :value="opt.value" :label="opt.label" />
+            </el-select>
+          </div>
+          <el-input v-model="outlineQuery" size="small" clearable
+                    :placeholder="t('aedit.outlineSearch')"
+                    class="outline-search" />
           <div class="components">
-            <div v-for="(c, i) in currentPage.components" :key="c.id"
+            <div v-for="row in visibleOutline" :key="row.comp.id"
                  class="comp-row" draggable="true"
-                 :class="{ active: c.id === selectedId,
-                           dragging: dragFrom === i }"
-                 @click="selectComponent(c.id)"
-                 @dragstart="dragFrom = i" @dragover.prevent
-                 @drop.prevent="dropComponent(i)"
-                 @dragend="dragFrom = -1">
+                 :class="{ active: row.comp.id === selectedId,
+                           nested: row.depth > 0 }"
+                 :style="{ paddingLeft: `${8 + row.depth * 14}px` }"
+                 @click="selectComponent(row.comp.id)"
+                 @dragstart="dragRow = row" @dragover.prevent
+                 @drop.prevent="dropComponent(row)"
+                 @dragend="dragRow = null">
               <span class="drag-handle">⋮⋮</span>
-              <span class="comp-name">{{ c.title || typeLabel(c.type) }}</span>
-              <span class="comp-type">{{ typeLabel(c.type) }}</span>
+              <span class="comp-name">{{ rowLabel(row.comp) }}</span>
+              <span v-if="row.tabId" class="comp-type">
+                {{ row.tabId }}
+              </span>
+              <span class="comp-type">{{ typeLabel(row.comp.type) }}</span>
               <span class="comp-actions">
-                <el-button link size="small" :disabled="i === 0"
-                           @click.stop="moveComponent(i, -1)">↑</el-button>
                 <el-button link size="small"
-                           :disabled="i === currentPage.components.length - 1"
-                           @click.stop="moveComponent(i, 1)">↓</el-button>
+                           :disabled="row.list.indexOf(row.comp) === 0"
+                           @click.stop="moveComponent(row, -1)">↑</el-button>
+                <el-button link size="small"
+                           :disabled="row.list.indexOf(row.comp)
+                             === row.list.length - 1"
+                           @click.stop="moveComponent(row, 1)">↓</el-button>
               </span>
             </div>
-            <el-empty v-if="!currentPage.components.length"
+            <el-empty v-if="!visibleOutline.length"
                       :description="t('aedit.noComponents')" :image-size="48" />
           </div>
         </div>
       </aside>
 
       <main class="canvas" v-loading="loadingData">
-        <div v-if="currentPage?.params?.length" class="preview-filters">
-          <div v-for="p in currentPage.params" :key="p.name" class="filter">
-            <span>{{ p.name }}</span>
-            <el-input v-model="paramValues[p.name]" size="small"
-                      style="width: 130px" :placeholder="p.example || p.type"
-                      @change="refresh" />
-          </div>
+        <div class="canvas-toolbar">
+          <el-radio-group v-model="previewDevice" size="small">
+            <el-radio-button value="desktop">
+              {{ t("aedit.desktop") }}
+            </el-radio-button>
+            <el-radio-button value="tablet">
+              {{ t("aedit.tablet") }}
+            </el-radio-button>
+          </el-radio-group>
         </div>
-        <AppCanvas v-if="currentPage" :key="currentPage.id" design
-                   :page="currentPage" :data="data" :params="paramValues"
-                   :selected-id="selectedId" :on-submit="submitForm"
-                   @select="selectComponent"
-                   @drag-start="history.pause"
-                   @change-end="onCanvasChangeEnd"
-                   @navigate="navigatePreview" @row="openPreviewRow" />
+        <div class="canvas-frame"
+             :class="{ tablet: previewDevice === 'tablet' }">
+          <div v-if="currentPage?.params?.length" class="preview-filters">
+            <div v-for="p in currentPage.params" :key="p.name" class="filter">
+              <span>{{ p.name }}</span>
+              <el-input v-model="paramValues[p.name]" size="small"
+                        style="width: 130px" :placeholder="p.example || p.type"
+                        @change="refresh" />
+            </div>
+          </div>
+          <AppCanvas v-if="currentPage" :key="currentPage.id" design
+                     :page="currentPage" :data="data" :params="paramValues"
+                     :component-state="previewComponents"
+                     :stacked="previewDevice === 'tablet' ? true : null"
+                     :selected-id="selectedId" :on-submit="submitForm"
+                     @select="selectComponent"
+                     @drag-start="history.pause"
+                     @change-end="onCanvasChangeEnd"
+                     @navigate="navigatePreview" @row="openPreviewRow"
+                     @component-change="onPreviewComponentChange" />
+        </div>
       </main>
 
       <aside class="config">
@@ -159,6 +192,15 @@
               {{ t("aedit.delete") }}
             </el-button>
           </div>
+          <div class="config-tabs">
+            <button v-for="tab in configTabs" :key="tab.key" type="button"
+                    class="config-tab"
+                    :class="{ active: configTab === tab.key }"
+                    @click="configTab = tab.key">
+              {{ t(tab.label) }}
+            </button>
+          </div>
+          <div v-show="configTab === 'content'">
           <el-form label-width="76px" size="small">
             <el-form-item :label="t('aedit.title')">
               <el-input v-model="selected.title" />
@@ -167,6 +209,20 @@
               <el-form-item :label="t('aedit.text')">
                 <el-input v-model="selected.text" type="textarea"
                           :rows="selected.type === 'heading' ? 2 : 6" />
+              </el-form-item>
+              <el-form-item :label="t('aedit.insertBinding')">
+                <div class="binding-row">
+                  <el-select v-model="bindingPick" size="small" filterable
+                             style="flex: 1"
+                             :placeholder="t('aedit.bindingPick')">
+                    <el-option v-for="opt in bindingOptions" :key="opt.value"
+                               :value="opt.value" :label="opt.label" />
+                  </el-select>
+                  <el-button size="small" :disabled="!bindingPick"
+                             @click="insertBinding">
+                    {{ t("aedit.insert") }}
+                  </el-button>
+                </div>
               </el-form-item>
               <p class="hint">{{ t("aedit.bindingHint") }}</p>
             </template>
@@ -182,16 +238,7 @@
               <el-form-item :label="t('aedit.buttonLabel')">
                 <el-input v-model="selected.label" />
               </el-form-item>
-              <el-form-item :label="t('aedit.buttonTarget')">
-                <el-select v-model="selected.target_page" clearable
-                           style="width: 100%">
-                  <el-option v-for="p in content.pages" :key="p.id"
-                             :value="p.id" :label="p.title || p.id" />
-                </el-select>
-              </el-form-item>
-              <el-form-item :label="t('aedit.buttonUrl')">
-                <el-input v-model="selected.url" placeholder="https://..." />
-              </el-form-item>
+              <p class="hint">{{ t("aedit.buttonHint") }}</p>
             </template>
             <template v-if="selected.type === 'progress'">
               <el-form-item :label="t('aedit.progressValue')">
@@ -329,8 +376,35 @@
                                  :max="10000" />
               </el-form-item>
             </template>
+            <template v-if="selected.type === 'modal'">
+              <el-form-item :label="t('aedit.buttonLabel')">
+                <el-input v-model="selected.label" />
+              </el-form-item>
+              <el-form-item :label="t('aedit.title')">
+                <el-input v-model="selected.title" />
+              </el-form-item>
+            </template>
+            <template v-if="selected.type === 'tabs'">
+              <el-form-item :label="t('aedit.compTabs')">
+                <div class="tab-list">
+                  <div v-for="(tab, i) in selected.tabs || []" :key="tab.id"
+                       class="tab-row">
+                    <el-input v-model="tab.title" size="small" />
+                    <el-button link type="danger" size="small"
+                               :disabled="(selected.tabs || []).length <= 1"
+                               @click="removeTab(selected, i)"
+                               :aria-label="t('common.remove')">×</el-button>
+                  </div>
+                  <el-button link size="small" @click="addTab(selected)">
+                    {{ t("aedit.addTab") }}
+                  </el-button>
+                </div>
+              </el-form-item>
+            </template>
           </el-form>
-          <div v-if="selected.layout" class="layout-box">
+          </div>
+          <div v-show="configTab === 'layout' && selected.layout"
+               class="layout-box">
             <h4>{{ t("aedit.layout") }}</h4>
             <div class="layout-grid">
               <el-input-number v-model="selected.layout.x" :min="0" :max="11"
@@ -348,6 +422,83 @@
             </div>
             <p class="hint">{{ t("aedit.layoutHint") }}</p>
           </div>
+          <div v-show="configTab === 'interaction'" class="interaction-pane">
+            <template v-if="selected.type === 'button'">
+              <div class="visibility-box">
+                <h4>{{ t("aedit.actions") }}</h4>
+                <template v-if="!selected.actions?.length">
+                  <div class="field">
+                    <span>{{ t("aedit.buttonTarget") }}</span>
+                    <el-select v-model="selected.target_page" clearable
+                               size="small" style="width: 100%">
+                      <el-option v-for="p in content.pages" :key="p.id"
+                                 :value="p.id" :label="p.title || p.id" />
+                    </el-select>
+                  </div>
+                  <div class="field">
+                    <span>{{ t("aedit.buttonUrl") }}</span>
+                    <el-input v-model="selected.url" size="small"
+                              placeholder="https://..." />
+                  </div>
+                  <el-button link size="small" @click="enableActions">
+                    {{ t("aedit.useActions") }}
+                  </el-button>
+                </template>
+                <template v-else>
+                  <div class="action-list">
+                    <div v-for="(action, i) in selected.actions" :key="i"
+                         class="action-row">
+                      <el-select v-model="action.type" size="small"
+                                 style="width: 88px"
+                                 @change="normalizeAction(action)">
+                        <el-option value="navigate"
+                                   :label="t('aedit.actNavigate')" />
+                        <el-option value="url" :label="t('aedit.actUrl')" />
+                        <el-option value="set_param"
+                                   :label="t('aedit.actSetParam')" />
+                        <el-option value="refresh"
+                                   :label="t('aedit.actRefresh')" />
+                        <el-option value="message"
+                                   :label="t('aedit.actMessage')" />
+                      </el-select>
+                      <el-select v-if="action.type === 'navigate'"
+                                 v-model="action.page" size="small"
+                                 style="width: 90px">
+                        <el-option v-for="p in content.pages" :key="p.id"
+                                   :value="p.id" :label="p.title || p.id" />
+                      </el-select>
+                      <el-input v-else-if="action.type === 'url'"
+                                v-model="action.url" size="small"
+                                style="width: 110px" placeholder="/path" />
+                      <template v-else-if="action.type === 'set_param'">
+                        <el-select v-model="action.param" size="small"
+                                   style="width: 78px">
+                          <el-option v-for="p in currentPage.params || []"
+                                     :key="p.name" :value="p.name"
+                                     :label="p.name" />
+                        </el-select>
+                        <el-input v-model="action.value" size="small"
+                                  style="width: 70px" />
+                      </template>
+                      <el-input v-else-if="action.type === 'message'"
+                                v-model="action.text" size="small"
+                                style="width: 120px"
+                                :placeholder="t('aedit.actMessageText')" />
+                      <el-button link type="danger" size="small"
+                                 @click="selected.actions.splice(i, 1)"
+                                 :aria-label="t('common.remove')">×</el-button>
+                    </div>
+                    <el-button link size="small" @click="addAction">
+                      {{ t("aedit.addAction") }}
+                    </el-button>
+                  </div>
+                  <el-button link size="small"
+                             @click="selected.actions = undefined">
+                    {{ t("aedit.useLegacy") }}
+                  </el-button>
+                </template>
+              </div>
+            </template>
           <div v-if="currentPage.params?.length" class="visibility-box">
             <h4>{{ t("aedit.visibility") }}</h4>
             <el-select :model-value="selected.visible_when?.param || ''"
@@ -369,7 +520,21 @@
             </div>
             <p class="hint">{{ t("aedit.visibilityHint") }}</p>
           </div>
-          <p class="hint">{{ t("aedit.configHint") }}</p>
+          <div class="visibility-box">
+            <h4>{{ t("aedit.visibleRoles") }}</h4>
+            <el-select :model-value="selected.visible_roles || []" multiple
+                       clearable size="small" style="width: 100%"
+                       :placeholder="t('aedit.visibleRolesAll')"
+                       @update:model-value="setVisibleRoles">
+              <el-option v-for="r in formRoles" :key="r" :value="r"
+                         :label="t('role.' + r)" />
+            </el-select>
+            <p class="hint">{{ t("aedit.visibleRolesHint") }}</p>
+          </div>
+          </div>
+          <p v-show="configTab === 'content'" class="hint">
+            {{ t("aedit.configHint") }}
+          </p>
         </template>
         <el-empty v-else :description="t('aedit.selectComponent')"
                   :image-size="60" />
@@ -404,7 +569,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errMsg } from "../api";
@@ -412,6 +577,8 @@ import { t } from "../i18n";
 import FavoriteButton from "../components/FavoriteButton.vue";
 import AppCanvas from "../studio/app/AppCanvas.vue";
 import { normalizeLayouts, nextLayout } from "../studio/app/bindings";
+import { childListFor, findComponent, findRow, flatten,
+         removeComponent as removeFromTree } from "../studio/app/tree";
 import HistoryControls from "../components/HistoryControls.vue";
 import { bindHistoryKeys, useHistory } from "../composables/useHistory";
 import ShareDialog from "../studio/share/ShareDialog.vue";
@@ -430,29 +597,41 @@ const { canUndo, canRedo } = history;
 bindHistoryKeys(history);
 const currentId = ref("");
 const selectedId = ref("");
-const dragFrom = ref(-1);
+const dragRow = ref(null);
+const outlineQuery = ref("");
+const addTarget = ref("page");
+const configTab = ref("content");
+const previewDevice = ref("desktop");
 const previewRow = ref({});
 const previewRowOpen = ref(false);
+const previewComponents = reactive({});
 
-function moveComponent(index, delta) {
-  const list = currentPage.value?.components;
-  if (!list) return;
-  const target = index + delta;
-  if (target < 0 || target >= list.length) return;
-  const [item] = list.splice(index, 1);
-  list.splice(target, 0, item);
+function onPreviewComponentChange(componentId, values) {
+  previewComponents[componentId] = {
+    ...(previewComponents[componentId] || {}),
+    values,
+  };
 }
 
-function dropComponent(index) {
-  if (dragFrom.value < 0 || dragFrom.value === index) {
-    dragFrom.value = -1;
-    return;
-  }
-  const list = currentPage.value?.components;
-  if (!list) return;
-  const [item] = list.splice(dragFrom.value, 1);
-  list.splice(index, 0, item);
-  dragFrom.value = -1;
+function moveComponent(row, delta) {
+  if (!row || !row.list) return;
+  const index = row.list.indexOf(row.comp);
+  const target = index + delta;
+  if (index < 0 || target < 0 || target >= row.list.length) return;
+  const [item] = row.list.splice(index, 1);
+  row.list.splice(target, 0, item);
+}
+
+function dropComponent(row) {
+  const source = dragRow.value;
+  dragRow.value = null;
+  if (!source || !row || source.list !== row.list
+      || source.comp === row.comp) return;
+  const from = source.list.indexOf(source.comp);
+  const to = row.list.indexOf(row.comp);
+  if (from < 0 || to < 0) return;
+  const [item] = source.list.splice(from, 1);
+  row.list.splice(to, 0, item);
 }
 const data = ref({});
 const paramValues = ref({});
@@ -473,17 +652,120 @@ const types = [
   { type: "metric", labelKey: "aedit.compMetric" },
   { type: "table", labelKey: "aedit.compTable" },
   { type: "form", labelKey: "aedit.compForm" },
+  { type: "container", labelKey: "aedit.compContainer" },
+  { type: "tabs", labelKey: "aedit.compTabs" },
+  { type: "modal", labelKey: "aedit.compModal" },
+];
+const configTabs = [
+  { key: "content", label: "aedit.tabContent" },
+  { key: "layout", label: "aedit.tabLayout" },
+  { key: "interaction", label: "aedit.tabInteraction" },
 ];
 const formWidgets = ["input", "textarea", "number", "date", "select",
                      "checkbox"];
 const formRoles = ["viewer", "editor", "approver", "admin"];
 const formColumns = ref([]);
+const bindingPick = ref("");
+
+const bindingOptions = computed(() => {
+  const out = [];
+  for (const param of currentPage.value?.params || []) {
+    if (param.name) {
+      out.push({ value: `params.${param.name}`,
+                 label: `params.${param.name}` });
+    }
+  }
+  for (const row of outlineRows.value) {
+    const component = row.comp;
+    if (component.type === "form") {
+      for (const field of component.fields || []) {
+        if (field.column) {
+          out.push({
+            value: `components.${component.id}.values.${field.column}`,
+            label: `${component.title || component.id} · ${field.column}`,
+          });
+        }
+      }
+    }
+    if (component.type === "table") {
+      const cols = component.columns?.length ? component.columns
+        : (data.value?.[component.id]?.columns || []);
+      if (cols.length) {
+        for (const column of cols) {
+          out.push({
+            value: `components.${component.id}.selectedRow.${column}`,
+            label: `${component.title || component.id} · row.${column}`,
+          });
+        }
+      } else {
+        out.push({
+          value: `components.${component.id}.selectedRow`,
+          label: `${component.title || component.id} · selectedRow`,
+        });
+      }
+    }
+  }
+  return out;
+});
 
 const currentPage = computed(() =>
   content.value.pages?.find((p) => p.id === currentId.value) || null);
 const selected = computed(() =>
-  currentPage.value?.components?.find((c) => c.id === selectedId.value)
-  || null);
+  currentPage.value ? findComponent(currentPage.value.components, selectedId.value)
+    : null);
+const outlineRows = computed(() => currentPage.value
+  ? flatten(currentPage.value.components || []) : []);
+const visibleOutline = computed(() => {
+  const query = outlineQuery.value.trim().toLowerCase();
+  if (!query) return outlineRows.value;
+  const hit = (row) => [
+    row.comp.id, row.comp.type, row.comp.title, row.comp.label,
+    row.comp.text, typeLabel(row.comp.type),
+  ].filter(Boolean).some((value) =>
+    String(value).toLowerCase().includes(query));
+  const shown = new Set();
+  for (const row of outlineRows.value) {
+    if (!hit(row)) continue;
+    for (const id of row.path) shown.add(id);
+  }
+  return outlineRows.value.filter((row) => shown.has(row.comp.id));
+});
+const addTargets = computed(() => {
+  const out = [{ value: "page", label: t("aedit.addToPage") }];
+  for (const row of outlineRows.value) {
+    const comp = row.comp;
+    if (comp.type === "container" || comp.type === "modal") {
+      out.push({
+        value: `c:${comp.id}`,
+        label: `${comp.title || typeLabel(comp.type)} · `
+          + t("aedit.addToContainer"),
+      });
+    }
+    if (comp.type === "tabs") {
+      for (const tab of comp.tabs || []) {
+        out.push({
+          value: `t:${comp.id}:${tab.id}`,
+          label: `${comp.title || comp.id} / ${tab.title || tab.id}`,
+        });
+      }
+    }
+  }
+  return out;
+});
+const targetList = computed(() => {
+  const value = addTarget.value;
+  if (value.startsWith("c:")) {
+    const comp = findComponent(currentPage.value?.components || [],
+                               value.slice(2));
+    return childListFor(comp);
+  }
+  if (value.startsWith("t:")) {
+    const [, cid, tid] = value.split(":");
+    const comp = findComponent(currentPage.value?.components || [], cid);
+    return childListFor(comp, tid);
+  }
+  return currentPage.value?.components || null;
+});
 const columnsText = computed({
   get: () => (selected.value?.columns || []).join(", "),
   set: (v) => {
@@ -497,6 +779,17 @@ const columnsText = computed({
 function typeLabel(type) {
   const found = types.find((x) => x.type === type);
   return found ? t(found.labelKey) : type;
+}
+
+function rowLabel(comp) {
+  const fallback = typeLabel(comp.type);
+  const title = comp.title?.trim();
+  if (["text", "heading"].includes(comp.type)
+      && (!title || title === fallback)) {
+    const text = (comp.text || "").trim();
+    if (text) return text.length > 24 ? `${text.slice(0, 24)}…` : text;
+  }
+  return title || comp.label || fallback;
 }
 
 function resetParams() {
@@ -544,6 +837,8 @@ async function loadOptions() {
 
 watch(currentId, async () => {
   selectedId.value = "";
+  addTarget.value = "page";
+  outlineQuery.value = "";
   resetParams();
   data.value = {};
   modelColumns.value = [];
@@ -618,13 +913,14 @@ function removeParam(i) {
 }
 
 async function addComponent(type) {
-  if (!currentPage.value) return;
+  const list = targetList.value;
+  if (!currentPage.value || !list) return;
   const c = {
     id: `c_${Date.now().toString(36)}_${Math.random()
       .toString(36).slice(2, 5)}`,
     type,
     title: typeLabel(type),
-    layout: nextLayout(currentPage.value.components, type),
+    layout: nextLayout(list, type),
   };
   if (type === "text") c.text = t("aedit.defaultText");
   if (type === "heading") c.text = t("aedit.defaultHeading");
@@ -654,7 +950,16 @@ async function addComponent(type) {
     c.submit_text = t("aedit.submit");
     c.success_message = t("aedit.submitSuccess");
   }
-  currentPage.value.components.push(c);
+  if (type === "container") c.children = [];
+  if (type === "modal") {
+    c.children = [];
+    c.label = t("aedit.modalOpen");
+    c.title = t("aedit.modalTitle");
+  }
+  if (type === "tabs") {
+    c.tabs = [{ id: "t1", title: t("aedit.tabN"), components: [] }];
+  }
+  list.push(c);
   selectedId.value = c.id;
   if (type === "metric") await loadModel();
   if (type === "table" && c.dataset_id) await chooseDataset(c.dataset_id);
@@ -673,20 +978,91 @@ function navigatePreview(pageId) {
   }
 }
 
-function openPreviewRow(row) {
+function openPreviewRow(payload) {
+  const row = payload?.row || payload || {};
+  if (payload?.componentId) {
+    previewComponents[payload.componentId] = {
+      ...(previewComponents[payload.componentId] || {}),
+      selectedRow: row,
+    };
+  }
   previewRow.value = row;
   previewRowOpen.value = true;
 }
 
 function autoLayout() {
-  const list = currentPage.value?.components || [];
+  layoutList(currentPage.value?.components || []);
+  history.commit();
+}
+
+function layoutList(list) {
   let y = 0;
   for (const c of list) {
     const size = nextLayout([], c.type);
     c.layout = { ...size, y };
     y += size.h;
+    if (c.type === "container" || c.type === "modal") {
+      layoutList(c.children || []);
+    } else if (c.type === "tabs") {
+      for (const tab of c.tabs || []) layoutList(tab.components || []);
+    }
   }
-  history.commit();
+}
+
+function insertBinding() {
+  if (!selected.value || !bindingPick.value) return;
+  const token = `{{${bindingPick.value}}}`;
+  selected.value.text = `${selected.value.text || ""}${token}`;
+  bindingPick.value = "";
+}
+
+function setVisibleRoles(roles) {
+  if (!selected.value) return;
+  selected.value.visible_roles = roles?.length ? roles : undefined;
+}
+
+function enableActions() {
+  if (!selected.value) return;
+  selected.value.actions = [];
+  selected.value.target_page = "";
+  selected.value.url = "";
+  addAction();
+}
+
+function addAction() {
+  if (!selected.value) return;
+  selected.value.actions = selected.value.actions || [];
+  selected.value.actions.push({
+    type: "navigate", page: content.value.pages[0]?.id || "",
+  });
+}
+
+function addTab(comp) {
+  const tabs = comp.tabs || (comp.tabs = []);
+  let n = tabs.length + 1;
+  const used = new Set(tabs.map((tab) => tab.id));
+  while (used.has(`t${n}`)) n += 1;
+  tabs.push({ id: `t${n}`, title: `${t("aedit.tabN")} ${n}`,
+              components: [] });
+}
+
+function removeTab(comp, index) {
+  if (!comp.tabs || comp.tabs.length <= 1) return;
+  comp.tabs.splice(index, 1);
+}
+
+function normalizeAction(action) {
+  if (action.type === "navigate") {
+    action.page = action.page || content.value.pages[0]?.id || "";
+  } else if (action.type === "url") {
+    action.url = action.url || "";
+  } else if (action.type === "set_param") {
+    action.param = action.param
+      || (currentPage.value?.params || [])[0]?.name || "";
+    action.value = action.value ?? "";
+  } else if (action.type === "message") {
+    action.text = action.text || "";
+  }
 }
 
 function setVisibleParam(name) {
@@ -727,10 +1103,10 @@ function selectComponent(cid) {
 function removeComponent() {
   if (!selected.value) return;
   const cid = selected.value.id;
-  currentPage.value.components = currentPage.value.components
-    .filter((c) => c.id !== cid);
+  removeFromTree(currentPage.value.components, cid);
   delete data.value[cid];
   selectedId.value = "";
+  if (addTarget.value.includes(cid)) addTarget.value = "page";
   modelColumns.value = [];
 }
 
@@ -973,11 +1349,16 @@ onMounted(load);
 .param :deep(.el-input) { width: 74px; }
 .palette { display: flex; flex-direction: column; gap: 4px; }
 .palette .add { width: 100%; margin: 0; }
+.add-target { display: flex; align-items: center; gap: 6px; margin-top: 8px;
+              font-size: 11px; color: #475569; }
+.outline-search { margin-top: 8px; }
 .components { margin-top: 8px; display: flex; flex-direction: column; gap: 2px; }
 .comp-row { display: flex; align-items: center; gap: 8px;
             padding: 6px 8px; border-radius: 6px; cursor: grab;
             font-size: 12px; color: #475569; }
 .comp-row.dragging { opacity: 0.5; }
+.comp-row.nested { background: #fafbfc; }
+.comp-row.nested .comp-name { font-weight: 400; }
 .comp-name { flex: 1; min-width: 0; overflow: hidden;
              text-overflow: ellipsis; white-space: nowrap; }
 .drag-handle { color: #cbd5e1; font-size: 11px; letter-spacing: -1px; }
@@ -990,6 +1371,11 @@ onMounted(load);
 .comp-type { color: #6b7280; font-size: 11px; }
 .hint { color: #6b7280; font-size: 11px; margin: 8px 0 0; }
 .canvas { overflow: auto; padding: 14px; }
+.canvas-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.canvas-frame { width: 100%; transition: max-width 0.2s ease; }
+.canvas-frame.tablet { max-width: 680px; margin: 0 auto;
+                       border: 1px solid #e5e7eb; border-radius: 8px;
+                       padding: 10px; background: #fff; }
 .preview-filters { display: flex; gap: 10px; align-items: flex-end;
                    flex-wrap: wrap; margin-bottom: 10px; padding: 8px 10px;
                    background: #fff; border: 1px solid #e5e7eb;
@@ -1002,8 +1388,24 @@ onMounted(load);
                gap: 4px; }
 .layout-grid :deep(.el-input-number) { width: 100%; }
 .vis-row { display: flex; gap: 6px; margin-top: 6px; }
+.binding-row { display: flex; gap: 6px; width: 100%; }
+.action-list { display: flex; flex-direction: column; gap: 5px; width: 100%; }
+.action-row { display: flex; gap: 4px; align-items: center;
+              flex-wrap: wrap; }
+.visibility-box + .visibility-box { margin-top: 6px; }
+.tab-list { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+.tab-row { display: flex; gap: 4px; align-items: center; }
 .config { background: #fff; border-left: 1px solid #e5e7eb; overflow: auto;
           padding: 12px; }
 .config-head { display: flex; justify-content: space-between; align-items: center; }
+.config-tabs { display: flex; gap: 4px; margin: 10px 0 4px;
+               border-bottom: 1px solid #eef2f7; }
+.config-tab { border: 0; background: transparent; padding: 5px 8px;
+              font-size: 12px; color: #64748b; cursor: pointer;
+              border-bottom: 2px solid transparent; }
+.config-tab.active { color: #1d4ed8; border-bottom-color: #1d4ed8;
+                     font-weight: 600; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 11px;
+         color: #475569; margin-bottom: 8px; }
 h4 { margin: 0 0 12px; font-size: 13px; }
 </style>

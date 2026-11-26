@@ -377,15 +377,25 @@ The **Apps** editor uses a 12-column free-form canvas:
 - Drag a component title bar to move it and the lower-right corner to resize;
   overlapping components are pushed down.
 - The property panel accepts column, row, width and height directly, and
-  **Tidy layout** reflows components in order.
+  **Tidy layout** reflows components in order, including nested content.
 - Components include text, heading, divider, image, button, progress, metric,
-  table and form.
-- Text and headings interpolate page parameters with `{{name}}`; buttons open
-  another page or an external link.
-- **Visibility** uses `=`, `!=` or `in` page-parameter conditions to show or
-  hide a component at runtime.
-- Parameter filters preview data in the editor; validation checks grid bounds,
-  undefined parameters, image URLs and button targets.
+  table, form, container, tabs and dialog. Containers and dialogs hold child
+  components; tabs hold components per tab.
+- The outline panel searches components and indents nested items. **Add to**
+  selects the page, a container or a tab as the destination for new components.
+- Text and headings interpolate page parameters and component values:
+  `{{params.city}}`, `{{components.form1.values.city}}` and
+  `{{components.orders.selectedRow.amount}}`.
+- Buttons run an ordered action sequence: navigate to a page, open a URL, set a
+  page parameter, refresh data, or show a message.
+- **Visibility** uses `=`, `!=` or `in` page-parameter conditions; **visible
+  roles** limits a component to selected roles.
+- The inspector separates **Content**, **Layout** and **Interaction** settings.
+- The **Desktop / Tablet** switch previews the responsive runtime; at tablet
+  width components stack in their configured order.
+- Parameter filters, form input and table selection update the preview;
+  validation checks grid bounds, undefined bindings, roles, container depth,
+  image URLs and button targets/actions.
 - A drag or resize is one undo step.
 
 The editing shortcuts apply to the transform-model editor as well; all editors

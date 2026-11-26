@@ -46,6 +46,7 @@ const props = defineProps({
   component: { type: Object, required: true },
   onSubmit: { type: Function, default: null },
 });
+const emit = defineEmits(["change"]);
 const values = reactive({});
 const loading = ref(false);
 const role = getRole() || "viewer";
@@ -76,6 +77,7 @@ function reset() {
 
 watch(() => props.component.id, reset, { immediate: true });
 watch(() => props.component.fields, reset, { deep: true });
+watch(values, () => emit("change", { ...values }), { deep: true });
 
 async function submit() {
   for (const f of props.component.fields || []) {

@@ -2,7 +2,8 @@
   <div class="app-component" :class="`type-${component.type}`">
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <template v-else-if="component.type === 'form'">
-      <AppForm :component="component" :on-submit="onSubmit" />
+      <AppForm :component="component" :on-submit="onSubmit"
+               @change="$emit('change', $event)" />
     </template>
     <div v-else-if="component.type === 'heading'" class="heading">
       {{ text }}
@@ -50,18 +51,21 @@ const props = defineProps({
   component: { type: Object, required: true },
   entry: { type: Object, default: null },
   params: { type: Object, default: () => ({}) },
+  components: { type: Object, default: () => ({}) },
   onSubmit: { type: Function, default: null },
   design: Boolean,
 });
-const emit = defineEmits(["navigate", "row"]);
+const emit = defineEmits(["navigate", "row", "change", "action"]);
 
 const error = computed(() => props.entry?.error || "");
 const text = computed(() => interpolate(
   props.component.text ?? props.entry?.text ?? "",
-  props.params, { keepMissing: props.design }));
+  props.params, { keepMissing: props.design,
+                  components: props.components }));
 const label = computed(() => interpolate(
   props.component.label || props.component.text || t("acomp.open"),
-  props.params, { keepMissing: props.design }));
+  props.params, { keepMissing: props.design,
+                  components: props.components }));
 const percentage = computed(() =>
   progressValue(props.component, props.params));
 
@@ -83,6 +87,10 @@ function tableColumns() {
 
 function act() {
   if (props.design) return;
+  if (props.component.actions?.length) {
+    emit("action", props.component.actions);
+    return;
+  }
   if (props.component.target_page) {
     emit("navigate", props.component.target_page);
   } else if (props.component.url) {

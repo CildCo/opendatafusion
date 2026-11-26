@@ -1,5 +1,6 @@
 from odf.apistudio.params import ParamError, coerce_params
-from odf.appstudio.content import structural_errors, validate_component
+from odf.appstudio.content import (CONTAINER_TYPES, iter_components,
+                                   structural_errors, validate_component)
 from odf.assets.service import get_asset
 from odf.modelstudio.service import preview_dataset, query_metric
 from odf.models import AssetVersion
@@ -32,6 +33,8 @@ def app_data(session, asset_id, page_id=None, params=None, content=None,
     if errs:
         raise ValueError("invalid app: %s" % errs)
     pid = page_id or content.get("start_page")
+    page_ids = {p.get("id") for p in content["pages"]
+                if isinstance(p, dict) and isinstance(p.get("id"), str)}
     page = next((p for p in content["pages"] if p.get("id") == pid), None)
     if not page:
         raise ValueError("page not found")
@@ -40,12 +43,13 @@ def app_data(session, asset_id, page_id=None, params=None, content=None,
     except ParamError as e:
         raise ValueError(str(e))
     out = {}
-    for comp in page.get("components") or []:
+    for comp in iter_components(page.get("components") or []):
         cid = comp.get("id")
-        if comp.get("type") == "form":
+        if comp.get("type") == "form" or comp.get("type") in CONTAINER_TYPES:
             continue
         try:
-            errs = validate_component(session, page, comp, a.project_id)
+            errs = validate_component(session, page, comp, a.project_id,
+                                      page_ids)
             if errs:
                 out[cid] = _component_error(errs)
                 continue
