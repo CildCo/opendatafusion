@@ -7,6 +7,9 @@
       <div class="spacer" />
       <el-button @click="load" :loading="loading">{{ t("apps.refresh") }}</el-button>
       <el-button v-if="canEdit" type="primary" @click="create">{{ t("apps.new") }}</el-button>
+      <el-button v-if="canEdit" @click="tplOpen = true">
+        {{ t("tpl.gallery") }}
+      </el-button>
     </div>
     <el-card shadow="never">
       <el-table :data="rows" size="small" v-loading="loading">
@@ -45,6 +48,7 @@
       <el-empty v-if="!loading && !rows.length"
                 :description="t('apps.empty')" />
     </el-card>
+    <template-dialog v-model="tplOpen" mode="app" @created="openTemplate" />
   </div>
 </template>
 
@@ -54,10 +58,12 @@ import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, canWrite, errMsg } from "../api";
 import { t } from "../i18n";
+import TemplateDialog from "../components/TemplateDialog.vue";
 
 const router = useRouter();
 const route = useRoute();
 const rows = ref([]);
+const tplOpen = ref(false);
 const total = ref(0);
 const page = ref(1);
 const pageSize = ref(50);
@@ -119,6 +125,10 @@ async function create() {
   } catch (e) {
     if (e !== "cancel") ElMessage.error(errMsg(e));
   }
+}
+
+function openTemplate(result) {
+  if (result?.id) router.push(`/apps/${result.id}`);
 }
 
 onMounted(load);

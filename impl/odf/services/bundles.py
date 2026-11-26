@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 
 BUNDLE_FORMAT = "odf-bundle"
 BUNDLE_VERSION = 1
-ASSET_TYPES = {"pipeline", "dataset", "metric", "api", "dashboard", "app", "model"}
+ASSET_TYPES = {"pipeline", "dataset", "metric", "api", "dashboard", "app",
+               "model", "data_product"}
 
 
 def _iso(value):
@@ -127,6 +128,10 @@ def _remap(value, mapping, missing, asset_mapping=None):
                 else:
                     out[key] = None
                     missing.append(str(item))
+            elif key == "asset_ids" and isinstance(item, list):
+                out[key] = [asset_mapping.get(value, value)
+                            if isinstance(value, int) else value
+                            for value in item]
             elif key in ASSET_REF_KEYS and isinstance(item, int):
                 if item in asset_mapping:
                     out[key] = asset_mapping[item]

@@ -1,4 +1,5 @@
-from odf.models import Column, Dataset, Standard, StandardMapping
+from odf.models import (Column, Dataset, Datasource, Standard,
+                        StandardMapping)
 
 
 def create_standard(session, project_id: int, code: str, name: str,
@@ -16,14 +17,73 @@ def list_standards(session, project_id: int):
             .order_by(Standard.id).all())
 
 
-def map_standard(session, standard_id: int, dataset_id: int,
-                 column_name: str) -> StandardMapping:
-    m = StandardMapping(standard_id=standard_id, dataset_id=dataset_id,
-                        column_name=column_name)
-    session.add(m)
+def update_standard(session, project_id, standard_id, code, name,
+                    description=""):
+    row = session.get(Standard, standard_id)
+    if not row or row.project_id != project_id:
+        raise ValueError("standard not found")
+    code = (code or "").strip()
+    name = (name or "").strip()
+    if not code or not name:
+        raise ValueError("standard code and name are required")
+    row.code = code[:64]
+    row.name = name[:128]
+    row.description = (description or "")[:4000]
     session.commit()
-    session.refresh(m)
-    return m
+    session.refresh(row)
+    return row
+
+
+def delete_standard(session, project_id, standard_id):
+    row = session.get(Standard, standard_id)
+    if not row or row.project_id != project_id:
+        raise ValueError("standard not found")
+    session.query(StandardMapping).filter_by(standard_id=standard_id).delete(
+        synchronize_session=False)
+    session.delete(row)
+    session.commit()
+    return {"deleted": True}
+
+
+def map_standard(session, project_id, standard_id, dataset_id,
+                 column_name):
+    standard = session.get(Standard, standard_id)
+    if not standard or standard.project_id != project_id:
+        raise ValueError("standard not found")
+    dataset = session.get(Dataset, dataset_id)
+    datasource = session.get(Datasource, dataset.datasource_id) \
+        if dataset else None
+    if not datasource or datasource.project_id != project_id:
+        raise ValueError("dataset not found")
+    column = (session.query(Column)
+              .filter_by(dataset_id=dataset_id, name=column_name).first())
+    if not column:
+        raise ValueError("column not found")
+    existing = (session.query(StandardMapping)
+                .filter_by(dataset_id=dataset_id,
+                           column_name=column_name).first())
+    if existing:
+        existing.standard_id = standard_id
+    else:
+        existing = StandardMapping(standard_id=standard_id,
+                                   dataset_id=dataset_id,
+                                   column_name=column_name)
+        session.add(existing)
+    session.commit()
+    session.refresh(existing)
+    return existing
+
+
+def unmap_standard(session, project_id, mapping_id):
+    row = session.get(StandardMapping, mapping_id)
+    dataset = session.get(Dataset, row.dataset_id) if row else None
+    datasource = session.get(Datasource, dataset.datasource_id) \
+        if dataset else None
+    if not row or not datasource or datasource.project_id != project_id:
+        raise ValueError("mapping not found")
+    session.delete(row)
+    session.commit()
+    return {"deleted": True}
 
 
 def list_mappings(session, dataset_id: int):

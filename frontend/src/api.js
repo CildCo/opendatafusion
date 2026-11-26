@@ -121,6 +121,24 @@ export const api = {
     a.click();
     URL.revokeObjectURL(url);
   },
+  upload: async (file) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const headers = { "Accept-Language": acceptLanguage() };
+    const token = getToken();
+    if (token) headers.Authorization = "Bearer " + token;
+    const r = await fetch("/api/v1/files", { method: "POST", headers,
+                                             body: fd });
+    if (!r.ok) {
+      let msg = `HTTP ${r.status}`;
+      try {
+        const body = await r.json();
+        if (body.detail) msg = body.detail;
+      } catch (e) { /* keep default */ }
+      throw new Error(localizeError(msg));
+    }
+    return r.json();
+  },
   tablesOf: (dsId) => request(`/datasources/${dsId}/tables`),
   datasetDetail: (id) => request(`/catalog/datasets/${id}`),
   switchProject: async (project_id) => {

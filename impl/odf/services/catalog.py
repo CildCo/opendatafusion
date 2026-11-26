@@ -145,9 +145,13 @@ def dataset_detail(session, dataset_id: int, project_id: int | None = None):
                      .filter_by(dataset_id=dataset_id, status="open").count())
     all_comments = (session.query(CatalogComment)
                     .filter_by(dataset_id=dataset_id).count())
+    external = bool(ds and ds.kind in ("dbt", "bi"))
     return {"id": d.id, "datasource_id": d.datasource_id,
             "datasource_name": ds.name if ds else None,
             "datasource_kind": ds.kind if ds else None,
+            "external": external,
+            "description": d.description or "",
+            "owner": d.owner or "",
             "project_id": ds.project_id if ds else None,
             "schema": d.schema_name, "table": d.table_name,
             "domain_id": d.domain_id,
@@ -161,6 +165,7 @@ def dataset_detail(session, dataset_id: int, project_id: int | None = None):
                 "exempt_roles": policies[c.name].exempt_roles_json
                 if c.name in policies else [],
                 "terms": term_links.get(c.name, []),
+                "description": c.description or "",
             } for c in cols],
             "tags": [t.name for t in tags],
             "metrics": related,

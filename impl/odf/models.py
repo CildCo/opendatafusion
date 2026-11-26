@@ -91,6 +91,8 @@ class Dataset(Base):
     table_name: Mapped[str] = mapped_column(String(128))
     domain_id: Mapped[int | None] = mapped_column(Integer, nullable=True,
                                                  index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    owner: Mapped[str] = mapped_column(String(64), default="")
 
 
 class Column(Base):
@@ -99,6 +101,7 @@ class Column(Base):
     dataset_id: Mapped[int] = mapped_column(ForeignKey("dataset.id"), index=True)
     name: Mapped[str] = mapped_column(String(128))
     data_type: Mapped[str] = mapped_column(String(64))
+    description: Mapped[str] = mapped_column(Text, default="")
 
 
 class AkSk(Base):

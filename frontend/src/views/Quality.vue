@@ -124,6 +124,8 @@
             <el-option value="custom_sql" :label="t('quality.kindCustomSql')" />
             <el-option value="row_count_anomaly"
                        :label="t('quality.kindAnomaly')" />
+            <el-option value="distribution_drift"
+                       :label="t('quality.kindDrift')" />
           </el-select>
         </el-form-item>
         <el-form-item v-if="!['row_count', 'schema', 'custom_sql',
@@ -179,6 +181,19 @@
           </el-form-item>
           <el-form-item :label="t('quality.window')">
             <el-input-number v-model="form.window" :min="3" :max="100" />
+          </el-form-item>
+        </template>
+        <template v-if="form.kind === 'distribution_drift'">
+          <el-form-item :label="t('quality.meanDeviation')">
+            <el-input-number v-model="form.drift_mean_pct" :min="1"
+                             :max="500" />
+          </el-form-item>
+          <el-form-item :label="t('quality.nullDelta')">
+            <el-input-number v-model="form.drift_null_pct" :min="0"
+                             :max="100" />
+          </el-form-item>
+          <el-form-item :label="t('quality.window')">
+            <el-input-number v-model="form.window" :min="3" :max="50" />
           </el-form-item>
         </template>
         <el-form-item :label="t('quality.schedule')">
@@ -342,6 +357,7 @@ const form = reactive({
   expected_text: "", allow_null: true, allow_extra: false,
   custom_sql: "", expect: "zero", expect_value: null,
   deviation_pct: 30, window: 10,
+  drift_mean_pct: 30, drift_null_pct: 10,
 });
 
 const filtered = computed(() =>
@@ -356,6 +372,7 @@ function kindLabel(k) {
     accepted_values: t("quality.tagAcceptedValues"), schema: t("quality.tagSchema"),
     custom_sql: t("quality.tagCustomSql"),
     row_count_anomaly: t("quality.tagAnomaly"),
+    distribution_drift: t("quality.tagDrift"),
   }[k] || k;
 }
 function datasetName(id) {
@@ -400,6 +417,7 @@ function openCreate() {
     allow_extra: false, schedule_cron: "", alert_on_fail: false,
     custom_sql: "", expect: "zero", expect_value: null,
     deviation_pct: 30, window: 10,
+    drift_mean_pct: 30, drift_null_pct: 10,
   });
   columns.value = [];
   dialog.value = true;
@@ -453,6 +471,11 @@ async function create() {
     }
     if (form.kind === "row_count_anomaly") {
       config.deviation_pct = form.deviation_pct;
+      config.window = form.window;
+    }
+    if (form.kind === "distribution_drift") {
+      config.mean_deviation_pct = form.drift_mean_pct;
+      config.null_delta_pct = form.drift_null_pct;
       config.window = form.window;
     }
     await api.post("/quality/rules", {

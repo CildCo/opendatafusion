@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from odf.db import SessionLocal
 from odf.models import Alert, Asset, Job, Project
-from odf.ops.service import (ack_alert, list_alerts, list_jobs,
+from odf.ops.service import (ack_alert, cost_report, list_alerts, list_jobs,
                              retry_job, run_health, summary, timeline)
 
 
@@ -154,3 +154,38 @@ def test_run_health_reports_success_rate_and_sla_breaches():
         assert row["sla_breaches"] == 2
         assert row["priority"] == 7
         assert row["health_score"] < 50
+
+
+def test_cost_report_uses_start_and_rate():
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    with SessionLocal() as s:
+        project = s.get(Project, 901)
+        if not project:
+            project = Project(id=901, code="ops901", name="ops901")
+            s.add(project)
+        project.quota_json = {"cost_per_hour": 10, "currency": "CNY"}
+        s.query(Job).filter(Job.id.in_([9321, 9322])).delete(
+            synchronize_session=False)
+        s.query(Asset).filter(Asset.id == 9221).delete(
+            synchronize_session=False)
+        s.add(Asset(id=9221, project_id=901, type="pipeline",
+                    key="cost-a1", name="cost asset", owner="ops"))
+        s.flush()
+        s.add_all([
+            Job(id=9321, asset_id=9221, asset_type="pipeline",
+                status="success", created_at=now - timedelta(hours=2),
+                locked_at=now - timedelta(minutes=40),
+                finished_at=now - timedelta(minutes=10)),
+            Job(id=9322, asset_id=9221, asset_type="pipeline",
+                status="success", created_at=now - timedelta(hours=1),
+                locked_at=now - timedelta(minutes=30),
+                finished_at=now - timedelta(minutes=15)),
+        ])
+        s.commit()
+        out = cost_report(s, 901, 30)
+        row = next(item for item in out["items"] if item["asset_id"] == 9221)
+        assert row["jobs"] == 2
+        assert row["hours"] == 0.75
+        assert row["cost"] == 7.5
+        assert out["rate_per_hour"] == 10

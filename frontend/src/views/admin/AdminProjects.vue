@@ -157,6 +157,12 @@
         <el-form-item :label="t('adm.timezone')">
           <el-input v-model="quota.timezone" placeholder="Asia/Shanghai" />
         </el-form-item>
+        <el-form-item :label="t('adm.costPerHour')">
+          <el-input v-model="quota.cost_per_hour" placeholder="10" />
+        </el-form-item>
+        <el-form-item :label="t('adm.currency')">
+          <el-input v-model="quota.currency" placeholder="CNY" />
+        </el-form-item>
         <el-form-item :label="t('adm.maxAssets')">
           <el-input v-model="quota.max_assets" placeholder="200" />
         </el-form-item>
@@ -255,6 +261,7 @@ const form = reactive({ code: "", name: "", environment: "dev" });
 const edit = reactive({ name: "", enabled: true, environment: "dev" });
 const quota = reactive({ cpu: "", memory: "", pods: "", storage: "",
                          max_running_jobs: "", timezone: "",
+                         cost_per_hour: "", currency: "",
                          max_jobs: "", max_assets: "" });
 const usageOpen = ref(false);
 const usage = ref({});
@@ -371,7 +378,8 @@ function openQuota(row) {
   current.value = row;
   Object.assign(quota, { cpu: "", memory: "", pods: "", storage: "",
                          max_jobs: "", max_assets: "", max_running_jobs: "",
-                         timezone: "" }, row.quota || {});
+                         timezone: "", cost_per_hour: "",
+                         currency: "" }, row.quota || {});
   quotaOpen.value = true;
 }
 

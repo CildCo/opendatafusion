@@ -109,14 +109,33 @@ def resolve(session, token):
     return a, v.content_json
 
 
+def _public_components(components):
+    out = []
+    for comp in components or []:
+        if not isinstance(comp, dict):
+            continue
+        if comp.get("type") in ("form", "upload", "approval"):
+            continue
+        item = dict(comp)
+        if item.get("type") in ("container", "modal"):
+            item["children"] = _public_components(item.get("children"))
+        elif item.get("type") == "tabs":
+            item["tabs"] = [
+                {**tab, "components": _public_components(
+                    tab.get("components"))}
+                for tab in item.get("tabs") or [] if isinstance(tab, dict)]
+        out.append(item)
+    return out
+
+
 def _public_content(kind, content):
     if kind != "app":
         return content
     return {**content,
-            "pages": [{**p,
-                       "components": [c for c in p.get("components") or []
-                                      if c.get("type") != "form"]}
-                      for p in content.get("pages") or []]}
+            "pages": [{**page,
+                       "components": _public_components(
+                           page.get("components"))}
+                      for page in content.get("pages") or []]}
 
 
 def _public_item(item):

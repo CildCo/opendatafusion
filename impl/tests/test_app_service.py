@@ -219,3 +219,20 @@ def test_page_roles_are_enforced_at_runtime(tmp_path):
     assert app_data(s, a.id, role="admin")["components"]["t"]["text"] == "secret"
     assert app_data(s, a.id, role="viewer", design=True)["components"]["t"][
         "text"] == "secret"
+
+
+def test_list_component_returns_dataset_rows(tmp_path):
+    s = _env(tmp_path)
+    ds = create_asset(s, 1, "dataset", "D", DATASET, "admin", enabled=False)
+    publish_asset(s, ds.id, "admin")
+    content = {"start_page": "p1", "pages": [{
+        "id": "p1", "title": "P",
+        "params": [{"name": "city", "type": "string", "default": "a"}],
+        "components": [
+            {"id": "l", "type": "list", "dataset_id": ds.id,
+             "title_column": "city", "value_column": "amount",
+             "limit": 20}]}]}
+    a = create_asset(s, 1, "app", "L", content, "admin", enabled=False)
+    out = app_data(s, a.id, params={"city": "a"})
+    assert out["components"]["l"]["row_count"] == 2
+    assert {row["city"] for row in out["components"]["l"]["rows"]} == {"a"}

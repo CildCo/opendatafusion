@@ -9,7 +9,8 @@ from odf.modelstudio.content import (dataset_output_columns,
 from odf.models import Asset, AssetVersion, Datasource
 
 TYPES = {"text", "heading", "divider", "image", "button", "progress",
-         "metric", "table", "form", "container", "tabs", "modal"}
+         "metric", "table", "form", "container", "tabs", "modal",
+         "upload", "approval", "list"}
 CONTAINER_TYPES = {"container", "tabs", "modal"}
 MAX_NESTING = 4
 MAX_PAGE_COMPONENTS = 200
@@ -581,6 +582,67 @@ def validate_component(session, page, comp, project_id, page_ids=None):
     errs = _visible_errors(comp, page_params)
     if typ == "form":
         return errs + _form_errors(session, comp, project_id)
+    if typ == "upload":
+        label = comp.get("label") or ""
+        if not isinstance(label, str) or len(label) > 120:
+            return errs + [_err("component.label",
+                                "upload label must be a string")]
+        accept = comp.get("accept")
+        if accept is not None:
+            if not isinstance(accept, list) or len(accept) > 10 or any(
+                    not isinstance(item, str)
+                    or not re.fullmatch(r"[A-Za-z0-9]{1,16}", item)
+                    for item in accept):
+                return errs + [_err("component.accept",
+                                    "accept must list up to 10 extensions")]
+        max_mb = comp.get("max_mb", 20)
+        if not isinstance(max_mb, int) or isinstance(max_mb, bool)                 or not 1 <= max_mb <= 20:
+            return errs + [_err("component.max_mb",
+                                "max_mb must be 1..20")]
+        return errs
+    if typ == "approval":
+        title = comp.get("title") or ""
+        if not isinstance(title, str) or len(title) > 120:
+            return errs + [_err("component.title",
+                                "approval title must be a string")]
+        limit = comp.get("limit", 10)
+        if not isinstance(limit, int) or isinstance(limit, bool)                 or not 1 <= limit <= 50:
+            return errs + [_err("component.limit",
+                                "approval limit must be 1..50")]
+        return errs
+    if typ == "list":
+        dsid = comp.get("dataset_id")
+        if not isinstance(dsid, int):
+            return errs + [_err("component.dataset_id",
+                                "list requires a dataset")]
+        ds_content, err = _published(session, dsid, "dataset", project_id)
+        if err:
+            return errs + [err]
+        if validate_dataset(session, ds_content, project_id):
+            return errs + [_err("component.dataset_id",
+                                "dataset is invalid")]
+        required = {p.get("name") for p in ds_content.get("params") or []
+                    if isinstance(p, dict) and p.get("required")}
+        if required - page_params:
+            return errs + [_err("page.params",
+                                "dataset params not exposed: %s"
+                                % ", ".join(sorted(required - page_params)))]
+        cols = dataset_output_columns(ds_content)
+        for c in comp.get("columns") or []:
+            if c not in cols:
+                return errs + [_err("component.columns",
+                                    "column not in dataset output: %s" % c)]
+        for key in ("title_column", "subtitle_column", "value_column"):
+            value = comp.get(key)
+            if value and value not in cols:
+                return errs + [_err("component.%s" % key,
+                                    "column not in dataset output: %s"
+                                    % value)]
+        limit = comp.get("limit", 100)
+        if not isinstance(limit, int) or isinstance(limit, bool)                 or not 1 <= limit <= 1000:
+            return errs + [_err("component.limit",
+                                "limit must be 1..1000")]
+        return errs
     col_errs = _column_errors(comp)
     if col_errs:
         return errs + col_errs

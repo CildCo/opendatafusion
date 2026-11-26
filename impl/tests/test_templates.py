@@ -85,3 +85,16 @@ def test_unknown_template_is_rejected(tmp_path):
     s = _env(tmp_path)
     with pytest.raises(ValueError):
         apply_template(s, 1, "missing", {}, "alice")
+
+
+def test_apply_app_templates_creates_drafts(tmp_path):
+    s = _env(tmp_path)
+    approval = apply_template(s, 1, "app-approval", {"name": "Approvals"},
+                              "alice")
+    upload = apply_template(s, 1, "app-upload", {"name": "Files"}, "alice")
+    assert get_asset(s, approval["id"]).type == "app"
+    assert get_asset(s, upload["id"]).type == "app"
+    assert _draft(s, get_asset(s, approval["id"]))["pages"][0][
+        "components"][1]["type"] == "approval"
+    assert _draft(s, get_asset(s, upload["id"]))["pages"][0][
+        "components"][1]["type"] == "upload"

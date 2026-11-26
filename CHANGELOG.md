@@ -4,6 +4,38 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [4.2.0] - 2026-11-26
+
+### Added
+
+- Application components: file upload, approval queue and list. Uploads reuse
+  the existing file store; approvals reuse change requests; lists reuse dataset
+  preview. Public shares strip upload and approval components recursively.
+- Built-in application templates (approval workbench and file intake) with a
+  template gallery on the apps page.
+- External metadata import for dbt manifests and BI JSON into the existing
+  physical catalog, including dataset/column descriptions and owners. External
+  datasets are read-only and cannot be previewed, queried or given quality
+  rules.
+- Data products as a first-class asset type with a summary, owner, SLA, terms
+  and up to 50 member assets. Products can be published and exported as a
+  bundle with the product manifest.
+- Data standards management UI and column mapping in catalog detail; write
+  routes now require editor permission, project scope and audit entries.
+- Cost attribution in the operations centre, using actual worker start/end
+  timestamps and a project hourly rate.
+- Distribution-drift quality rule comparing numeric mean and null percentage
+  with the previous baseline window, with alert-on-failure support.
+
+### Changed
+
+- Dataset and column records carry description/owner metadata through catalog
+  detail and external imports.
+
+### Migration
+
+- `j8e9f0a1b2c3` adds dataset description/owner and column description.
+
 ## [4.1.0] - 2026-11-26
 
 ### Added

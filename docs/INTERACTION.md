@@ -177,3 +177,29 @@ day (failed, running, queued, success, skipped). The window can be 7, 14 or
   filters saturated projects in the claim query rather than re-queueing them.
 - Promotion reuses bundle export/validate/import and stops before writing when
   types conflict or datasources are missing.
+
+## Low-code upload, approval, list and templates
+
+- Upload components call the existing `/files` endpoint; approval components
+  read and apply the existing change requests; list components reuse dataset
+  preview. Public sharing strips all three write-oriented components,
+  including children inside containers and tabs.
+- The app template gallery uses the same template registry as models and
+  pipelines; app templates create drafts and open the editor.
+
+## External metadata, products and standards
+
+- dbt/BI import writes only `Datasource`, `Dataset` and `Column` rows under a
+  metadata-only source; it never creates a second catalog. External datasets
+  are read-only.
+- Data products are `Asset` rows with type `data_product`, so versions,
+  governance, certification, lifecycle and bundle export are reused.
+- Standard mappings live in the existing `standard_mapping` table; catalog
+  detail writes them through the standards API.
+
+## Cost and drift
+
+- Cost uses `Job.locked_at`/`finished_at` and a project rate, never queue time.
+- Drift stores aggregate statistics in `QualityResult.detail_json` and
+  compares against the previous window; the first three runs only build a
+  baseline.

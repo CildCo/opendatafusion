@@ -247,6 +247,68 @@
               </el-form-item>
               <p class="hint">{{ t("aedit.buttonHint") }}</p>
             </template>
+            <template v-if="selected.type === 'upload'">
+              <el-form-item :label="t('aedit.buttonLabel')">
+                <el-input v-model="selected.label" />
+              </el-form-item>
+              <el-form-item :label="t('aedit.uploadAccept')">
+                <el-input :model-value="(selected.accept || []).join(',')"
+                          :placeholder="t('aedit.uploadAcceptHint')"
+                          @update:model-value="setAccept" />
+              </el-form-item>
+              <el-form-item :label="t('aedit.uploadMaxMb')">
+                <el-input-number v-model="selected.max_mb" :min="1" :max="20" />
+              </el-form-item>
+            </template>
+            <template v-if="selected.type === 'approval'">
+              <el-form-item :label="t('aedit.title')">
+                <el-input v-model="selected.title" />
+              </el-form-item>
+              <el-form-item :label="t('aedit.rowCount')">
+                <el-input-number v-model="selected.limit" :min="1"
+                                 :max="50" />
+              </el-form-item>
+              <p class="hint">{{ t("aedit.approvalHint") }}</p>
+            </template>
+            <template v-if="selected.type === 'list'">
+              <el-form-item :label="t('aedit.dataset')">
+                <el-select v-model="selected.dataset_id" filterable
+                           style="width: 100%"
+                           @change="selectDataset(selected.dataset_id)">
+                  <el-option v-for="d in datasets" :key="d.id" :value="d.id"
+                             :label="d.name" />
+                </el-select>
+              </el-form-item>
+              <el-form-item :label="t('aedit.columns')">
+                <el-input v-model="columnsText"
+                          :placeholder="t('aedit.columnsHint')" />
+              </el-form-item>
+              <el-form-item :label="t('aedit.listTitleColumn')">
+                <el-select v-model="selected.title_column" clearable
+                           style="width: 100%">
+                  <el-option v-for="c in listColumns" :key="c" :value="c"
+                             :label="c" />
+                </el-select>
+              </el-form-item>
+              <el-form-item :label="t('aedit.listSubtitleColumn')">
+                <el-select v-model="selected.subtitle_column" clearable
+                           style="width: 100%">
+                  <el-option v-for="c in listColumns" :key="c" :value="c"
+                             :label="c" />
+                </el-select>
+              </el-form-item>
+              <el-form-item :label="t('aedit.listValueColumn')">
+                <el-select v-model="selected.value_column" clearable
+                           style="width: 100%">
+                  <el-option v-for="c in listColumns" :key="c" :value="c"
+                             :label="c" />
+                </el-select>
+              </el-form-item>
+              <el-form-item :label="t('aedit.rowCount')">
+                <el-input-number v-model="selected.limit" :min="1"
+                                 :max="1000" />
+              </el-form-item>
+            </template>
             <template v-if="selected.type === 'progress'">
               <el-form-item :label="t('aedit.progressValue')">
                 <el-input-number v-model="selected.value" :min="0"
@@ -739,6 +801,9 @@ const types = [
   { type: "container", labelKey: "aedit.compContainer" },
   { type: "tabs", labelKey: "aedit.compTabs" },
   { type: "modal", labelKey: "aedit.compModal" },
+  { type: "upload", labelKey: "aedit.compUpload" },
+  { type: "approval", labelKey: "aedit.compApproval" },
+  { type: "list", labelKey: "aedit.compList" },
 ];
 const configTabs = [
   { key: "content", label: "aedit.tabContent" },
@@ -769,6 +834,14 @@ const bindingOptions = computed(() => {
             label: `${component.title || component.id} · ${field.column}`,
           });
         }
+      }
+    }
+    if (component.type === "upload") {
+      for (const key of ["file.id", "file.name", "file.size", "file.url"]) {
+        out.push({
+          value: `components.${component.id}.values.${key}`,
+          label: `${component.title || component.id} · ${key}`,
+        });
       }
     }
     if (component.type === "table") {
@@ -850,6 +923,12 @@ const targetList = computed(() => {
   }
   return currentPage.value?.components || null;
 });
+const listColumns = computed(() => {
+  const c = selected.value;
+  if (!c) return [];
+  return data.value?.[c.id]?.columns || c.columns || [];
+});
+
 const columnsText = computed({
   get: () => (selected.value?.columns || []).join(", "),
   set: (v) => {
@@ -1044,6 +1123,23 @@ async function addComponent(type) {
   if (type === "tabs") {
     c.tabs = [{ id: "t1", title: t("aedit.tabN"), components: [] }];
   }
+  if (type === "upload") {
+    c.label = t("aedit.uploadLabel");
+    c.accept = ["csv", "xlsx", "pdf"];
+    c.max_mb = 20;
+  }
+  if (type === "approval") {
+    c.title = t("aedit.approvalTitle");
+    c.limit = 10;
+  }
+  if (type === "list") {
+    c.dataset_id = datasets.value[0]?.id || null;
+    c.limit = 100;
+    c.columns = [];
+    c.title_column = "";
+    c.subtitle_column = "";
+    c.value_column = "";
+  }
   list.push(c);
   selectedId.value = c.id;
   if (type === "metric") await loadModel();
@@ -1099,6 +1195,13 @@ function insertBinding() {
   const token = `{{${bindingPick.value}}}`;
   selected.value.text = `${selected.value.text || ""}${token}`;
   bindingPick.value = "";
+}
+
+function setAccept(text) {
+  if (!selected.value) return;
+  selected.value.accept = String(text || "").split(",")
+    .map((item) => item.trim().replace(/^\./, ""))
+    .filter(Boolean).slice(0, 10);
 }
 
 function setPageRoles(roles) {

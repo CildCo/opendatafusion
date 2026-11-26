@@ -249,6 +249,7 @@ const typeOptions = [
   ["pipeline", "acat.typePipeline"],
   ["api", "acat.typeApi"],
   ["model", "acat.typeModel"],
+  ["data_product", "acat.typeDataProduct"],
 ].map(([value, key]) => ({ value, label: t(key) }));
 
 const lifecycleOptions = computed(() => [
@@ -261,7 +262,7 @@ const typeLabels = {
   dataset: "acat.typeDataset", metric: "acat.typeMetric",
   dashboard: "acat.typeDashboard", app: "acat.typeApp",
   pipeline: "acat.typePipeline", api: "acat.typeApi",
-  model: "acat.typeModel",
+  model: "acat.typeModel", data_product: "acat.typeDataProduct",
 };
 const factorLabels = {
   certified: "acat.factorCertified", owner: "acat.factorOwner",
@@ -271,6 +272,7 @@ const factorLabels = {
 const paths = {
   dataset: "/datasets", metric: "/metrics", dashboard: "/dashboards",
   app: "/apps", pipeline: "/pipelines", api: "/apis", model: "/models",
+  data_product: "/data-products",
 };
 
 function typeLabel(value) {

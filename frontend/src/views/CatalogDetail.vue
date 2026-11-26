@@ -15,11 +15,12 @@
       <el-button v-if="isLakehouse" @click="openProperties">
         {{ t("cat.tableProperties") }}
       </el-button>
-      <el-button v-if="canCreate" @click="scanPii" :loading="pii.loading">
+      <el-button v-if="canCreate && !detail.external" @click="scanPii"
+                 :loading="pii.loading">
         {{ t("cat.piiScan") }}
       </el-button>
       <el-button @click="governanceOpen = true">{{ t("gov.button") }}</el-button>
-      <el-button v-if="canCreate" @click="createInterface">
+      <el-button v-if="canCreate && !detail.external" @click="createInterface">
         {{ t("catd.createApi") }}
       </el-button>
       <el-button @click="tagDialog = true">{{ t("cat.tag") }}</el-button>
@@ -42,7 +43,11 @@
           <div class="summary-sub">
             {{ detail.datasource_name || "-" }}
             <span v-if="detail.datasource_kind">· {{ detail.datasource_kind }}</span>
+            <span v-if="detail.owner">· {{ detail.owner }}</span>
           </div>
+          <p v-if="detail.description" class="description">
+            {{ detail.description }}
+          </p>
           <div class="meta">
             <el-tag v-for="tag in detail.tags || []" :key="tag" size="small"
                     type="info" closable @close="detachTag(tag)">
@@ -79,6 +84,8 @@
           </div>
         </div>
       </div>
+      <el-alert v-if="detail.external" type="info" :closable="false"
+                :title="t('cat.external')" style="margin-bottom: 10px" />
       <el-tabs v-model="tab">
         <el-tab-pane :label="t('catd.overview')" name="overview">
           <el-descriptions :column="2" border>
@@ -138,7 +145,8 @@
           </div>
         </el-tab-pane>
 
-        <el-tab-pane :label="t('catd.preview')" name="preview">
+        <el-tab-pane v-if="!detail.external"
+                     :label="t('catd.preview')" name="preview">
           <div class="preview-bar">
             <span class="muted">{{ tr("catd.sampleHint", { n: limit }) }}</span>
             <div class="spacer" />
@@ -184,7 +192,8 @@
           <el-empty v-else :description="t('catd.noSample')" :image-size="70" />
         </el-tab-pane>
 
-        <el-tab-pane :label="t('catd.profile')" name="profile">
+        <el-tab-pane v-if="!detail.external"
+                     :label="t('catd.profile')" name="profile">
           <div class="preview-bar">
             <span class="muted">
               {{ tr("catd.profileHint", { n: profileSample }) }}
@@ -257,6 +266,16 @@
                     @row-click="openColumn">
             <el-table-column prop="name" :label="t('cat.columns')" />
             <el-table-column prop="type" :label="t('cat.type')" width="200" />
+            <el-table-column prop="description" :label="t('cat.description')"
+                             min-width="220" show-overflow-tooltip />
+            <el-table-column :label="t('catd.standard')" width="130">
+              <template #default="{ row }">
+                <el-tag v-if="mappingFor(row.name)" size="small" type="success">
+                  {{ standardCode(mappingFor(row.name).standard_id) }}
+                </el-tag>
+                <span v-else class="muted">-</span>
+              </template>
+            </el-table-column>
             <el-table-column :label="t('catd.classification')" width="130">
               <template #default="{ row }">
                 <el-tag v-if="row.classification" size="small" type="warning">
@@ -295,7 +314,8 @@
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane :label="t('catd.quality')" name="quality">
+        <el-tab-pane v-if="!detail.external"
+                     :label="t('catd.quality')" name="quality">
           <div class="preview-bar">
             <span class="muted">
               {{ stats.rule_count }} {{ t("catd.ruleCount") }}
@@ -468,6 +488,16 @@
             {{ (selectedColumn.exempt_roles || []).join(", ") || "-" }}
           </el-descriptions-item>
         </el-descriptions>
+        <h4 class="drawer-head">{{ t("catd.standard") }}</h4>
+        <el-select :model-value="mappingFor(selectedColumn.name)
+                     ?.standard_id || ''" clearable size="small"
+                   style="width: 100%"
+                   :placeholder="t('catd.noStandard')"
+                   @update:model-value="setColumnStandard(
+                     selectedColumn.name, $event)">
+          <el-option v-for="std in standards" :key="std.id" :value="std.id"
+                     :label="`${std.code} · ${std.name}`" />
+        </el-select>
         <h4 class="drawer-head">{{ t("catd.terms") }}</h4>
         <div class="term-links">
           <el-tag v-for="term in selectedColumn.terms || []" :key="term.id"
@@ -586,6 +616,8 @@ const columnQuery = ref("");
 const columnOpen = ref(false);
 const selectedColumn = ref(null);
 const newTermId = ref(null);
+const standards = ref([]);
+const mappings = ref([]);
 
 const lineageRef = computed(() => detail.value.datasource_id
   ? `${detail.value.datasource_id}:${detail.value.table}` : "");
@@ -660,13 +692,53 @@ async function load() {
   loading.value = true;
   notFound.value = false;
   try {
-    detail.value = await api.get(`/catalog/datasets/${datasetId.value}`);
+    const [d, std, maps] = await Promise.all([
+      api.get(`/catalog/datasets/${datasetId.value}`),
+      api.get("/standards"),
+      api.get(`/standards/mappings/${datasetId.value}`),
+    ]);
+    detail.value = d;
+    standards.value = std || [];
+    mappings.value = maps || [];
   } catch (e) {
     notFound.value = true;
     ElMessage.error(errMsg(e));
   } finally {
     loading.value = false;
   }
+}
+
+function mappingFor(column) {
+  return mappings.value.find((row) => row.column === column);
+}
+
+async function setColumnStandard(column, standardId) {
+  try {
+    const existing = mappingFor(column);
+    if (!standardId) {
+      if (existing) {
+        await api.del(`/standards/map/${existing.id}`);
+        mappings.value = mappings.value.filter(
+          (row) => row.id !== existing.id);
+      }
+      return;
+    }
+    const result = await api.post("/standards/map", {
+      standard_id: standardId, dataset_id: datasetId.value,
+      column_name: column,
+    });
+    mappings.value = mappings.value.filter((row) => row.column !== column);
+    mappings.value.push({ id: result.id, standard_id: standardId,
+                          column });
+    ElMessage.success(t("catd.standardMapped"));
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  }
+}
+
+function standardCode(id) {
+  const row = standards.value.find((item) => item.id === id);
+  return row ? row.code : id;
 }
 
 async function loadSample() {

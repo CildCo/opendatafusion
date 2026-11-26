@@ -152,3 +152,23 @@ def test_embed_mode_is_preserved_and_validated():
     assert listed[0]["mode"] == "embed"
     with pytest.raises(ValueError):
         create_share(s, 1, a.id, "app", 7, "admin", "portal")
+
+
+def test_public_content_strips_write_components_recursively():
+    from odf.share.service import _public_components
+    items = [
+        {"id": "f", "type": "form"},
+        {"id": "u", "type": "upload"},
+        {"id": "a", "type": "approval"},
+        {"id": "box", "type": "container", "children": [
+            {"id": "inner", "type": "upload"},
+            {"id": "text", "type": "text", "text": "ok"}]},
+        {"id": "tabs", "type": "tabs", "tabs": [
+            {"id": "t1", "title": "T", "components": [
+                {"id": "inner2", "type": "approval"},
+                {"id": "text2", "type": "text", "text": "ok"}]}]}]
+    out = _public_components(items)
+    assert [item["id"] for item in out] == ["box", "tabs"]
+    assert [item["id"] for item in out[0]["children"]] == ["text"]
+    assert [item["id"] for item in out[1]["tabs"][0]["components"]] == [
+        "text2"]

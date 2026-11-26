@@ -77,6 +77,42 @@
                     :description="t('gov.emptyTerms')" />
         </el-card>
       </el-tab-pane>
+      <el-tab-pane :label="t('gov.standards')" name="standards">
+        <div class="toolbar">
+          <el-button v-if="canEdit" type="primary" @click="openStandard()">
+            {{ t("gov.newStandard") }}
+          </el-button>
+          <div class="spacer" />
+          <el-button @click="loadStandards" :loading="standardLoading">
+            {{ t("common.refresh") }}
+          </el-button>
+        </div>
+        <el-card shadow="never">
+          <el-table :data="standards" size="small"
+                    v-loading="standardLoading">
+            <el-table-column prop="code" :label="t('gov.standardCode')"
+                             width="150" />
+            <el-table-column prop="name" :label="t('gov.name')"
+                             min-width="200" />
+            <el-table-column prop="description"
+                             :label="t('gov.description')" min-width="320"
+                             show-overflow-tooltip />
+            <el-table-column :label="t('gov.actions')" width="150">
+              <template #default="{ row }">
+                <el-button link @click="openStandard(row)">
+                  {{ t("gov.edit") }}
+                </el-button>
+                <el-button v-if="canEdit" link type="danger"
+                           @click="removeStandard(row)">
+                  {{ t("gov.delete") }}
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-if="!standardLoading && !standards.length"
+                    :description="t('gov.emptyStandards')" />
+        </el-card>
+      </el-tab-pane>
       <el-tab-pane :label="t('gov.contracts')" name="contracts">
         <div class="toolbar">
           <span class="hint">{{ t("gov.contractsHint") }}</span>
@@ -225,6 +261,30 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="standardOpen" :title="standardForm.id
+               ? t('gov.editStandard') : t('gov.newStandard')"
+               width="500px">
+      <el-form label-width="90px">
+        <el-form-item :label="t('gov.standardCode')" required>
+          <el-input v-model="standardForm.code" placeholder="STD-001" />
+        </el-form-item>
+        <el-form-item :label="t('gov.name')" required>
+          <el-input v-model="standardForm.name" />
+        </el-form-item>
+        <el-form-item :label="t('gov.description')">
+          <el-input v-model="standardForm.description" type="textarea"
+                    :rows="4" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="standardOpen = false">
+          {{ t("common.cancel") }}
+        </el-button>
+        <el-button type="primary" :loading="standardSaving"
+                   @click="saveStandard">{{ t("gov.save") }}</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="freshOpen" :title="t('gov.contractSettings')"
                width="500px">
       <el-form label-width="120px">
@@ -338,6 +398,12 @@ const tab = ref("domains");
 const canEdit = canWrite();
 const domains = ref([]);
 const terms = ref([]);
+const standards = ref([]);
+const standardLoading = ref(false);
+const standardOpen = ref(false);
+const standardSaving = ref(false);
+const standardForm = reactive({ id: null, code: "", name: "",
+                                description: "" });
 const loading = ref(false);
 const saving = ref(false);
 const domainOpen = ref(false);
@@ -537,6 +603,59 @@ async function removeDomain(row) {
   }
 }
 
+async function loadStandards() {
+  standardLoading.value = true;
+  try {
+    standards.value = await api.get("/standards");
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    standardLoading.value = false;
+  }
+}
+
+function openStandard(row = null) {
+  Object.assign(standardForm, row
+    ? { id: row.id, code: row.code, name: row.name,
+        description: row.description }
+    : { id: null, code: "", name: "", description: "" });
+  standardOpen.value = true;
+}
+
+async function saveStandard() {
+  if (!standardForm.code.trim() || !standardForm.name.trim()) return;
+  standardSaving.value = true;
+  try {
+    const body = { code: standardForm.code, name: standardForm.name,
+                   description: standardForm.description };
+    if (standardForm.id) {
+      await api.put(`/standards/${standardForm.id}`, body);
+    } else {
+      await api.post("/standards", body);
+    }
+    ElMessage.success(t(standardForm.id ? "gov.updated" : "gov.created"));
+    standardOpen.value = false;
+    await loadStandards();
+  } catch (e) {
+    ElMessage.error(errMsg(e));
+  } finally {
+    standardSaving.value = false;
+  }
+}
+
+async function removeStandard(row) {
+  try {
+    await ElMessageBox.confirm(
+      t("gov.deleteStandardConfirm").replace("{code}", row.code),
+      t("gov.delete"), { type: "warning" });
+    await api.del(`/standards/${row.id}`);
+    ElMessage.success(t("gov.deleted"));
+    await loadStandards();
+  } catch (e) {
+    if (e !== "cancel") ElMessage.error(errMsg(e));
+  }
+}
+
 function openImport() {
   importOpen.value = true;
   importFormat.value = "csv";
@@ -603,7 +722,10 @@ async function removeTerm(row) {
   }
 }
 
-onMounted(load);
+onMounted(() => {
+  load();
+  loadStandards();
+});
 </script>
 
 <style scoped>
