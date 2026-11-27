@@ -4,6 +4,18 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [4.2.3] - 2026-11-27
+
+### Fixed
+
+- DuckDB quality rules now run through the unified SQL query layer instead of
+  SQLAlchemy table reflection, which is incompatible with current
+  `duckdb-engine` releases. Not-null, unique, row-count, freshness, regex,
+  accepted-value and range rules work on DuckDB.
+- Choosing a datasource in the pipeline node editor clears the table/topic
+  field immediately and ignores a stale metadata response, so a topic or table
+  typed just after the selection is not erased.
+
 ## [4.2.2] - 2026-11-27
 
 ### Fixed
