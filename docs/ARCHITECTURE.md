@@ -1,6 +1,6 @@
 # Architecture
 
-OpenDataFusion is split into four independently deployable processes. The API
+Weft is split into four independently deployable processes. The API
 is stateless; scheduling and execution are durable and can be scaled
 separately.
 
@@ -236,7 +236,7 @@ timeline from existing tables; no new schema.
   limits, and records per-day call statistics.
 - `/metrics` exposes HTTP/job/webhook/API counters; request IDs and optional
   JSON logs; `scripts/backup.sh`/`restore.sh` and `docs/HA.md`.
-- `python -m odf.cli rotate-fernet|rotate-aksk|rotate-webhook-secret`
+- `weft rotate-fernet|rotate-aksk|rotate-webhook-secret`
   re-encrypts/rotates secrets.
 
 ## Ecosystem modules

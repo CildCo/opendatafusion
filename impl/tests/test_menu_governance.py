@@ -25,7 +25,7 @@ def _setup(allowed):
             s.add(ProjectMember(project_id=1, user_id=2, role="viewer"))
         row = s.query(PortalSetting).filter_by(project_id=1).first()
         if not row:
-            row = PortalSetting(project_id=1, brand_name="OpenDataFusion",
+            row = PortalSetting(project_id=1, brand_name="Weft",
                                 primary_color="#1d4ed8", welcome_title="",
                                 welcome_text="", hidden_menus=[],
                                 updated_by="")

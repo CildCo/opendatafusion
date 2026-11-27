@@ -1,1 +1,1 @@
-"""OpenDataFusion scale benchmark harness."""
+"""Weft scale benchmark harness."""

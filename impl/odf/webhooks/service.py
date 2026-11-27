@@ -189,7 +189,7 @@ def queue_test(session, project_id, sub_id, actor):
     _subscription(session, project_id, sub_id)
     session.add(WebhookDelivery(
         subscription_id=sub_id, project_id=project_id, event="webhook.test",
-        payload_json={"message": "OpenDataFusion webhook test"},
+        payload_json={"message": "Weft webhook test"},
         status="pending", attempts=0, max_attempts=MAX_ATTEMPTS,
         next_attempt_at=_now()))
     session.commit()

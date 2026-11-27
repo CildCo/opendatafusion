@@ -53,7 +53,7 @@ import { api, errMsg } from "../../api";
 import { t } from "../../i18n";
 
 const brand = reactive({
-  name: "OpenDataFusion", color: "#1d4ed8", welcome_title: "",
+  name: "Weft", color: "#1d4ed8", welcome_title: "",
   welcome_text: "", default_locale: "zh", announcement: "",
 });
 const features = reactive({

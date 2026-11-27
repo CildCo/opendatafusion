@@ -21,7 +21,7 @@ import { locale, t } from "../i18n";
 import EntityIcon from "./EntityIcon.vue";
 
 const route = useRoute();
-const BASE = "https://github.com/CildCo/opendatafusion/blob/main/docs/";
+const BASE = "https://github.com/CildCo/weft/blob/main/docs/";
 const SECTIONS = {
   "/dashboard": "2-overview",
   "/ops": "3-operations-centre",

@@ -123,9 +123,9 @@ jobs:
         with:
           version: v3.15.4
       - name: Lint chart
-        run: helm lint deploy/helm/odf
+        run: helm lint deploy/helm/weft
       - name: Render chart
         run: |
           FERNET_KEY=$(python -c 'import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')
-          helm template odf deploy/helm/odf             --set secrets.create=true             --set-string secrets.databaseUrl='postgresql+psycopg://u:p@pg/odf'             --set-string secrets.jwtSecret='test-only-jwt-secret-not-for-production'             --set-string secrets.fernetKey="$FERNET_KEY"             --set backup.enabled=true --set auditPrune.enabled=true > /tmp/odf-rendered.yaml
+          helm template weft deploy/helm/weft             --set secrets.create=true             --set-string secrets.databaseUrl='postgresql+psycopg://u:p@pg/odf'             --set-string secrets.jwtSecret='test-only-jwt-secret-not-for-production'             --set-string secrets.fernetKey="$FERNET_KEY"             --set backup.enabled=true --set auditPrune.enabled=true > /tmp/odf-rendered.yaml
           test -s /tmp/odf-rendered.yaml

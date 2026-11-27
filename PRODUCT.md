@@ -21,7 +21,7 @@ shared dashboards read as the quieter layer of the same system.
 
 ## Product Purpose
 
-OpenDataFusion is an API-first, open-source low-code data platform. It lets a
+Weft is an API-first, open-source low-code data platform. It lets a
 team connect sources, move and transform data, model datasets and metrics,
 publish governed APIs, build dashboards and apps, and operate the estate from
 one project-scoped console. External operators use the same capabilities
@@ -73,7 +73,7 @@ quality and operational health are part of the same product model.
 
 ## Brand Commitments
 
-- Keep **OpenDataFusion** as the product name.
+- Keep **Weft** as the product name.
 - Workspace branding (brand name, primary color, welcome copy and hidden menus)
   is tenant-configurable and leaves room for that without letting arbitrary
   colors destroy legibility.

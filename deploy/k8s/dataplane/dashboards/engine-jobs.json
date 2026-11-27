@@ -3,7 +3,7 @@
     {
       "name": "DS_PROMETHEUS",
       "label": "Prometheus",
-      "description": "Prometheus datasource that scrapes the OpenDataFusion control plane",
+      "description": "Prometheus datasource that scrapes the Weft control plane",
       "type": "datasource",
       "pluginId": "prometheus",
       "pluginName": "Prometheus"
@@ -388,7 +388,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "OpenDataFusion - Engine Jobs",
+  "title": "Weft - Engine Jobs",
   "uid": "odf-engine-jobs",
   "version": 1,
   "weekStart": ""

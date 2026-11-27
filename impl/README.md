@@ -1,4 +1,4 @@
-# OpenDataFusion backend
+# Weft backend
 
 The FastAPI API, MCP server, scheduler and workers live in this package.
 Install and run instructions are in the repository [README](../README.md).

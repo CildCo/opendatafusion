@@ -1,5 +1,5 @@
 x-common: &common
-  image: ${ODF_IMAGE:-odf:local}
+  image: ${ODF_IMAGE:-weft:local}
   build:
     context: ../..
     dockerfile: deploy/docker/Dockerfile

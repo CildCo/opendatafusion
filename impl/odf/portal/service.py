@@ -9,7 +9,7 @@ MENUS = {"/dashboard", "/ops", "/datasources", "/catalog", "/lakehouse", "/workb
          "/tools",
          "/grants", "/webhooks", "/quality", "/alerts", "/changes",
          "/workspace", "/security", "/users", "/audit"}
-DEFAULTS = {"brand_name": "OpenDataFusion", "primary_color": "#1d4ed8",
+DEFAULTS = {"brand_name": "Weft", "primary_color": "#1d4ed8",
             "welcome_title": "", "welcome_text": "", "hidden_menus": [],
             "allowed_menus": None}
 _COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")

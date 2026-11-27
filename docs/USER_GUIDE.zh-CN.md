@@ -210,7 +210,7 @@
 - **角色/启用**：直接在下拉和开关中修改。自己的角色与启用开关不可修改，
   最后一个启用状态的管理员也不能被降级或停用。
 - 如果工作区仍被锁死，可在服务器执行
-  `python -m odf.cli set-user-active --username <用户名> --active true` 恢复账号。
+  `weft set-user-active --username <用户名> --active true` 恢复账号。
 - **项目成员**：平台管理员在「系统管理 → 项目与租户」管理所有项目；项目管理员（项目角色为 admin）从左侧栏底部的「项目成员」管理本项目——按用户名查找、添加并设置项目角色，也可移除成员。新用户必须先加入项目才能登录。
 
 ## 23. 工作区设置
@@ -313,8 +313,8 @@
 ## 33. 运维与保留
 
 - **数据保留**：按每日窗口清理终态作业、查询历史、通知、已关闭告警、Webhook 投递和契约检查；系统管理页显示数量，可手动清理，也可先归档为 gzip JSON 再清理。
-- **系统自检**：数据库连通性、迁移版本与磁盘余量；`python -m odf.cli doctor` 输出同样的报告。
-- `python -m odf.cli backup-check --path <file>` 校验备份文件。
+- **系统自检**：数据库连通性、迁移版本与磁盘余量；`weft doctor` 输出同样的报告。
+- `weft backup-check --path <file>` 校验备份文件。
 - `scripts/ha_smoke.py` 检查每个 API 副本的 `/livez` 与 `/readyz`。
 
 详见 [运维](OPERATIONS.md)。
@@ -409,8 +409,8 @@
 ## 42. 嵌入看板与应用
 
 - 分享链接支持 **公开链接** 和 **嵌入页面** 两种模式。
-- 嵌入模式打开无壳页面，并把内容高度回传给父窗口；分享对话框会生成包含 `odf-embed.js` 的代码片段。
-- SDK 地址为 `/ui/odf-embed.js`，提供 `ODFEmbed.mount({target, token, height, params})` 和 `ODFEmbed.url(token, params)`。
+- 嵌入模式打开无壳页面，并把内容高度回传给父窗口；分享对话框会生成包含 `weft-embed.js` 的代码片段。
+- SDK 地址为 `/ui/weft-embed.js`，提供 `WeftEmbed.mount({target, token, height, params})` 和 `WeftEmbed.url(token, params)`。
 - 嵌入令牌复用现有分享令牌，撤销与过期立即生效；安全说明见 [EMBEDDING.md](EMBEDDING.md)。
 
 ## 43. 页面权限、组件样式与条件高亮

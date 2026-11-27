@@ -28,12 +28,12 @@
 - OpenAPI calls verify HMAC-SHA256 by default. HMAC-SHA1 is still accepted for
   compatibility; set `ODF_AKSK_ALLOW_SHA1=false` to require SHA256.
 - Each AK can have an IP allowlist and per-minute rate limit.
-- Rotate with `python -m odf.cli rotate-aksk --project-id N`; the old AK is
+- Rotate with `weft rotate-aksk --project-id N`; the old AK is
   disabled immediately.
 
 ## Audit retention
 
-- `python -m odf.cli prune-audit --days 180 --export /backups/audit.jsonl
+- `weft prune-audit --days 180 --export /backups/audit.jsonl
   --apply` exports then deletes older audit rows in batches and writes an
   audit entry for the operation itself.
 - The weekly `odf-audit-prune.timer` runs `scripts/prune-audit.sh`, which keeps

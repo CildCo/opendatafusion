@@ -96,11 +96,11 @@ const embedCode = computed(() => {
       `style="border:0" loading="lazy"></iframe>`;
   }
   const base = `${location.origin}${location.pathname}`;
-  return `<div id="odf-embed"></div>
+  return `<div id="weft-embed"></div>
 ` +
-    `<script src="${base}odf-embed.js"><\/script>
+    `<script src="${base}weft-embed.js"><\/script>
 ` +
-    `<script>ODFEmbed.mount({target:"#odf-embed", ` +
+    `<script>WeftEmbed.mount({target:"#weft-embed", ` +
     `token:"${createdToken.value}", height:720});<\/script>`;
 });
 

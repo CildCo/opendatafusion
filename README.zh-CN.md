@@ -1,4 +1,4 @@
-# OpenDataFusion
+# Weft Data Platform
 
 **面向完整数据交付闭环的 API 优先开源低代码数据平台。**
 
@@ -7,12 +7,12 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-[![CI](https://github.com/CildCo/opendatafusion/actions/workflows/ci.yml/badge.svg)](https://github.com/CildCo/opendatafusion/actions/workflows/ci.yml)
+[![CI](https://github.com/CildCo/weft/actions/workflows/ci.yml/badge.svg)](https://github.com/CildCo/weft/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/CildCo/opendatafusion?sort=semver)](https://github.com/CildCo/opendatafusion/releases)
-[![Container](https://img.shields.io/badge/container-ghcr.io%2FCildCo%2Fopendatafusion-2496ed)](https://github.com/CildCo/opendatafusion/pkgs/container/opendatafusion)
+[![Release](https://img.shields.io/github/v/release/CildCo/weft?sort=semver)](https://github.com/CildCo/weft/releases)
+[![Container](https://img.shields.io/badge/container-ghcr.io%2FCildCo%2Fweft-2496ed)](https://github.com/CildCo/weft/pkgs/container/weft)
 
-![OpenDataFusion 概览](docs/images/dashboard.png)
+![Weft 概览](docs/images/dashboard.png)
 
 *快速浏览：概览、目录剖析、管道工作室、指标与看板。*
 
@@ -24,7 +24,7 @@
 - [1.1.0 更新](#110-更新)
 - [平台介绍](#平台介绍)
 - [控制台一览](#控制台一览)
-- [为什么选择 OpenDataFusion](#为什么选择-opendatafusion)
+- [为什么选择 Weft](#为什么选择-weft)
 - [功能总览](#功能总览)
 - [已完成的集成验证](#已完成的集成验证)
 - [架构](#架构)
@@ -49,12 +49,14 @@
 - **成本归因与分布漂移**：运维中心展示成本，质量模块支持漂移检测。
 - **嵌入 SDK、页面角色、条件样式和术语批量导入**，完善分享与治理。
 - **DuckDB 质量规则和管道节点编辑修复**，已在真实集成环境中验证。
+- **产品更名为 Weft Data Platform（简称 Weft）**，既有部署继续使用稳定的
+  `odf` 技术命名空间。
 
 公开版本从 1.1.0 重新计数，旧版本标签和发布已在本次重置中退役，git 历史仍然保留。
 
 ## 平台介绍
 
-OpenDataFusion 是一个可自托管的数据平台，将通常分散在数据接入、转换框架、数据目录、
+Weft 是一个可自托管的数据平台，将通常分散在数据接入、转换框架、数据目录、
 BI 工具和内部应用搭建器中的工作集中到一个按项目隔离的工作空间。平台提供可视化管道
 工作室、受治理的 API 工作室、数据集与指标建模、看板、数据应用、基于 Apache Iceberg
 的湖仓层（由 Trino、Spark、Flink 执行）、Debezium 变更数据捕获，以及面向外部操作方的
@@ -84,7 +86,7 @@ Vue 3、Kubernetes。
 | ![看板](docs/images/dashboards.png) **看板。** 卡片、图表、表格、地图和文本组成的 12 列网格，支持筛选、下钻、定时报表、版本发布和限时分享链接。 | ![数据应用](docs/images/apps.png) **数据应用。** 多页内部应用，支持参数、指标卡、表格、文件上传、审批队列和基于已发布数据集的受审计表单。 |
 | ![数据质量](docs/images/quality.png) **数据质量。** 新鲜度、空值、唯一性、范围、枚举、漂移和结构规则，展示通过率、SLA 告警和每次运行结果。 | ![运维中心](docs/images/ops.png) **运维中心。** 队列与失败、死信重放、告警处理、依赖跳过、成本归因、API 调用和审计集中展示。 |
 
-## 为什么选择 OpenDataFusion
+## 为什么选择 Weft
 
 - **一条交付闭环。** 数据源 → 管道 → 数据集/指标 → API、看板、应用或数据产品，
   血缘、质量、审批和审计都在同一产品模型中。
@@ -167,12 +169,12 @@ API 无状态，调度与执行持久化并可独立扩展。参见
 ### Docker Compose
 
 ```bash
-git clone https://github.com/CildCo/opendatafusion.git
-cd opendatafusion/deploy/docker
+git clone https://github.com/CildCo/weft.git
+cd weft/deploy/docker
 cp .env.example .env
 ./../../scripts/generate-env.sh .env
 docker compose up -d --build
-docker compose exec api python -m odf.cli create-admin \
+docker compose exec api weft create-admin \
   --username admin --password 'ChangeMe123!'
 ```
 
@@ -187,7 +189,7 @@ python -m venv .venv
 cp .env.example .env
 # 设置 ODF_DATABASE_URL、ODF_JWT_SECRET 和 ODF_FERNET_KEY
 .venv/bin/alembic upgrade head
-.venv/bin/python -m odf.cli create-admin \
+.venv/bin/weft create-admin \
   --username admin --password 'ChangeMe123!'
 
 # 分别启动
@@ -228,14 +230,16 @@ cp .env.example .env
 
 - 后端：Python 3.11、FastAPI、SQLAlchemy 2、Alembic、PostgreSQL。
 - 前端：Vue 3、Vite、Element Plus、Vue Flow、CodeMirror、ECharts。
+- `odf` Python 包、`ODF_*` 环境变量和 systemd 单元名称作为既有部署的稳定技术命名空间保留；
+  产品和控制台统一使用 Weft 品牌。
 - 默认分支：`main`。拉取请求会运行单元、集成、浏览器和 Helm 检查。
 - 提交拉取请求前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
 - 控制台测试：`cd frontend && npm ci && npx playwright install chromium && npm run test:e2e`。
 
 ## 社区
 
-- [GitHub Issues](https://github.com/CildCo/opendatafusion/issues)：缺陷和明确的功能请求。
-- [GitHub Discussions](https://github.com/CildCo/opendatafusion/discussions)：设计讨论、部署帮助和展示。
+- [GitHub Issues](https://github.com/CildCo/weft/issues)：缺陷和明确的功能请求。
+- [GitHub Discussions](https://github.com/CildCo/weft/discussions)：设计讨论、部署帮助和展示。
 - [路线图](ROADMAP.md) 和 [变更日志](CHANGELOG.md)。
 - [行为准则](CODE_OF_CONDUCT.md) 和 [支持](SUPPORT.md)。
 

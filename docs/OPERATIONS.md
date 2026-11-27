@@ -16,7 +16,7 @@ window; `0` disables a class.
 
 - Platform console → Administration → Operations shows the window, eligible
   rows and a **Prune now** action.
-- CLI: `python -m odf.cli prune-data` (dry run) and `--apply`; override with
+- CLI: `weft prune-data` (dry run) and `--apply`; override with
   `--days job=60 --days query_run=14`.
 - Removing jobs also removes their pipeline node runs; removing notifications
   removes their read receipts.
@@ -49,13 +49,13 @@ Both default to `0` (unlimited). The dialog shows current usage.
 
 ## System check
 
-`python -m odf.cli doctor` prints database reachability, current and head
+`weft doctor` prints database reachability, current and head
 migration revisions, asset/job counts, open alerts, query history size and
 disk headroom. It exits non-zero when the database is unreachable, migrations
 are pending or free disk is below 512 MB. The same report is available in
 Administration → Operations.
 
-`python -m odf.cli backup-check --path <file>` verifies that a backup file
+`weft backup-check --path <file>` verifies that a backup file
 exists, is non-empty and is readable: plain SQL dumps must contain CREATE TABLE
 or COPY statements, gzip files must decompress, and tar.gz archives must list
 entries.

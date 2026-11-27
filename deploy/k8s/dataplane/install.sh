@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs the OpenDataFusion lakehouse data plane on a single-node k3s cluster.
+# Installs the Weft lakehouse data plane on a single-node k3s cluster.
 # Idempotent: re-running converges on the same state.
 set -euo pipefail
 

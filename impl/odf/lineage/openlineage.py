@@ -6,7 +6,7 @@ from odf.models import Asset, AssetVersion, Datasource
 from odf.services.platform import get_doc
 from odf.settings import get_settings
 
-PRODUCER = "https://github.com/CildCo/opendatafusion"
+PRODUCER = "https://github.com/CildCo/weft"
 SCHEMA = "https://openlineage.io/spec/2-0-2/OpenLineage.json"
 
 
