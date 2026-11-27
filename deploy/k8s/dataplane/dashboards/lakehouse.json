@@ -3,7 +3,7 @@
     {
       "name": "DS_PROMETHEUS",
       "label": "Prometheus",
-      "description": "Prometheus datasource that scrapes the OpenDataFusion control plane",
+      "description": "Prometheus datasource that scrapes the Weft control plane",
       "type": "datasource",
       "pluginId": "prometheus",
       "pluginName": "Prometheus"
@@ -438,7 +438,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "OpenDataFusion - Lakehouse",
+  "title": "Weft - Lakehouse",
   "uid": "odf-lakehouse",
   "version": 1,
   "weekStart": ""

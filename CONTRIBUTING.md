@@ -1,12 +1,12 @@
-# Contributing to OpenDataFusion
+# Contributing to Weft
 
-Thank you for improving OpenDataFusion. This document describes the local
+Thank you for improving Weft. This document describes the local
 workflow, the quality gates and the review expectations.
 
 ## Before you start
 
-- Search existing [issues](https://github.com/CildCo/opendatafusion/issues)
-  and [discussions](https://github.com/CildCo/opendatafusion/discussions).
+- Search existing [issues](https://github.com/CildCo/weft/issues)
+  and [discussions](https://github.com/CildCo/weft/discussions).
 - For a security issue, follow [SECURITY.md](SECURITY.md) instead of opening a
   public issue.
 - For a large feature or an interface change, open a discussion first so the
@@ -43,7 +43,7 @@ Every pull request must pass:
 - `pytest -q` from `impl/`
 - `npm run build` from `frontend/`
 - Playwright E2E when the change touches the console
-- `helm lint deploy/helm/odf`
+- `helm lint deploy/helm/weft`
 - CodeQL and dependency review in CI
 
 Keep the tests close to the behavior. A bug fix starts with a failing test.

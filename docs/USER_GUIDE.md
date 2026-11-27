@@ -209,7 +209,7 @@ Lists the tools exposed by the MCP server with type (read-only or change), descr
   active switch are locked, and the last active administrator cannot be
   demoted or disabled.
 - If a workspace is locked out anyway, run
-  `python -m odf.cli set-user-active --username <name> --active true` on the
+  `weft set-user-active --username <name> --active true` on the
   server to restore an account.
 - **Project members**: platform administrators manage every project under Administration → Projects; a project administrator (project role `admin`) manages their own project from **Project members** at the bottom of the sidebar — look up a username, add it with a project role, or remove a member. Users must belong to a project before they can sign in.
 
@@ -351,8 +351,8 @@ See [Templates](TEMPLATES.md).
   administration shows counts, a manual prune action and an archive-and-prune
   action that writes gzip JSON before deleting.
 - **System check** reports database reachability, migration revision and disk
-  headroom; `python -m odf.cli doctor` prints the same report.
-- `python -m odf.cli backup-check --path <file>` validates a backup file.
+  headroom; `weft doctor` prints the same report.
+- `weft backup-check --path <file>` validates a backup file.
 - `scripts/ha_smoke.py` checks every API replica's `/livez` and `/readyz`.
 
 See [Operations](OPERATIONS.md).
@@ -498,10 +498,10 @@ workbench and the app runtime.
 - Shared links support two modes: **Public link** and **Embed**.
 - Embed mode opens a chromeless page and reports its content height to the
   parent window. The share dialog generates a ready-to-use snippet with
-  `odf-embed.js`.
-- The SDK is served at `/ui/odf-embed.js` and exposes
-  `ODFEmbed.mount({target, token, height, params})` plus
-  `ODFEmbed.url(token, params)`.
+  `weft-embed.js`.
+- The SDK is served at `/ui/weft-embed.js` and exposes
+  `WeftEmbed.mount({target, token, height, params})` plus
+  `WeftEmbed.url(token, params)`.
 - Embed tokens are the same bearer share tokens described in
   [EMBEDDING.md](EMBEDDING.md); revocation and expiry apply immediately.
 

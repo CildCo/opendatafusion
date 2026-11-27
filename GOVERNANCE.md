@@ -1,6 +1,6 @@
 # Governance
 
-OpenDataFusion is maintained by the project maintainers listed in
+Weft is maintained by the project maintainers listed in
 [CODEOWNERS](CODEOWNERS). This document explains how decisions, releases and
 access are handled.
 

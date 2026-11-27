@@ -58,13 +58,13 @@ commands on the API host with the deployment environment loaded
 
 ```bash
 # account disabled
-python -m odf.cli set-user-active --username admin --active true
+weft set-user-active --username admin --active true
 
 # forgotten password (complexity rules apply; existing sessions are revoked)
-python -m odf.cli reset-password --username admin --password 'NewPassw0rd!'
+weft reset-password --username admin --password 'NewPassw0rd!'
 
 # lost authenticator device
-python -m odf.cli reset-totp --username admin
+weft reset-totp --username admin
 ```
 
 Each command writes an audit entry with actor `cli`; review them with

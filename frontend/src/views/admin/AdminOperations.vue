@@ -20,8 +20,8 @@
         <pre class="code">scripts/backup.sh             # database + file backup
 scripts/restore.sh &lt;archive&gt;  # restore (stops writers first)
 deploy/systemd/odf-backup.timer
-python -m odf.cli rotate-jwt-secret
-python -m odf.cli rotate-fernet --old-key ... --new-key ...</pre>
+weft rotate-jwt-secret
+weft rotate-fernet --old-key ... --new-key ...</pre>
         <p class="muted">{{ t("adm.maintenanceHint") }}</p>
       </el-card>
       <el-card shadow="never">

@@ -1,6 +1,6 @@
 # Grafana dashboards
 
-Provisioned dashboards for the OpenDataFusion monitoring stack. Each JSON file in
+Provisioned dashboards for the Weft monitoring stack. Each JSON file in
 this directory is embedded as a key of the `grafana-dashboards` ConfigMap in
 `templates/72-grafana-dashboards.yaml`, and Grafana loads it from
 `/var/lib/grafana/dashboards` through the provider file `dashboards.yaml`.

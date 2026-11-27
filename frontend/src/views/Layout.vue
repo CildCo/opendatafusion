@@ -2,7 +2,7 @@
   <div class="shell" :style="{ '--odf-primary': accentColor }">
     <aside class="rail">
       <router-link to="/dashboard" class="brand">
-        <span class="mark">OD</span>
+        <span class="mark">W</span>
         <span class="brand-copy">
           <b>{{ portal.brand_name }}</b>
           <small>data operations</small>
@@ -121,7 +121,7 @@
   <el-drawer v-model="mobileNav" direction="ltr" size="82%"
              :with-header="false" class="mobile-nav-drawer">
     <div class="mobile-brand">
-      <span class="mark">OD</span>
+      <span class="mark">W</span>
       <b>{{ portal.brand_name }}</b>
     </div>
     <nav class="mobile-nav">
@@ -198,7 +198,7 @@ const platformAdmin = ref(getPlatformAdmin());
 const online = ref(true);
 const projects = ref([]);
 const currentProject = ref(getProject());
-const portal = ref({ brand_name: "OpenDataFusion", primary_color: "#1d4ed8",
+const portal = ref({ brand_name: "Weft", primary_color: "#1d4ed8",
                      hidden_menus: [], allowed_menus: null });
 
 const groups = MENU_GROUPS;
@@ -282,7 +282,7 @@ const initial = computed(() => (username.value || "A").slice(0, 1).toUpperCase()
 async function loadPortal() {
   try {
     portal.value = await api.get("/portal");
-    document.title = portal.value.brand_name || "OpenDataFusion";
+    document.title = portal.value.brand_name || "Weft";
     const accent = accentColor.value;
     document.documentElement.style.setProperty("--odf-primary", accent);
     document.documentElement.style.setProperty("--odf-accent", accent);

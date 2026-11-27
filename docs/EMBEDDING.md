@@ -1,6 +1,6 @@
 # Embedding dashboards and applications
 
-OpenDataFusion can expose a published dashboard or application as a
+Weft can expose a published dashboard or application as a
 read-only embed. Embedding reuses the share token and the published-version
 pipeline; it is not a separate permission model.
 
@@ -17,11 +17,11 @@ embed immediately. Embed content never includes forms, SQL or write actions.
 ## SDK
 
 ```html
-<div id="odf-embed"></div>
-<script src="https://your-host/ui/odf-embed.js"></script>
+<div id="weft-embed"></div>
+<script src="https://your-host/ui/weft-embed.js"></script>
 <script>
-  ODFEmbed.mount({
-    target: "#odf-embed",
+  WeftEmbed.mount({
+    target: "#weft-embed",
     token: "<share-token>",
     height: 720,
     params: { region: "east" }
@@ -34,7 +34,7 @@ height and grows to the content height reported by the embed page. `params`
 are appended to the embed URL and become normal dashboard/application
 parameters.
 
-`ODFEmbed.url(token, params)` returns the embed URL without mounting an
+`WeftEmbed.url(token, params)` returns the embed URL without mounting an
 iframe.
 
 ## Security

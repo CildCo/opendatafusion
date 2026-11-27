@@ -1,6 +1,6 @@
 # Airbyte connectors
 
-OpenDataFusion can run an Airbyte-protocol source connector and use it as a
+Weft can run an Airbyte-protocol source connector and use it as a
 pipeline source. The connector must implement the Airbyte protocol commands
 `check`, `discover` and `read`.
 

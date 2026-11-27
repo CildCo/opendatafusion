@@ -11,8 +11,8 @@ e2e:
 	cd frontend && npm run test:e2e
 
 helm:
-	helm lint deploy/helm/odf
-	helm template odf deploy/helm/odf --set secrets.create=true \
+	helm lint deploy/helm/weft
+	helm template weft deploy/helm/weft --set secrets.create=true \
 	  --set-string secrets.databaseUrl='postgresql+psycopg://u:p@pg/odf' \
 	  --set-string secrets.jwtSecret='test-only-jwt-secret-not-for-production' \
 	  --set-string secrets.fernetKey='test-only-fernet-key-not-for-production' \

@@ -3,4 +3,4 @@ deploy/systemd/*.service text eol=lf
 deploy/systemd/*.timer text eol=lf
 deploy/docker/Dockerfile text eol=lf
 deploy/docker/entrypoint.sh text eol=lf
-deploy/helm/odf/files/*.sh text eol=lf
+deploy/helm/weft/files/*.sh text eol=lf

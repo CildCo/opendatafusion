@@ -5,7 +5,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/CildCo/opendatafusion.git",
+    "url": "https://github.com/CildCo/weft.git",
     "directory": "frontend"
   },
   "type": "module",

@@ -74,7 +74,7 @@ function changeLocale(value) {
 }
 
 const menus = MENU_ITEMS.map((m) => ({ path: m.path, key: m.key }));
-const form = reactive({ brand_name: "OpenDataFusion",
+const form = reactive({ brand_name: "Weft",
                         primary_color: "#1d4ed8", welcome_title: "",
                         welcome_text: "", hidden_menus: [] });
 const loading = ref(false);

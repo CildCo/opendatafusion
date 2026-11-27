@@ -1,0 +1,97 @@
+{{- if .Values.backup.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "weft.fullname" . }}-backup-script
+  labels:
+    {{- include "weft.labels" . | nindent 4 }}
+data:
+  backup.sh: |
+{{ .Files.Get "files/backup.sh" | indent 4 }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "weft.fullname" . }}-backup
+  labels:
+    {{- include "weft.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: backup
+              image: {{ include "weft.backupImage" . }}
+              command: ["/bin/bash", "/scripts/backup.sh", "/backups"]
+              env:
+                - {name: ODF_FILE_DIR, value: /data/odf/files}
+                - {name: ODF_BACKUP_KEEP, value: {{ .Values.backup.retentionDays | quote }}}
+              envFrom:
+                - secretRef: {name: {{ include "weft.secretName" . }}}
+              volumeMounts:
+                - {name: script, mountPath: /scripts, readOnly: true}
+                - {name: files, mountPath: /data/odf/files, readOnly: true}
+                - {name: backups, mountPath: /backups}
+          volumes:
+            - name: script
+              configMap: {name: {{ include "weft.fullname" . }}-backup-script}
+            - name: files
+            {{- if .Values.persistence.enabled }}
+              persistentVolumeClaim:
+                claimName: {{ include "weft.filesClaim" . }}
+            {{- else }}
+              emptyDir: {}
+            {{- end }}
+            - name: backups
+              persistentVolumeClaim:
+                claimName: {{ include "weft.backupClaim" . }}
+{{- end }}
+{{- if .Values.auditPrune.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "weft.fullname" . }}-audit-prune
+  labels:
+    {{- include "weft.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.auditPrune.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: {{ include "weft.serviceAccountName" . }}
+          securityContext: {{ toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: prune
+              image: {{ include "weft.image" . }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              securityContext: {{ toYaml .Values.securityContext | nindent 16 }}
+              envFrom:
+                - configMapRef: {name: {{ include "weft.fullname" . }}-config}
+                - secretRef: {name: {{ include "weft.secretName" . }}}
+              env:
+                - {name: ODF_ROLE, value: prune}
+                - {name: ODF_BACKUP_DIR, value: /backups}
+                - {name: ODF_AUDIT_RETENTION_DAYS, value: {{ .Values.auditPrune.retentionDays | quote }}}
+                - {name: ODF_AUDIT_KEEP_DAYS, value: {{ .Values.auditPrune.archiveKeepDays | quote }}}
+              volumeMounts:
+                - {name: backups, mountPath: /backups}
+                - {name: tmp, mountPath: /tmp}
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: {{ include "weft.backupClaim" . }}
+            - name: tmp
+              emptyDir: {}
+{{- end }}

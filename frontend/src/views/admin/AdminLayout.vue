@@ -2,7 +2,7 @@
   <div class="admin-shell">
     <aside class="admin-rail">
       <a class="admin-brand" href="#/admin/overview">
-        <span class="mark">OD</span>
+        <span class="mark">W</span>
         <span class="name">{{ brand }}</span>
         <span class="tag">{{ t("admin.console") }}</span>
       </a>
@@ -48,7 +48,7 @@ import EntityIcon from "../../components/EntityIcon.vue";
 
 const route = useRoute();
 const router = useRouter();
-const brand = ref("OpenDataFusion");
+const brand = ref("Weft");
 const username = ref("admin");
 const items = [
   { path: "/admin/overview", label: "admin.overview", icon: "page" },
@@ -75,7 +75,7 @@ onMounted(async () => {
     const [portal, me] = await Promise.all([
       api.get("/platform/public"), api.get("/auth/me"),
     ]);
-    brand.value = portal?.brand?.name || "OpenDataFusion";
+    brand.value = portal?.brand?.name || "Weft";
     username.value = me.username || "admin";
     const color = portal?.brand?.color;
     if (color) {

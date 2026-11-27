@@ -20,7 +20,7 @@ def build(results: dict) -> dict:
 
 
 def markdown(report: dict) -> str:
-    lines = ["# 30GB OpenDataFusion benchmark", "",
+    lines = ["# 30GB Weft benchmark", "",
              f"- passed: **{report['passed']}**", ""]
     for key, value in (report.get("load") or {}).items():
         lines.append(f"- {key}: {value}")

@@ -500,7 +500,7 @@ class PortalSetting(Base):
     project_id: Mapped[int] = mapped_column(ForeignKey("project.id"),
                                             unique=True, index=True)
     brand_name: Mapped[str] = mapped_column(String(64),
-                                            default="OpenDataFusion")
+                                            default="Weft")
     primary_color: Mapped[str] = mapped_column(String(16), default="#1d4ed8")
     welcome_title: Mapped[str] = mapped_column(String(128), default="")
     welcome_text: Mapped[str] = mapped_column(String(1000), default="")

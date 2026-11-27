@@ -1,6 +1,6 @@
 # Code of Conduct
 
-OpenDataFusion is committed to a welcoming, professional and harassment-free
+Weft is committed to a welcoming, professional and harassment-free
 community for everyone, regardless of experience, identity, background or
 employer.
 

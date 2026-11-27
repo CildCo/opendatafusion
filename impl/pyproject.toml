@@ -8,7 +8,7 @@ version = "1.1.0"
 description = "API-first open-source low-code data platform for the full data delivery loop"
 license = {text = "Apache-2.0"}
 readme = "README.md"
-authors = [{name = "OpenDataFusion Contributors"}]
+authors = [{name = "Weft Contributors"}]
 keywords = ["data platform", "etl", "low-code", "data governance", "fastapi", "postgresql"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -32,11 +32,11 @@ dependencies = ["fastapi>=0.110", "uvicorn[standard]>=0.54.0", "sqlalchemy>=2.1.
   "pyhive>=0.7", "thrift>=0.16", "dmPython>=2.6.1", "sshtunnel>=0.4", "graphql-core>=3.2", "sqlglot>=25"]
 
 [project.urls]
-Homepage = "https://github.com/CildCo/opendatafusion"
-Repository = "https://github.com/CildCo/opendatafusion"
-Issues = "https://github.com/CildCo/opendatafusion/issues"
-Changelog = "https://github.com/CildCo/opendatafusion/blob/main/CHANGELOG.md"
-Documentation = "https://github.com/CildCo/opendatafusion/tree/main/docs"
+Homepage = "https://github.com/CildCo/weft"
+Repository = "https://github.com/CildCo/weft"
+Issues = "https://github.com/CildCo/weft/issues"
+Changelog = "https://github.com/CildCo/weft/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/CildCo/weft/tree/main/docs"
 
 [project.optional-dependencies]
 dev = ["pytest>=9.2.0", "pyyaml>=6.0.3"]
@@ -48,6 +48,7 @@ otel = ["opentelemetry-sdk>=1.45.1", "opentelemetry-exporter-otlp>=1.45.1",
   "opentelemetry-instrumentation-httpx>=0.66b2"]
 
 [project.scripts]
+weft = "odf.cli:main"
 odf = "odf.cli:main"
 
 [tool.setuptools.packages.find]

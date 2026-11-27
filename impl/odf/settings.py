@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     password_min_length: int = 10
     password_require_classes: bool = True
     login_rate_per_min: int = 10
-    totp_issuer: str = "OpenDataFusion"
+    totp_issuer: str = "Weft"
     oidc_issuer: str = ""
     oidc_client_id: str = ""
     oidc_client_secret: str = ""

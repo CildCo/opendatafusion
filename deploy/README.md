@@ -41,7 +41,7 @@ curl -s http://127.0.0.1:18080/docs | head
 - Docker image: `deploy/docker/Dockerfile` (one image, role via `ODF_ROLE`).
 - Compose stack: `deploy/docker/docker-compose.yml`; copy
   `deploy/docker/.env.example` to `.env` first.
-- Helm chart: `deploy/helm/odf`; migrations run as a pre-install/pre-upgrade
+- Helm chart: `deploy/helm/weft`; migrations run as a pre-install/pre-upgrade
   hook.
 
 See `docs/DELIVERY.md` for build, scaling and release instructions.

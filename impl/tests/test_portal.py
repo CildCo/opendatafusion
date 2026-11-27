@@ -23,7 +23,7 @@ def _env():
 def test_defaults_update_and_scope():
     s = _env()
     d = get_portal(s, 1)
-    assert d["brand_name"] == "OpenDataFusion"
+    assert d["brand_name"] == "Weft"
     assert d["primary_color"].startswith("#")
     out = update_portal(s, 1, {"brand_name": "Acme 数据",
                                "primary_color": "#ff0000",
@@ -33,7 +33,7 @@ def test_defaults_update_and_scope():
     assert out["brand_name"] == "Acme 数据"
     assert out["hidden_menus"] == ["/alerts"]
     assert s.query(PortalSetting).count() == 1
-    assert get_portal(s, 2)["brand_name"] == "OpenDataFusion"
+    assert get_portal(s, 2)["brand_name"] == "Weft"
 
 
 def test_validation():

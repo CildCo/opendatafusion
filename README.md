@@ -1,4 +1,4 @@
-# OpenDataFusion
+# Weft Data Platform
 
 **An API-first, open-source low-code data platform for the full data delivery loop.**
 
@@ -9,12 +9,12 @@ over MCP.
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-[![CI](https://github.com/CildCo/opendatafusion/actions/workflows/ci.yml/badge.svg)](https://github.com/CildCo/opendatafusion/actions/workflows/ci.yml)
+[![CI](https://github.com/CildCo/weft/actions/workflows/ci.yml/badge.svg)](https://github.com/CildCo/weft/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/CildCo/opendatafusion?sort=semver)](https://github.com/CildCo/opendatafusion/releases)
-[![Container](https://img.shields.io/badge/container-ghcr.io%2FCildCo%2Fopendatafusion-2496ed)](https://github.com/CildCo/opendatafusion/pkgs/container/opendatafusion)
+[![Release](https://img.shields.io/github/v/release/CildCo/weft?sort=semver)](https://github.com/CildCo/weft/releases)
+[![Container](https://img.shields.io/badge/container-ghcr.io%2FCildCo%2Fweft-2496ed)](https://github.com/CildCo/weft/pkgs/container/weft)
 
-![OpenDataFusion overview](docs/images/dashboard.png)
+![Weft overview](docs/images/dashboard.png)
 
 *A short tour: overview, catalog profiling, pipeline studio, metrics and dashboards.*
 
@@ -24,9 +24,9 @@ over MCP.
 <summary>Contents</summary>
 
 - [What's new in 1.1.0](#whats-new-in-110)
-- [What is OpenDataFusion?](#what-is-opendatafusion)
+- [What is Weft?](#what-is-weft)
 - [Explore the console](#explore-the-console)
-- [Why OpenDataFusion](#why-opendatafusion)
+- [Why Weft](#why-weft)
 - [Feature overview](#feature-overview)
 - [Integration-tested paths](#integration-tested-paths)
 - [Architecture](#architecture)
@@ -59,13 +59,15 @@ complete current platform into one release:
   production-ready sharing and governance.
 - **DuckDB quality rules and pipeline node editing fixes**, verified against a
   live integration environment.
+- **Product renamed to Weft Data Platform (short: Weft)**, with the stable
+  `odf` technical namespace retained for existing deployments.
 
 The project now counts from 1.1.0. Earlier public releases and tags were
 retired during this reset; the git history remains intact.
 
-## What is OpenDataFusion?
+## What is Weft?
 
-OpenDataFusion is an open-source, self-hosted data platform that combines the
+Weft is an open-source, self-hosted data platform that combines the
 jobs usually split across ingestion tools, transformation frameworks, catalogs,
 BI tools and internal-tool builders in one project-scoped workspace. It ships a
 visual pipeline studio, a governed API studio, dataset/metric modelling,
@@ -101,7 +103,7 @@ Chinese from the header switch.
 | ![Dashboards](docs/images/dashboards.png) **Dashboards.** Cards, charts, tables, maps and text on a 12-column grid, with filters, drill-through, scheduled reports, versioned publish and expiring share links. | ![Data apps](docs/images/apps.png) **Data apps.** Multi-page internal apps with parameters, metric cards, tables, uploads, approval queues and audited forms over published datasets. |
 | ![Data quality](docs/images/quality.png) **Data quality.** Freshness, null, uniqueness, range, enum, drift and schema rules with pass rates, SLA alerts and per-run results. | ![Operations](docs/images/ops.png) **Operations.** Queue and failures, dead-letter replay, alert triage, dependency skips, cost attribution, API calls and audit in one console. |
 
-## Why OpenDataFusion
+## Why Weft
 
 - **One delivery loop.** Source → pipeline → dataset/metric → API, dashboard,
   app or data product, with lineage, quality, approvals and audit in the same
@@ -194,12 +196,12 @@ See [Architecture](docs/ARCHITECTURE.md), [Delivery](docs/DELIVERY.md),
 ### Docker Compose
 
 ```bash
-git clone https://github.com/CildCo/opendatafusion.git
-cd opendatafusion/deploy/docker
+git clone https://github.com/CildCo/weft.git
+cd weft/deploy/docker
 cp .env.example .env
 ./../../scripts/generate-env.sh .env
 docker compose up -d --build
-docker compose exec api python -m odf.cli create-admin \
+docker compose exec api weft create-admin \
   --username admin --password 'ChangeMe123!'
 ```
 
@@ -215,7 +217,7 @@ python -m venv .venv
 cp .env.example .env
 # set ODF_DATABASE_URL, ODF_JWT_SECRET and ODF_FERNET_KEY
 .venv/bin/alembic upgrade head
-.venv/bin/python -m odf.cli create-admin \
+.venv/bin/weft create-admin \
   --username admin --password 'ChangeMe123!'
 
 # separate terminals
@@ -256,15 +258,18 @@ development, see [frontend/README.md](frontend/README.md).
 
 - Backend: Python 3.11, FastAPI, SQLAlchemy 2, Alembic, PostgreSQL.
 - Frontend: Vue 3, Vite, Element Plus, Vue Flow, CodeMirror, ECharts.
+- The `odf` Python package, `ODF_*` environment variables and systemd unit
+  names are the stable technical namespace retained for existing deployments;
+  the product and console use the Weft brand.
 - Default branch: `main`. Pull requests run unit, integration, browser and Helm checks.
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 - Console tests: `cd frontend && npm ci && npx playwright install chromium && npm run test:e2e`.
 
 ## Community
 
-- [GitHub Issues](https://github.com/CildCo/opendatafusion/issues) — bugs and
+- [GitHub Issues](https://github.com/CildCo/weft/issues) — bugs and
   concrete feature requests.
-- [GitHub Discussions](https://github.com/CildCo/opendatafusion/discussions) —
+- [GitHub Discussions](https://github.com/CildCo/weft/discussions) —
   design questions, deployment help and show-and-tell.
 - [Roadmap](ROADMAP.md) and [Changelog](CHANGELOG.md).
 - [Code of Conduct](CODE_OF_CONDUCT.md) and [Support](SUPPORT.md).

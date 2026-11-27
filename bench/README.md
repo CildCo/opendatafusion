@@ -1,6 +1,6 @@
 # Scale benchmark
 
-A reproducible benchmark for OpenDataFusion. It generates a 30GB Chinese
+A reproducible benchmark for Weft. It generates a 30GB Chinese
 e-commerce and event dataset, runs PostgreSQL-backed pipelines, exercises
 real dataset/metric/dashboard queries, injects faults, and validates recovery.
 
@@ -34,7 +34,7 @@ your checkout.
 ```bash
 export ODF_BENCH_ROOT=/data/odf-bench
 export ODF_BENCH_PYTHON=/path/to/python
-export ODF_BENCH_APP_SOURCE=/path/to/opendatafusion/impl
+export ODF_BENCH_APP_SOURCE=/path/to/weft/impl
 
 mkdir -p "$ODF_BENCH_ROOT"
 cp -a bench "$ODF_BENCH_ROOT/bench"

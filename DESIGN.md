@@ -1,5 +1,5 @@
 ---
-name: OpenDataFusion Console
+name: Weft Console
 description: "A flat-precision operations ledger for data work: near-white paper, ink, one cobalt accent, 1px rules, square corners, dense tabular layouts."
 colors:
   paper: "#fbfbfc"
@@ -150,7 +150,7 @@ components:
     padding: "20px"
 ---
 
-# Design System: OpenDataFusion Console
+# Design System: Weft Console
 
 ## Overview
 

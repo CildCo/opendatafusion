@@ -152,7 +152,7 @@ day (failed, running, queued, success, skipped). The window can be 7, 14 or
 ## Embedding
 
 - The share dialog has a **Public link / Embed** switch. Embed mode returns a
-  chromeless page and a snippet for `odf-embed.js`.
+  chromeless page and a snippet for `weft-embed.js`.
 - The SDK mounts an iframe, forwards optional parameters and resizes the
   frame from `postMessage` height events.
 - Share and embed use the same revocable token; the button is editor-only.

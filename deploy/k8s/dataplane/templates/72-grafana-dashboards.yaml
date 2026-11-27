@@ -11,7 +11,7 @@ data:
     providers:
       - name: odf-dashboards
         orgId: 1
-        folder: OpenDataFusion
+        folder: Weft
         type: file
         disableDeletion: false
         updateIntervalSeconds: 30
@@ -25,7 +25,7 @@ data:
         {
           "name": "DS_PROMETHEUS",
           "label": "Prometheus",
-          "description": "Prometheus datasource that scrapes the OpenDataFusion control plane",
+          "description": "Prometheus datasource that scrapes the Weft control plane",
           "type": "datasource",
           "pluginId": "prometheus",
           "pluginName": "Prometheus"
@@ -512,7 +512,7 @@ data:
       },
       "timepicker": {},
       "timezone": "browser",
-      "title": "OpenDataFusion - Platform Health",
+      "title": "Weft - Platform Health",
       "uid": "odf-platform-health",
       "version": 1,
       "weekStart": ""
@@ -523,7 +523,7 @@ data:
         {
           "name": "DS_PROMETHEUS",
           "label": "Prometheus",
-          "description": "Prometheus datasource that scrapes the OpenDataFusion control plane",
+          "description": "Prometheus datasource that scrapes the Weft control plane",
           "type": "datasource",
           "pluginId": "prometheus",
           "pluginName": "Prometheus"
@@ -908,7 +908,7 @@ data:
       },
       "timepicker": {},
       "timezone": "browser",
-      "title": "OpenDataFusion - Engine Jobs",
+      "title": "Weft - Engine Jobs",
       "uid": "odf-engine-jobs",
       "version": 1,
       "weekStart": ""
@@ -919,7 +919,7 @@ data:
         {
           "name": "DS_PROMETHEUS",
           "label": "Prometheus",
-          "description": "Prometheus datasource that scrapes the OpenDataFusion control plane",
+          "description": "Prometheus datasource that scrapes the Weft control plane",
           "type": "datasource",
           "pluginId": "prometheus",
           "pluginName": "Prometheus"
@@ -1354,7 +1354,7 @@ data:
       },
       "timepicker": {},
       "timezone": "browser",
-      "title": "OpenDataFusion - Lakehouse",
+      "title": "Weft - Lakehouse",
       "uid": "odf-lakehouse",
       "version": 1,
       "weekStart": ""

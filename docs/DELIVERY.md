@@ -49,12 +49,12 @@ Schedule those commands with host cron/journal timers. `backup` uses the
 ## Helm
 
 ```bash
-helm upgrade --install odf deploy/helm/odf \
-  --namespace odf --create-namespace \
-  --set image.repository=ghcr.io/CildCo/opendatafusion \
-  --set image.tag=v1.0.0 \
-  --set secrets.existingSecret=odf-secrets \
-  --set ingress.enabled=true --set ingress.host=odf.example.com
+helm upgrade --install weft deploy/helm/weft \
+  --namespace weft --create-namespace \
+  --set image.repository=ghcr.io/cildco/weft \
+  --set image.tag=1.1.0 \
+  --set secrets.existingSecret=weft-secrets \
+  --set ingress.enabled=true --set ingress.host=weft.example.com
 ```
 
 - Migration runs as a pre-install/pre-upgrade Job.

@@ -83,14 +83,14 @@ import { useRouter } from "vue-router";
 import { Lock, User, Key } from "@element-plus/icons-vue";
 import { api, errMsg } from "../api";
 
-const brand = ref({ name: "OpenDataFusion", color: "#1d4ed8" });
+const brand = ref({ name: "Weft", color: "#1d4ed8" });
 const announcement = ref("");
 const initials = computed(() =>
-  (brand.value.name || "OD").slice(0, 2).toUpperCase());
-const brandTop = computed(() => (brand.value.name || "OpenDataFusion")
+  (brand.value.name || "W").slice(0, 1).toUpperCase());
+const brandTop = computed(() => (brand.value.name || "Weft")
   .split(" ")[0]);
-const brandBottom = computed(() => (brand.value.name || "OpenDataFusion")
-  .split(" ").slice(1).join(" ") || "Fusion");
+const brandBottom = computed(() => (brand.value.name || "Weft")
+  .split(" ").slice(1).join(" ") || "Data Platform");
 const username = ref("admin");
 const password = ref("");
 const projectId = ref(1);

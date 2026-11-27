@@ -1,7 +1,7 @@
 <template>
   <div class="public" :class="{ embed }">
     <header v-if="!embed" class="head">
-      <div class="brand">OD</div>
+      <div class="brand">W</div>
       <div class="name">{{ view?.name || t("aed.shareContent") }}</div>
       <el-tag size="small" type="info">{{ t("aed.readonlyShare") }}</el-tag>
       <div class="spacer" />
@@ -178,10 +178,9 @@ watch(currentId, () => {
 });
 function notifyParent() {
   if (!embed.value || window.parent === window) return;
-  window.parent.postMessage({
-    type: "odf-embed:resize",
-    height: Math.ceil(document.documentElement.scrollHeight),
-  }, "*");
+  const height = Math.ceil(document.documentElement.scrollHeight);
+  window.parent.postMessage({ type: "weft-embed:resize", height }, "*");
+  window.parent.postMessage({ type: "odf-embed:resize", height }, "*");
 }
 
 watch([view, data, loading, error], () => {

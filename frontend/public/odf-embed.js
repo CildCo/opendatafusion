@@ -32,7 +32,7 @@
     if (!opts.token) throw new Error("ODFEmbed: token is required");
     var frame = document.createElement("iframe");
     frame.src = url(opts.token, opts.params);
-    frame.title = opts.title || "OpenDataFusion";
+    frame.title = opts.title || "Weft";
     frame.loading = "lazy";
     frame.style.border = "0";
     frame.style.width = opts.width || "100%";

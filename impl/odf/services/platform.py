@@ -11,7 +11,7 @@ MASK = "********"
 
 DEFAULTS = {
     "brand": {
-        "name": "OpenDataFusion",
+        "name": "Weft",
         "color": "#1d4ed8",
         "welcome_title": "",
         "welcome_text": "",
