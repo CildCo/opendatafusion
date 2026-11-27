@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from odf.db import Base
 from odf.lakehouse import schedule as schedule_service
-from odf.lakehouse.service import health, time_travel
+from odf.lakehouse.service import health, snapshots, time_travel
 from odf.models import Datasource, Job, LakehouseMaintenance, Project
 from odf.services.crypto import encrypt_secret
 
@@ -74,8 +74,11 @@ class _Client:
                  "record_count": 1},
             ]}
         if "$snapshots" in sql:
-            return {"rows": [{"snapshot_id": 1, "committed_at": "now"},
-                             {"snapshot_id": 2, "committed_at": "now"}]}
+            return {"rows": [
+                {"snapshot_id": 1336529842953863029,
+                 "committed_at": "now"},
+                {"snapshot_id": 1336529842953863030,
+                 "committed_at": "now"}]}
         if "$partitions" in sql:
             return {"rows": [{"partition": "p", "file_count": 3,
                               "record_count": 3, "total_size": 600}]}
@@ -92,3 +95,8 @@ def test_health_and_time_travel():
     result = time_travel(client, "odf_p1", "orders", snapshot_id=7)
     assert result["rows"] == [{"id": 1}]
     assert "FOR VERSION AS OF 7" in client.sql[-1]
+
+
+def test_snapshots_keep_exact_numeric_ids_as_strings():
+    rows = snapshots(_Client(), "odf_p1", "orders")
+    assert rows[0]["snapshot_id"] == "1336529842953863029"
