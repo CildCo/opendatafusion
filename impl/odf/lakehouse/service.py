@@ -59,9 +59,16 @@ def _meta(client, schema, table, suffix, order=None, limit=200):
     return client.query(sql, max_rows=min(int(limit), 2000))
 
 
+def _exact_snapshot_ids(rows):
+    for row in rows:
+        if row.get("snapshot_id") is not None:
+            row["snapshot_id"] = str(row["snapshot_id"])
+    return rows
+
+
 def snapshots(client, schema, table, limit=100):
-    return _meta(client, schema, table, "snapshots",
-                 "committed_at", limit)["rows"]
+    return _exact_snapshot_ids(_meta(client, schema, table, "snapshots",
+                                     "committed_at", limit)["rows"])
 
 
 def files(client, schema, table, limit=500):
@@ -69,8 +76,8 @@ def files(client, schema, table, limit=500):
 
 
 def history(client, schema, table, limit=100):
-    return _meta(client, schema, table, "history",
-                 "made_current_at", limit)["rows"]
+    return _exact_snapshot_ids(_meta(client, schema, table, "history",
+                                     "made_current_at", limit)["rows"])
 
 
 def partitions(client, schema, table, limit=500):

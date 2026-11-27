@@ -4,6 +4,14 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [4.2.2] - 2026-11-27
+
+### Fixed
+
+- Iceberg snapshot identifiers are returned as strings, so time travel sends
+  the exact snapshot ID instead of a JavaScript-rounded number. Snapshot and
+  history views keep the full 19-digit identifier.
+
 ## [4.2.1] - 2026-11-26
 
 ### Fixed
