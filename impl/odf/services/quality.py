@@ -48,10 +48,22 @@ class _TrinoRunner:
         return execute_query(None, datasource, sql, params, limit)
 
 
-def _simple_runner(datasource):
+class _QueryRunner:
+    def __init__(self, session):
+        self.session = session
+
+    def execute(self, datasource, sql, params=None, max_rows=1000):
+        from odf.services.query import execute_query
+        return execute_query(self.session, datasource, sql, params or {},
+                             max_rows)
+
+
+def _simple_runner(datasource, session=None):
     from odf import clickhouse, filesource
     if datasource.kind == "trino":
         return _TrinoRunner()
+    if datasource.kind == "duckdb":
+        return _QueryRunner(session)
     return filesource if datasource.kind == "file" else clickhouse
 
 
@@ -195,7 +207,7 @@ def _drift_result(session, rule, stats, cfg):
 
 def _run_simple(session, datasource, ds, rule, runner=None, schema=None):
     from odf.apistudio.compiler import quote_ident
-    runner = runner or _simple_runner(datasource)
+    runner = runner or _simple_runner(datasource, session)
     schema = schema or ("file" if datasource.kind == "file"
                         else ds.schema_name)
     table = "%s.%s" % (quote_ident(schema), quote_ident(ds.table_name))
@@ -396,7 +408,7 @@ def run_rule(session, rule_id: int, project_id: int | None = None) -> QualityRes
         session.commit()
         session.refresh(result)
         return result
-    if datasource.kind in ("file", "clickhouse", "trino"):
+    if datasource.kind in ("file", "clickhouse", "trino", "duckdb"):
         ok, detail = _run_simple(session, datasource, ds, rule)
         result = QualityResult(rule_id=rule.id,
                                status="pass" if ok else "fail",

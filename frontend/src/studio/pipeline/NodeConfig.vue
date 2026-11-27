@@ -390,11 +390,16 @@ watch(() => props.node && props.node.id, reset, { immediate: true });
 
 async function loadTables(clear = true) {
   if (!cfg.value.datasource_id) return;
-  tables.value = await api.tablesOf(cfg.value.datasource_id);
+  const datasourceId = cfg.value.datasource_id;
   if (clear) {
     cfg.value.table = "";
     columns.value = [];
-  } else {
+    emit("update");
+  }
+  const rows = await api.tablesOf(datasourceId);
+  if (cfg.value.datasource_id !== datasourceId) return;
+  tables.value = rows;
+  if (!clear) {
     const t = tables.value.find((x) => x.table === cfg.value.table);
     columns.value = t ? t.columns || [] : [];
   }

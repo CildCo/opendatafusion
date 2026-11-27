@@ -48,3 +48,27 @@ def test_row_count_passes(tmp_path):
     rule = create_rule(s, 1, 1, "3 rows", "row_count",
                        config={"min": 3, "max": 3})
     assert run_rule(s, rule.id).status == "pass"
+
+
+def test_duckdb_quality_uses_query_layer(tmp_path):
+    import duckdb
+
+    path = tmp_path / "q.duckdb"
+    con = duckdb.connect(str(path))
+    con.execute("create table t (id integer, v varchar)")
+    con.execute("insert into t values (1, 'a'), (2, null)")
+    con.close()
+
+    e = create_engine("sqlite://")
+    Base.metadata.create_all(e)
+    s = sessionmaker(bind=e)()
+    dsn = "duckdb:///" + path.as_posix()
+    s.add(Datasource(id=2, project_id=1, name="duck", kind="duckdb",
+                     dsn_encrypted=encrypt_secret(dsn)))
+    s.add(Dataset(id=2, datasource_id=2, schema_name="main", table_name="t"))
+    s.add(Column(id=2, dataset_id=2, name="v", data_type="VARCHAR"))
+    s.commit()
+    rule = create_rule(s, 1, 2, "duck v not null", "not_null", "v")
+    result = run_rule(s, rule.id)
+    assert result.status == "fail"
+    assert result.detail_json["nulls"] == 1
