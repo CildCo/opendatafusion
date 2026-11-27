@@ -18,7 +18,6 @@ over MCP.
 
 *A short tour: overview, catalog profiling, pipeline studio, metrics and dashboards.*
 
-![Console tour](docs/images/tour.gif)
 
 <details>
 <summary>Contents</summary>

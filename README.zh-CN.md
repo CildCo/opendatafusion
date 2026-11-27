@@ -16,7 +16,6 @@
 
 *快速浏览：概览、目录剖析、管道工作室、指标与看板。*
 
-![控制台导览](docs/images/tour.gif)
 
 <details>
 <summary>目录</summary>
