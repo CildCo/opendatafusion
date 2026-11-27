@@ -4,800 +4,91 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [4.2.3] - 2026-11-27
+Versioning restarts at 1.1.0 with this release. Earlier public tags were
+retired during the reset; the git history remains available.
+
+## [1.1.0] - 2026-11-27
+
+### Platform
+
+- Unified asset catalogue for datasets, metrics, models, pipelines, APIs,
+  dashboards, apps and data products, with versions, approval publishing,
+  lineage, ownership, certification and lifecycle notes.
+- Project-scoped console with role-aware navigation for administrators,
+  editors, approvers and viewers; platform administration separated from
+  workspace operations.
+- Durable PostgreSQL job queue, retrying workers, leader-elected scheduler,
+  dependency-aware scheduling, run priority, duration SLAs, cost attribution,
+  dead-letter replay, retention and archive.
+
+### Data integration
+
+- Connector registry covering relational databases, openGauss, KingbaseES,
+  GaussDB, Dameng DM, ClickHouse, Trino, DuckDB, Hive/Spark Thrift, S3/MinIO,
+  files, HTTP, Elasticsearch, MongoDB, Kafka and Airbyte-protocol sources.
+- Visual pipeline studio with source, transform, quality, Spark, Flink SQL and
+  sink nodes; validation, preview, versioned publish, backfill, cursors and
+  templates.
+- Quick sync, datasource health history, metadata sync, schema-drift alerts,
+  datasource rate and concurrency limits, and encrypted connection settings.
+
+### Lakehouse and engines
+
+- Trino/Iceberg datasource with table health, snapshots, exact snapshot time
+  travel, file optimisation, snapshot expiry and scheduled maintenance.
+- Spark applications through the Spark Operator and Flink SQL through the SQL
+  Gateway, with submit, inspect, cancel and savepoint operations.
+- Debezium CDC sources for PostgreSQL, MySQL and Oracle, generated CDC
+  pipelines, schema evolution and delete handling.
+- DuckDB quality rules now run through the unified SQL query layer, compatible
+  with current `duckdb-engine` releases.
+
+### Modelling and analytics
+
+- Visual and SQL datasets, expression metrics, time grains and period
+  comparison, transform models with refs and materialisations, tests and
+  warehouse layers, column lineage and model-run history.
+- Dashboards with cards, charts, tables, maps and text; filters, drill-through,
+  GeoJSON maps, scheduled CSV reports, share links and embed snippets.
+- Metric catalogue with owners, definitions, usage and dataset links.
+
+### Applications and products
+
+- Multi-page low-code apps with parameters, bindings, actions, page roles,
+  component styles, conditional highlights, containers, tabs, modals, uploads,
+  approval queues and lists.
+- Built-in application templates and a template marketplace.
+- Data products with owner, SLA, terms and member assets; packaging and bundle
+  export; cost attribution and usage in one view.
+
+### Governance
+
+- Column classification and masking, row policies, governed SQL restrictions,
+  data standards and column mapping, glossary and domains.
+- Data contracts with freshness and quality checks, contract check history and
+  enforcement.
+- Quality rules for freshness, nulls, uniqueness, range, accepted values,
+  regex, schema, drift and custom SQL; pass rates, SLA alerts and daily trends.
+- External metadata import for dbt and BI metadata; read-only external datasets
+  in the physical catalog.
+- Approval-gated writes, audit trails, asset grants, requests and public share
+  modes that strip write components.
+
+### Administration
+
+- Users, platform roles, projects, quotas, sign-in policy, OIDC/LDAP, branding,
+  announcements, feature flags, engine, CDC, Airbyte and lineage settings.
+- Backup export, restore guidance, audit filters and CSV export, retention
+  policies and system checks.
+- Management API, signed public gateway, GraphQL gateway, streamable HTTP MCP
+  server and stdio MCP entry point with approval-protected write tools.
 
 ### Fixed
 
-- DuckDB quality rules now run through the unified SQL query layer instead of
-  SQLAlchemy table reflection, which is incompatible with current
-  `duckdb-engine` releases. Not-null, unique, row-count, freshness, regex,
-  accepted-value and range rules work on DuckDB.
+- Iceberg snapshot identifiers are returned as strings so time travel keeps
+  full 19-digit IDs instead of JavaScript-rounded numbers.
+- The desktop application editor no longer auto-stacks components when the
+  canvas host is narrow; stacking applies only to tablet preview.
 - Choosing a datasource in the pipeline node editor clears the table/topic
-  field immediately and ignores a stale metadata response, so a topic or table
-  typed just after the selection is not erased.
-
-## [4.2.2] - 2026-11-27
-
-### Fixed
-
-- Iceberg snapshot identifiers are returned as strings, so time travel sends
-  the exact snapshot ID instead of a JavaScript-rounded number. Snapshot and
-  history views keep the full 19-digit identifier.
-
-## [4.2.1] - 2026-11-26
-
-### Fixed
-
-- The desktop application editor no longer auto-stacks components into one
-  column when the canvas host is narrow. Stacking now applies only in the
-  tablet preview, so drag, resize and undo keep working on desktop layouts.
-
-## [4.2.0] - 2026-11-26
-
-### Added
-
-- Application components: file upload, approval queue and list. Uploads reuse
-  the existing file store; approvals reuse change requests; lists reuse dataset
-  preview. Public shares strip upload and approval components recursively.
-- Built-in application templates (approval workbench and file intake) with a
-  template gallery on the apps page.
-- External metadata import for dbt manifests and BI JSON into the existing
-  physical catalog, including dataset/column descriptions and owners. External
-  datasets are read-only and cannot be previewed, queried or given quality
-  rules.
-- Data products as a first-class asset type with a summary, owner, SLA, terms
-  and up to 50 member assets. Products can be published and exported as a
-  bundle with the product manifest.
-- Data standards management UI and column mapping in catalog detail; write
-  routes now require editor permission, project scope and audit entries.
-- Cost attribution in the operations centre, using actual worker start/end
-  timestamps and a project hourly rate.
-- Distribution-drift quality rule comparing numeric mean and null percentage
-  with the previous baseline window, with alert-on-failure support.
-
-### Changed
-
-- Dataset and column records carry description/owner metadata through catalog
-  detail and external imports.
-
-### Migration
-
-- `j8e9f0a1b2c3` adds dataset description/owner and column description.
-
-## [4.1.0] - 2026-11-26
-
-### Added
-
-- Application pages support `visible_roles`; the runtime hides pages and the
-  data endpoint refuses to load a page the caller cannot see.
-- Component style tokens: background, text color, alignment, padding, radius
-  and font size, validated on save and applied by both grid and legacy
-  runtimes.
-- Conditional highlight (`highlight_when`) with info/success/warning/danger
-  tones.
-- Bulk glossary import from CSV or JSON with per-row errors, domain lookup and
-  upsert by term.
-- Project quota adds `max_running_jobs`; the worker skips saturated projects
-  while preserving priority order.
-- Project quota adds an IANA `timezone`, applied to asset, quality, contract,
-  lakehouse and report cron schedules.
-- Platform administrators can promote a project bundle into another project
-  as drafts; conflicts and missing datasources block promotion.
-
-### Fixed
-
-- Row policies now apply to visual API execution and catalog sample queries;
-  SQL-mode APIs are disabled when the datasource has row policies.
-- Missing roles are treated as viewers for row policies instead of bypassing
-  them.
-
-## [4.0.0] - 2026-11-26
-
-### Added
-
-- Asset catalog view beside physical tables, with text relevance ranking,
-  type, certification and lifecycle filters, recommendations and similar
-  assets.
-- Asset trust score (certification, owner, domain, contract, latest contract
-  check and 30-day usage) with a factor-by-factor drawer.
-- Approver-only asset certification, deprecation, archive and restore.
-  Deprecation/archive require a note and revoke certification.
-- Run-policy priority (0–100) and maximum duration (0–86400 seconds). Queued
-  jobs are claimed by priority, then schedule time.
-- Duration breaches raise a warning alert; final job failures raise a critical
-  alert in addition to the job notification and `job.failed` webhook.
-- Run health view (success rate, average/P95 duration, SLA breaches, health
-  score) and a 30-day run calendar.
-- Share links gain an embed mode, a chromeless embed route and the
-  `odf-embed.js` SDK with automatic iframe resizing and parameter forwarding.
-
-### Changed
-
-- Share creation is editor-only in the console; viewers no longer see the
-  share button.
-- New jobs inherit priority and duration limits from the asset run policy;
-  editing a policy affects subsequent jobs.
-
-### Fixed
-
-- Job failures now appear in the alert centre instead of only as
-  notifications and webhooks.
-
-## [3.4.0] - 2026-11-26
-
-### Added
-
-- Application bindings accept dotted paths for page parameters, form values
-  and table row selections. The editor offers a searchable binding picker and
-  the preview shares form and table state with the canvas.
-- Buttons run an ordered, validated action sequence: navigate, URL, set
-  parameter, refresh and message.
-- Role-based component visibility (`viewer`, `editor`, `approver`, `admin`)
-  alongside parameter visibility rules.
-- Container, tabs and dialog components. Children use the same component model
-  and 12-column grid recursively, with validation for nesting depth, counts,
-  ids and tab structure.
-- The editor sidebar is a searchable outline with nested items and an explicit
-  insertion target for pages, containers and tabs.
-- The inspector is split into Content, Layout and Interaction tabs.
-- A desktop/tablet preview switch; runtime stacks components in reading order
-  below the tablet breakpoint.
-
-### Fixed
-
-- Runtime data loading validates button navigation against every page in the
-  app instead of only the active page, so valid cross-page actions no longer
-  report `target page does not exist`.
-- Form submission can resolve forms nested inside containers, tabs and dialogs.
-
-## [3.3.0] - 2026-11-26
-
-### Added
-
-- Shared authoring primitives: one chart option builder, one grid layout
-  helper and one parameter bar used by dashboards, workbench and app runtime.
-- Dashboard widget style settings: palette, legend, data labels, smooth lines,
-  axis titles and number format.
-- Dashboard click behavior: filter a parameter (existing), navigate to an
-  in-app path or open an external URL; runtime executes the configured action.
-- Dashboard and application filter state is serialized to the URL, with a
-  reset action restoring defaults.
-- Workbench multi-query tabs, a schema tree that inserts tables/columns, SQL
-  formatting, and a result inspector with table, chart, stats, request and
-  JSON views.
-- Parameter bars support date and number inputs in addition to string/bool.
-
-### Changed
-
-- Workbench charts, dashboard charts and previews now use the same chart
-  option builder and palette definitions.
-- Dashboard and app grids share collision/layout calculations instead of
-  maintaining separate copies.
-
-## [3.2.1] - 2026-11-26
-
-### Fixed
-
-- Run-policy inputs and save action are read-only for roles that cannot write;
-  viewers can still inspect schedules, policies and job details.
-
-## [3.2.0] - 2026-11-26
-
-### Added
-
-- Per-asset run policies: maximum attempts (1–10) and retry backoff
-  (0–3600 seconds). Jobs inherit the policy when queued, and retries follow
-  the configured backoff.
-- An operations schedule view lists every scheduled asset with its cron, next
-  run, enabled state and latest job status.
-- A run policy board in the operations centre edits attempts and backoff
-  inline for every asset.
-- Job detail shows the payload, worker, attempts and per-node rows/duration.
-  The comparison view diffs the latest run against the previous job for the
-  same asset.
-
-## [3.1.1] - 2026-11-26
-
-### Fixed
-
-- Alert assignment and column-term controls are only shown to roles that can
-  write; viewers keep the read-only timeline, field links and detail view.
-
-## [3.1.0] - 2026-11-26
-
-### Added
-
-- The SQL workbench completes table and column names from the selected
-  datasource's synchronized schema, and renders results as a table, bar,
-  line, area or pie chart with dimension and measure pickers.
-- Favorites: any asset editor and the catalog table detail can be starred.
-  The command palette shows a Favorites group above Recent, and favorited
-  routes are de-duplicated from normal search results.
-- Alerts support assignment to active project members, an activity timeline
-  with notes, and record who acknowledged and closed them.
-- Glossary terms can be linked to catalog columns; the column drawer manages
-  links, the field list shows them, and catalog search matches term names to
-  their tables and columns.
-
-## [3.0.0] - 2026-11-25
-
-### Added
-
-- Catalog detail pages have a summary header and a governance rail showing the
-  domain, quality state, classified columns, glossary terms, open comments and
-  recent activity.
-- The catalog tree can group by source or by business domain; glossary terms
-  filter the tree to their domain, and search matches table names, schemas,
-  column names and tags with the matched columns and tags shown inline.
-- A column drawer shows type, classification, masking and per-column quality
-  rules; the field list filters by name, type or classification.
-- Catalog comments: any project member can comment, resolve and reopen a
-  thread; comments appear in the activity history and in the summary counts.
-- The lineage explorer adds upstream / downstream / both directions, a depth
-  limit, click-to-focus, column-lineage filtering, highlighted paths and JSON
-  or CSV export. It replaces the static lineage lists in the catalog and the
-  impact tab.
-
-## [2.9.0] - 2026-11-25
-
-### Added
-
-- Application pages use a 12-column free-form canvas: drag a component title
-  bar to move it, drag the lower-right corner to resize, and overlapping
-  components are pushed down. Position and size can also be entered in the
-  property panel.
-- New application components: heading, divider, image, button and progress.
-  Buttons open another page or an external link; progress reads a fixed value
-  or a page parameter.
-- Text and headings interpolate page parameters with `{{name}}`; components
-  support `visible_when` conditions (`=`, `!=`, `in`) that hide them at
-  runtime when the condition is not met.
-- The application editor previews parameter changes, offers **Tidy layout**,
-  and validates layout bounds, bindings, visibility parameters and button
-  targets. Drag operations are a single undo step.
-- The transform-model editor imports the shared history stack, so undo and
-  redo work there as in the other editors.
-
-## [2.8.0] - 2026-11-25
-
-### Added
-
-- Undo/redo in the pipeline, dashboard, application and transform-model
-  editors with one snapshot history stack, keyboard shortcuts and toolbar
-  controls.
-- Pipeline canvas multi-select with Shift, copy/paste of selected nodes and
-  edges, auto layout by dependency level, and per-node runtime badges showing
-  the latest status, rows and duration.
-- Pipeline validation results open in a panel listing node, field and message.
-- Backfill preview validates the published pipeline and shows source cursors,
-  batch size, maximum batches and warnings before queueing.
-- Dashboard chart gallery with search and visual previews; component drag and
-  resize push overlapping widgets down instead of stacking.
-- Run matrix in the operations centre: assets by day with run counts and the
-  worst status of each day.
-
-## [2.7.0] - 2026-11-25
-
-### Added
-
-- Contract quality checks: `not_null`, `unique`, `accepted_values`,
-  `max_null_pct` and read-only SQL assertions run with the manual, scheduled
-  and model-run contract checks; the console edits them per contract.
-- Quality SLA alerts: after a scheduled or manual rule run, a 30-day pass rate
-  below the rule's SLA raises an alert through the normal alert path, with
-  deduplication of open alerts.
-- Retention archive: `prune-data --archive-dir`, the console's **Archive and
-  prune**, and `ODF_RETENTION_ARCHIVE` write gzip JSON lines before deletion;
-  a failed archive aborts the prune.
-
-## [2.6.0] - 2026-11-25
-
-### Added
-
-- Cross-project asset sharing for published APIs, datasets and models:
-  requests by asset id or key, approval, grants, revocation and a shared-asset
-  list. Datasets open a masked published preview; models expose layer,
-  materialization, target and declared columns without SQL; APIs keep the
-  AK/SK gateway path.
-- Quality SLA: rules store `sla_percent`, the list flags rules below SLA, and
-  results show a 30-day daily pass/fail table and the current failure streak.
-- `partition` incremental strategy for Trino: replaces the partitions present
-  in the source instead of merging row by row, with a 10,000-partition cap and
-  full-rebuild fallback.
-- CDC sink type validation: values that cannot be coerced to the target
-  column type fail the run with a curated column error.
-
-### Changed
-
-- `interface_grant` and `interface_request` become `asset_grant` and
-  `asset_request` with `asset_type`; existing rows become `api`. Migration
-  `e5f6a7b8c9d0`. The previous `/api-*` grant routes remain as API-only
-  aliases.
-- The console menu item "Access control" is renamed "Asset sharing".
-
-## [2.5.0] - 2026-11-25
-
-### Added
-
-- Data retention: the scheduler daily prunes terminal jobs, query history,
-  notifications, closed alerts, webhook deliveries and contract checks by
-  per-class windows; `odf prune-data` supports dry runs and overrides, and the
-  platform console shows counts and a manual prune action.
-- Dead letters: final failed jobs are listed separately, filtered by asset
-  type and replayed in batches of up to 100 through the normal queue.
-- Datasource limits: per-datasource queries-per-minute for interactive SQL and
-  concurrent model/lakehouse jobs; over-limit queries return HTTP 429 and
-  blocked jobs wait and retry.
-- `odf doctor` reports database reachability, migration revision, counts and
-  disk headroom; the platform console shows the same report.
-- `odf backup-check` validates SQL, gzip and tar.gz backups.
-- `scripts/ha_smoke.py` checks `/livez` and `/readyz` on every API replica.
-- Scheduled data contracts: a six-field cron queues contract jobs through the
-  normal queue, stores results and history, and fails the job on drift.
-- Classification propagation: model publishing copies column policies from
-  its source table or parent models to the physical target, without
-  overwriting manual policies.
-- CDC schema evolution: the `cdc` sink mode can add new source columns with an
-  inferred type before writing; generated CDC pipelines enable it.
-- Native `MERGE INTO` for Trino/Iceberg incremental models when source and
-  target columns match, with the portable path as fallback.
-
-### Changed
-
-- Contract checks and datasource limits add columns and tables:
-  migrations `b2c3d4e5f6a7` and `c3d4e5f6a7b8`.
-
-## [2.4.0] - 2026-11-24
-
-### Added
-
-- Table materialization builds a shadow table, runs the model tests against
-  it and swaps it into place only when every test passes. A failing test drops
-  the shadow and leaves the previous table intact.
-- **Infer from SQL** parses model SQL with `sqlglot` and fills column sources
-  for direct projections, single-column expressions and joins, without
-  overwriting manual sources.
-- Data contracts gain freshness checks: a time column and maximum age are
-  validated against the live table, reporting stale, empty or non-time data.
-- Query performance adds normalized statement templates and a per-user
-  breakdown.
-- CDC delete propagation: the source node emits `payload.before` rows with
-  `__odf_op = delete` when **Propagate deletes** is enabled, and the new `cdc`
-  sink mode deletes by primary key and upserts the rest.
-
-### Changed
-
-- Generated CDC pipelines use `cdc` source and sink settings.
-- Table materialization no longer drops the target before running tests.
-
-### Dependencies
-
-- Added `sqlglot`.
-
-## [2.3.0] - 2026-11-24
-
-### Added
-
-- Query history: every workbench, federated and model-preview query is
-  recorded with status, duration, rows, error and reopenable SQL.
-- Query performance tab in the operations centre with total, failure, average,
-  P50 and P95 duration, breakdowns by source and datasource, and the ten
-  slowest statements.
-- Workbench execution plans through `EXPLAIN` for SQL, Trino, Hive,
-  ClickHouse and DM datasources.
-- Transform model partitioning for Trino / Iceberg tables, with up to four
-  partition columns.
-- `merge` incremental strategy: rows for the selected keys are replaced, so
-  source updates and deletes reach the target. Above 50,000 keys the model
-  rebuilds the table instead.
-- Model column definitions with source mapping, surfaced as column-level
-  lineage in the lineage drawer and catalog.
-- Data contracts for datasets and models: generate from the live table,
-  check structure and types, optionally reject extra columns, and enforce the
-  contract on model runs.
-- Generate CDC pipelines from a Debezium source: one branch per subscribed
-  table, Debezium envelope unwrapping and upsert sinks.
-- Template gallery for transform models (staging, incremental merge,
-  deduplicated mart) and pipelines (table sync by key).
-
-### Changed
-
-- Model unique keys are limited to eight columns and validated as
-  identifiers.
-- The web console API client supports `PATCH` requests.
-
-### Fixed
-
-- Contract and query-history routes return curated errors and stay
-  project-scoped.
-
-## [2.2.1] - 2026-11-24
-
-### Fixed
-
-- Transform model validation, preview and target failures return curated
-  messages instead of exception text, clearing a stack-trace-exposure
-  finding.
-
-## [2.2.0] - 2026-11-24
-
-### Added
-
-- Transform models: SQL assets with `{{ ref('key') }}` dependencies,
-  view/table/incremental materializations, incremental keys, warehouse
-  layers, preview, tests, scheduling, approval, rollback and model lineage.
-- Model tests (`not_null`, `unique`, `accepted_values`, `relationships` and
-  custom SQL) that fail the job, store results and raise alerts.
-- Lakehouse table management: table health, snapshots, file and partition
-  statistics, time travel by snapshot or timestamp, immediate maintenance and
-  cron maintenance schedules with run history and alerts.
-- MCP tools for listing, creating, validating, previewing, publishing and
-  running transform models.
-
-### Changed
-
-- The scheduler runs published transform models alongside pipelines and
-  honours model-to-model dependencies.
-- Scheduling dependencies, asset lineage, bundles, the operations queue and
-  the console model list include transform models.
-- Maintenance jobs carry a project id so they appear in the project
-  operations queue.
-
-## [2.1.0] - 2026-11-24
-
-### Added
-
-- Airbyte protocol connectors: import an Airbyte source by image or local
-  command, discover its streams, sync their schemas into the catalog and use
-  them as pipeline sources. Disabled by default and gated by an image/command
-  allowlist, timeout and platform administrator switch.
-- OpenLineage events for pipeline and backfill jobs (`START`, `COMPLETE`,
-  `FAIL`) with input/output datasets, run facets and error messages.
-- Catalog export as JSON (`GET /catalog/export`) and scheduled push to an
-  external catalog endpoint, with a manual **Sync now** action.
-- A GraphQL gateway at `/openapi/graphql`: signed AK/SK requests, a schema
-  built from published APIs, typed arguments, introspection and a console
-  schema/example viewer.
-- A map dashboard widget with uploaded GeoJSON, metric dimension and value,
-  visual scale, tooltips, drill-through and share-page rendering.
-- A mobile navigation drawer and responsive editor layouts for dashboards,
-  models, APIs and apps.
-
-### Changed
-
-- Airbyte and lineage settings live in platform administration; the console
-  can send an OpenLineage test event and push the catalog immediately.
-- Pipeline jobs emit lineage only when an endpoint is configured; failures in
-  the lineage endpoint never block a job.
-
-## [2.0.0] - 2026-11-24
-
-### Removed
-
-- The legacy integration-flow module: its routes, console pages, worker,
-  scheduler hooks, models and health events are gone.
-- The legacy SQL-interface module: its routes, console page, gateway fallback
-  and models are gone.
-- Legacy MCP tools (`list_flows`, `flow_health`, `diagnose_flow`,
-  `pause_flow`, `resume_flow`, `get_flow`, `rollback_flow`, `get_interface`,
-  `publish_interface`, `revoke_interface`).
-- `GET /api/v1/health/snapshot`, `POST /api/v1/flows/*` and
-  `/api/v1/interfaces/*` endpoints; old console paths redirect to Pipelines
-  and Data APIs.
-
-### Added
-
-- Upgrade migration `d7a8b9c0d1e2` converts every remaining flow into a
-  published pipeline (schedule preserved) and every interface into a data API
-  (key preserved), or leaves a draft with a notification when conversion
-  needs review. It then drops the legacy tables and `job.flow_id`.
-
-### Changed
-
-- Scheduling dependencies accept pipelines only.
-- Dashboard counters report pipelines and published APIs; operations health
-  now relies on job status and alerts.
-- The changes page lists and approves asset changes; it no longer creates
-  legacy flow/interface change requests.
-
-## [1.9.0] - 2026-11-24
-
-### Added
-
-- Time grains on metrics: day, week, month, quarter and year buckets for
-  PostgreSQL-compatible, MySQL-compatible, SQLite, Oracle/DM, SQL Server,
-  ClickHouse, Trino/DuckDB and Hive engines.
-- Period comparison on metrics: previous period or the same period last year,
-  with `<measure>_previous`, `_delta` and `_delta_pct` columns. Date filters
-  move with the comparison window, and dashboards draw a dashed comparison
-  series while cards show the change.
-- Drill-through from dashboard charts, metric cards and metric tables to the
-  underlying dataset rows, respecting metric and widget filters, row policies
-  and column masking, with CSV export from the detail drawer.
-- Scheduled dashboard reports with a six-field cron, CSV snapshots stored as
-  project files, a notification, a `report.ready` webhook event, run history,
-  run-now and download from the console.
-- An embed snippet in share dialogs for read-only dashboards and apps.
-
-### Changed
-
-- Dashboard and app validation treat a metric's time column as a dimension, so
-  time-grain metrics work in charts, pivots, tables and apps without listing
-  the column twice.
-- Dashboard CSV export and scheduled reports share one renderer.
-
-## [1.8.1] - 2026-11-24
-
-### Fixed
-
-- Metric and SQL-dataset validation now return curated expression and column
-  errors instead of raw exception text.
-
-## [1.8.0] - 2026-11-24
-
-### Added
-
-- Environment labels (`dev`, `staging`, `prod`) on projects.
-- Project asset bundles: export published assets, datasource names, domains
-  and terms as reviewable JSON; validate and import into another project.
-  Imports create drafts, remap datasource and asset references, and suffix
-  keys that collide across projects.
-- Expression metrics: aggregate expressions such as
-  `sum(amount) / nullif(count(*), 0)` with a column/function whitelist.
-- An external connector SDK: register connector specs and source/sink
-  factories from installed modules via `ODF_CONNECTOR_PLUGINS`.
-
-## [1.7.0] - 2026-11-23
-
-### Added
-
-- SQL datasets: define a read-only query over a datasource, derive its
-  output columns, and use it as the source for metrics, dashboards and apps.
-  This enables multi-table joins inside the semantic layer without a pipeline.
-- `count_distinct` metric aggregation.
-- Business domains and a glossary, assignable to logical assets and catalog
-  tables, with lookup pages in the console.
-- Asset contracts (owner, SLA, schema fields, quality commitments, usage
-  notes) and a per-asset usage analysis of references, runs, downstream assets
-  and API calls.
-- A governance drawer in every studio editor and on catalog table details.
-- Pivot and area dashboard widgets.
-
-## [1.6.0] - 2026-11-23
-
-### Added
-
-- Server-side pagination and name search for pipelines, datasets, metrics,
-  APIs, dashboards, apps, alerts and quality rules.
-- A notification centre in the console header, with unread counts and
-  read-all, fed by publishing, job failures, alerts and approval requests.
-- Draft autosave, navigation guards and optimistic draft-version checks in
-  every studio editor, with a conflict prompt instead of silent overwrites.
-- A one-click sample delivery path (datasource, pipeline, dataset, metric,
-  dashboard and API) from the getting-started checklist.
-- Migration actions that turn a legacy flow into a pipeline and a legacy SQL
-  interface into an API Studio asset, then disable the old object.
-- Job cancellation for queued and running jobs, and a page-level error
-  boundary for the console.
-- Saved workbench queries and dashboard widget export as CSV.
-- Custom-SQL quality rules and row-count anomaly rules with a historical
-  baseline, plus an optional alert webhook for external routing.
-- A single vocabulary across the console: catalog tables are “数据表”,
-  model assets are “逻辑数据集”, and legacy flows/interfaces are marked.
-
-## [1.5.0] - 2026-11-23
-
-### Added
-
-- Datasource health history and optional automatic metadata synchronisation,
-  with a health drawer and an auto-sync interval on each datasource.
-- A quick-sync dialog that creates a ready-to-run pipeline from a source table
-  and a target table.
-- Project quotas enforced on assets and jobs, with a usage drawer in the
-  administration console.
-- Sensitive-column scanning that proposes masking policies and can apply them
-  in one step.
-- Scheduled quality rules with an alert-on-failure option, and schema-drift
-  acceptance from the alert list.
-- Full backup export and restore, audit retention, SIEM forwarding, runtime
-  and high-availability information, and MCP activity in the platform
-  overview.
-- SSH jump-host support for SQL connectors through a shared connection helper.
-- Asset lineage for datasets, metrics, APIs and dashboards, shown as an
-  upstream graph with column-level edges in the studio editors.
-
-### Changed
-
-- All SQL engine creation now goes through one connection service so SSH
-  tunnelling, timeouts and driver options behave the same everywhere.
-
-## [1.4.0] - 2026-11-23
-
-### Added
-
-- A separate platform administration console: users and platform roles,
-  projects and quotas, sign-in policy with OIDC/LDAP tests, branding and
-  announcements, feature flags, engine and CDC defaults, operations and
-  platform audit.
-- A connector registry with typed forms and capability scopes (test, metadata,
-  query, pipeline source/sink). New connectors: S3/MinIO, DuckDB, TiDB,
-  Apache Doris, StarRocks, OceanBase, openGauss, KingbaseES, GaussDB, MongoDB,
-  Kafka, Hive/Spark Thrift and Dameng DM, bringing the total to 24 types.
-- Structured console interactions: JSON trees, result tables, a log viewer,
-  diff views, a visual alert-rule builder, a typed property editor, CodeMirror
-  SQL editors, draggable pipeline nodes and quick-create actions in the search
-  palette.
-- Usability work: a command palette, role-aware action visibility, localized
-  backend errors, persisted filters and column choices, a virtualized audit
-  table and a getting-started checklist.
-- Project administrators can manage their own project members; quality actions
-  are audited; pipeline runs expose per-node rows, time and error.
-
-### Changed
-
-- Personal settings moved out of the workspace sidebar; platform
-  administrators get a fixed administration shortcut.
-- The console reads the effective project role so controls match API
-  permissions.
-
-### Fixed
-
-- OIDC discovery uses the guarded outbound client; Elasticsearch traffic is
-  guarded; connector errors are client-safe.
-- Kafka health checks use the admin client signature, and pipeline validation
-  skips SQL reflection for pipeline-only connectors.
-- Dameng internal `##` tables are excluded from schema sync.
-
-### Security
-
-- The dependency refresh updates Python, frontend and CI tooling floors.
-
-## [1.3.0] - 2026-11-20
-
-### Added
-
-- Dependency-aware scheduling: a downstream flow or pipeline waits for its
-  upstream to succeed within a 24-hour window, otherwise a skipped run is
-  recorded; cycles are rejected and a page manages the dependencies.
-- Dataset profiling: null counts, distinct values and ranges over a bounded
-  sample, with ranges hidden for masked columns.
-- A metric semantic layer: a metric catalogue with source dataset, definition,
-  owner and dashboard/app usage; lineage back to upstream tables; draft and
-  published comparison; dataset cross-links; publishing through review; and
-  search over definitions, dimensions and consumers.
-- MySQL and Oracle change data capture sources alongside PostgreSQL, with a
-  connector detail that shows task states and lets subscribed tables be edited.
-- Server-side audit filters with CSV export, SQL interface daily usage, and
-  alert mute rules that actually suppress matching alerts.
-- Flow and SQL interface deletion, and a flow detail route so operations jobs
-  open the flow they belong to.
-- Change withdrawal by the requester or an approver, bulk deletion on pipelines
-  and files, and empty-state create actions across the console.
-
-### Changed
-
-- The sidebar and workspace menu share one definition, and menu permissions
-  cover every page.
-- Lists show usernames instead of ids, timestamps follow the console language,
-  and muted text and glyph-only buttons are easier to read and reach.
-- List pagination returns to the first page whenever a filter changes.
-- Dialogs and drawers fit narrow screens.
-
-### Fixed
-
-- Flow and SQL interface routes are scoped to the current project, and creating
-  in another project is rejected.
-- The operations audit tab resolves actor ids to usernames, and alert filters
-  offer the error severity used by engine failures.
-- Dependency cycle rejections are translated, and change lists resolve the name
-  and action of the object they refer to.
-
-## [1.2.0] - 2026-11-19
-
-### Added
-
-- Chinese and English console switch across every page and editor, with
-  first-visit browser detection; Element Plus follows the same choice, and
-  user guides are published in both languages.
-- A dataset detail page in the catalog with overview figures, a masked sample
-  preview, columns, quality rules, impact analysis and dataset activity.
-- Flow run timing and a run detail with retry, plus downstream impact and a
-  version comparison in the flow drawer.
-- API call statistics by day and access key on API assets; SQL interfaces show
-  the endpoint address and keep a call history.
-- CDC connector detail with task states and traces, and subscribed-table
-  editing from the console.
-- Quality rules show their last result and pass rate and link to the dataset;
-  alert rules are managed from the alert console; the operations console links
-  jobs and alerts to the objects they belong to.
-
-### Changed
-
-- The console loads each view on demand and splits large libraries into vendor
-  chunks, and dates follow the selected console language.
-
-### Fixed
-
-- SQL interfaces use the current project, and their call history no longer
-  mixes in publish actions.
-- The catalog detail and method console handle projects, history and preview
-  limits consistently.
-
-## [1.1.0] - 2026-11-18
-
-### Added
-
-- Trino data sources with connectivity tests, metadata sync and query
-  execution, so Iceberg tables behave like any other governed source.
-- Engine jobs for Spark (via the Spark Operator) and Flink SQL (via the SQL
-  Gateway): submit, list, inspect, cancel and savepoint, with audit records,
-  retries and alerts.
-- A lakehouse execution profile applied to Spark jobs, so a submission without
-  extra configuration reads and writes the project's Iceberg catalog.
-- Change data capture sources backed by Debezium, manageable from the API and
-  the console.
-- `spark` and `flink_sql` pipeline nodes, with lineage from source tables to
-  the engine target.
-- Lakehouse catalog endpoint and Iceberg table maintenance through Trino.
-- Optional namespace-per-project tenancy: namespace, quota, network policy and
-  service account created on demand.
-- Kubernetes data plane assets: object storage, Iceberg catalog, Trino, Kafka,
-  Debezium, Flink, monitoring, ingress and least-privilege identities, plus an
-  idempotent installer and an acceptance script.
-- Quality rules now run against Trino-backed datasets.
-- Flink Kubernetes Operator and cert-manager in the data plane installer,
-  with Grafana dashboards for platform health, engine jobs and the lakehouse.
-- Console management for project members, API access keys and Iceberg table
-  properties; catalog tags can be removed and lakehouse maintenance accepts a
-  schema.
-
-### Fixed
-
-- Metadata resync updates datasets in place, so quality rules, tags and
-  standard mappings survive a refresh.
-- Two-factor setup accepts an empty request body, and the dashboard counts
-  published interfaces instead of retired interface records.
-- Engine profiles no longer return storage credentials, and gateway failures
-  return a fixed message instead of an internal URL.
-- Workbench row limiting keeps the outer `ORDER BY`, which SQL Server and
-  Oracle reject inside a derived table.
-
-### Changed
-
-- Element Plus runs with the Chinese locale and the bundled assets are rebuilt.
-- CI runs the frontend job on Node 24; dependencies and GitHub Actions are
-  refreshed, and the integration suite uses the archived Bitnami LDAP image.
-
-### Documentation
-
-- Lakehouse delivery guide, engine profile reference and a 5.1 GB benchmark
-  result recorded in `docs/PERFORMANCE.md`.
-
-## [1.0.0] - 2026-10-23
-
-### Added
-
-- API-first low-code data platform with a stateless API, MCP server,
-  scheduler and scalable workers.
-- Pipeline Studio, API Studio, Model Studio, Dashboard Studio and App Studio.
-- Data catalog, column lineage, impact analysis, quality rules, column
-  masking, row policies and audit.
-- Signed public API gateway, grants, webhooks, files, share links and
-  project-scoped RBAC.
-- Durable PostgreSQL job queue, cursor-safe backfill, retries, alerts, health
-  events, Prometheus metrics and backup/restore tooling.
-- Docker Compose, Helm chart and systemd deployment assets.
-- Reproducible 30GB benchmark harness and published capacity baseline.
-- English and Simplified Chinese documentation.
-
-### Fixed
-
-- Restore editable-install metadata so clean environments can install the
-  backend package.
-- Install the optional observability and metrics dependencies in CI.
-- Use a maintained S3 mock and a reliable ClickHouse readiness check in the
-  integration test environment.
-- Enforce TLS 1.2 for outbound HTTP and webhook connections, contain local
-  storage paths and avoid exposing readiness exception details.
-
-[1.0.0]: https://github.com/CildCo/opendatafusion/releases/tag/v1.0.0
+  field before the metadata lookup and ignores stale responses, so a topic
+  typed immediately after selection is preserved.

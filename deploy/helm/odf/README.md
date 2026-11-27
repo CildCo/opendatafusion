@@ -16,7 +16,7 @@
 helm upgrade --install odf deploy/helm/odf \
   --namespace odf --create-namespace \
   --set image.repository=ghcr.io/CildCo/opendatafusion \
-  --set image.tag=1.0.0 \
+  --set image.tag=1.1.0 \
   --set secrets.existingSecret=odf-secrets \
   --set ingress.enabled=true --set ingress.host=odf.example.com
 ```

@@ -11,7 +11,7 @@ over MCP.
 
 [![CI](https://github.com/CildCo/opendatafusion/actions/workflows/ci.yml/badge.svg)](https://github.com/CildCo/opendatafusion/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/CildCo/opendatafusion?include_prereleases&sort=semver)](https://github.com/CildCo/opendatafusion/releases)
+[![Release](https://img.shields.io/github/v/release/CildCo/opendatafusion?sort=semver)](https://github.com/CildCo/opendatafusion/releases)
 [![Container](https://img.shields.io/badge/container-ghcr.io%2FCildCo%2Fopendatafusion-2496ed)](https://github.com/CildCo/opendatafusion/pkgs/container/opendatafusion)
 
 ![OpenDataFusion overview](docs/images/dashboard.png)
@@ -23,10 +23,12 @@ over MCP.
 <details>
 <summary>Contents</summary>
 
+- [What's new in 1.1.0](#whats-new-in-110)
 - [What is OpenDataFusion?](#what-is-opendatafusion)
 - [Explore the console](#explore-the-console)
 - [Why OpenDataFusion](#why-opendatafusion)
 - [Feature overview](#feature-overview)
+- [Integration-tested paths](#integration-tested-paths)
 - [Architecture](#architecture)
 - [Quick start](#quick-start)
 - [Documentation](#documentation)
@@ -36,6 +38,30 @@ over MCP.
 - [License](#license)
 
 </details>
+
+## What's new in 1.1.0
+
+Version 1.1.0 is the new baseline for the public project. It packages the
+complete current platform into one release:
+
+- **Data products** as first-class assets with owners, SLAs, terms and member
+  assets, plus product packaging and bundle export.
+- **Data standards** management and column-level standard mapping in the
+  catalog, with governed write routes and audit entries.
+- **External metadata import** for dbt manifests and BI metadata, with
+  read-only external datasets in the physical catalog.
+- **Low-code app widgets**: file upload, approval queues, reusable lists and
+  built-in application templates.
+- **Asset trust and lifecycle**: certification, lifecycle notes, run priority,
+  duration SLAs and health views.
+- **Cost attribution and distribution drift** in operations and quality.
+- **Embed SDK, page roles, conditional styles and bulk glossary import** for
+  production-ready sharing and governance.
+- **DuckDB quality rules and pipeline node editing fixes**, verified against a
+  live integration environment.
+
+The project now counts from 1.1.0. Earlier public releases and tags were
+retired during this reset; the git history remains intact.
 
 ## What is OpenDataFusion?
 
@@ -58,8 +84,8 @@ Kubernetes.
 open-source data platform, low-code ETL, ELT, data integration, data pipeline,
 lakehouse, Apache Iceberg, Nessie, Trino, Apache Spark, Apache Flink, Kafka,
 Debezium, CDC, data catalog, data lineage, data quality, data governance, API
-gateway, internal tools, BI dashboards, MCP, AI data agents, FastAPI, Vue 3,
-Kubernetes.
+gateway, internal tools, BI dashboards, data products, semantic layer, MCP, AI
+data agents, FastAPI, Vue 3, Kubernetes.
 
 </details>
 
@@ -70,22 +96,25 @@ Chinese from the header switch.
 
 | | |
 | --- | --- |
-| ![Catalog](docs/images/catalog.png) **Catalog and profiling.** Table and column search, tags, a masked sample, profiling, quality rules, impact analysis and activity in one detail page. | ![Pipeline Studio](docs/images/pipeline.png) **Pipeline Studio.** Visual DAGs with source, filter, join, aggregate, quality and sink nodes; schema validation, preview, versioned publish and bounded backfill. |
-| ![Pipeline studio](docs/images/pipeline.png) **Pipeline studio.** Visual DAGs with transforms, engine nodes, cursors, versioned publishing, scheduling and dependencies. | ![Metric catalogue](docs/images/metrics.png) **Semantic layer.** A metric catalogue with source dataset, definition, owner and the dashboards and apps that consume it. |
-| ![Dashboards](docs/images/dashboards.png) **Dashboards.** Cards, charts, tables and text on a 12-column grid, with filters, versioned publish and expiring share links. | ![Data apps](docs/images/apps.png) **Data apps.** Multi-page internal apps with parameters, metric cards, tables and audited write forms over published datasets. |
-| ![Data quality](docs/images/quality.png) **Data quality.** Freshness, null, uniqueness, range, enum and schema rules with pass rates and per-run results. | ![Operations](docs/images/ops.png) **Operations.** Queue and failures, alert triage, dependency skips, API calls and audit in one console. |
-| ![Governed APIs](docs/images/interfaces.png) **Governed APIs.** Visual or SQL APIs with typed parameters, publication, call history, grants and signed AK/SK gateway access. | ![SQL workbench](docs/images/workbench.png) **SQL workbench.** Read-only queries with governed sources, federated queries and CSV export. |
+| ![Catalog](docs/images/catalog.png) **Catalog and profiling.** Table and column search, tags, a masked sample, profiling, quality rules, impact analysis and activity in one detail page. | ![Pipeline Studio](docs/images/pipeline.png) **Pipeline Studio.** Visual DAGs with source, filter, join, aggregate, quality, engine and sink nodes; schema validation, preview, versioned publish, scheduling and bounded backfill. |
+| ![SQL workbench](docs/images/workbench.png) **SQL workbench.** Read-only queries with governed sources, schema completion, result charts, execution plans and CSV export. | ![Metric catalogue](docs/images/metrics.png) **Semantic layer.** A metric catalogue with source dataset, definition, owner and the dashboards and apps that consume it. |
+| ![Dashboards](docs/images/dashboards.png) **Dashboards.** Cards, charts, tables, maps and text on a 12-column grid, with filters, drill-through, scheduled reports, versioned publish and expiring share links. | ![Data apps](docs/images/apps.png) **Data apps.** Multi-page internal apps with parameters, metric cards, tables, uploads, approval queues and audited forms over published datasets. |
+| ![Data quality](docs/images/quality.png) **Data quality.** Freshness, null, uniqueness, range, enum, drift and schema rules with pass rates, SLA alerts and per-run results. | ![Operations](docs/images/ops.png) **Operations.** Queue and failures, dead-letter replay, alert triage, dependency skips, cost attribution, API calls and audit in one console. |
 
 ## Why OpenDataFusion
 
-- **One delivery loop.** Source → pipeline → dataset/metric → API, dashboard or
-  app, with lineage, quality, approvals and audit in the same product model.
+- **One delivery loop.** Source → pipeline → dataset/metric → API, dashboard,
+  app or data product, with lineage, quality, approvals and audit in the same
+  product model.
 - **Operable by design.** A durable PostgreSQL job queue, retrying workers, a
   single scheduler leader, cursor-safe backfill, health events, metrics and
   backup scripts.
 - **Governance is visible.** Column masking, row policies, governed SQL
-  restrictions, quality rules and approval-gated publishing are first-class
-  states, not hidden error paths.
+  restrictions, data standards, quality rules and approval-gated publishing are
+  first-class states, not hidden error paths.
+- **Runs on your data plane.** Execution adapters cover relational databases,
+  DuckDB, object storage, Trino/Iceberg, Spark and Flink without changing the
+  asset catalogue or permission model.
 - **AI-operable without a chat UI.** An MCP server exposes read tools and
   approval-gated write tools to external agents. Every management action is
   also available over HTTP.
@@ -94,20 +123,38 @@ Chinese from the header switch.
 
 | Area | What you get |
 | --- | --- |
-| **Data sources** | 25 connectors through one registry: PostgreSQL, MySQL/MariaDB, SQLite, Oracle, SQL Server, TiDB, Apache Doris, StarRocks, OceanBase, openGauss, KingbaseES, GaussDB, Dameng DM, ClickHouse, Trino, DuckDB, Hive/Spark Thrift, S3/MinIO, CSV/TSV/Parquet/JSON/Excel, HTTP, Elasticsearch, MongoDB, Kafka and Airbyte-protocol sources. Typed connection forms, capability scopes, pre-save tests, encrypted DSNs, metadata sync and schema-drift alerts. |
-| **Pipeline Studio** | Visual DAGs with source, filter, select, rename, cast, join, aggregate, union, dedupe, quality and sink nodes; schema validation; per-node error policy; preview; versioned publish; cron; cursor inspection/reset; bounded backfill. |
+| **Data sources** | A connector registry covering relational databases, openGauss, KingbaseES, GaussDB, Dameng DM, ClickHouse, Trino, DuckDB, Hive/Spark Thrift, S3/MinIO, files, HTTP, Elasticsearch, MongoDB, Kafka and Airbyte-protocol sources. Typed forms, capability scopes, pre-save tests, encrypted DSNs, metadata sync and schema-drift alerts. |
+| **Pipeline Studio** | Visual DAGs with source, filter, select, rename, cast, join, aggregate, union, dedupe, quality, Spark, Flink SQL and sink nodes; schema validation; per-node error policy; preview; versioned publish; cron; cursor inspection/reset; bounded backfill; templates and failure handling. |
 | **API Studio** | Visual single-table queries or guarded SQL; typed parameters; preview/test; approval-gated publish and rollback; generated docs; AK/SK-signed execution at `/openapi/{key}`; a GraphQL gateway with schema introspection at `/openapi/graphql`. |
-| **Model Studio** | Dataset, metric and transform-model assets; SQL datasets; expression metrics; time grains and comparison; SQL models with refs, view/table/incremental materializations, tests and warehouse layers; approval publishing; AI read tools. |
-| **Dashboard Studio** | 12-column dashboard assets with cards, charts, tables and text; filters and parameter binding; drill-through to underlying rows; GeoJSON map widgets; scheduled CSV reports; drag/resize editor; versioned publish; read-only runtime, expiring share links and embed snippets. |
-| **App Studio** | Multi-page internal apps with parameters, metric cards, tables, row-detail drawers and audited insert/update/delete forms over published datasets. |
-| **Lakehouse** | Trino data sources over Apache Iceberg with table health, snapshots, time travel, file optimization, snapshot expiry and scheduled maintenance. |
-| **Compute engines** | Spark applications through the Spark Operator and Flink SQL through the SQL Gateway: submit, inspect, cancel, savepoint, and a lakehouse profile the platform applies by default. |
-| **Change data capture** | Debezium connectors for PostgreSQL, MySQL and Oracle created, paused, resumed and monitored from the platform; change events land in Kafka for Flink or Spark to consume. |
-| **Catalog & lineage** | Table and column search, tags, column-level lineage, downstream impact analysis, OpenLineage events and a JSON catalog export that can be pushed to an external catalog. |
-| **Governance** | Column classification and masking, row policies, data standards, freshness/regex/enum/schema quality rules and audit-backed policy changes. |
-| **Operations** | Ops center, queue summary, job retry, alert acknowledgement, dependency-aware scheduling, Prometheus metrics, request IDs, JSON logs, backup/restore and HA guidance. |
-| **Administration** | A separate platform console for users and platform roles, projects and quotas, sign-in policy, OIDC/LDAP, branding and announcements, feature flags, engine, CDC, Airbyte and lineage settings, backups and platform audit. |
-| **Open API & MCP** | Management API, signed public gateway, streamable HTTP MCP server, stdio MCP entry point and approval-token-protected write tools. |
+| **Model Studio** | Dataset, metric and transform-model assets; visual and SQL datasets; expression metrics; time grains and comparison; SQL models with refs, view/table/incremental materialisations, tests, warehouse layers and column lineage; approval publishing. |
+| **Dashboard Studio** | 12-column dashboards with cards, charts, tables, maps and text; filters and parameter binding; drill-through; GeoJSON maps; scheduled CSV reports; drag/resize editor; versioned publish; read-only runtime, share links and embed snippets. |
+| **App Studio** | Multi-page apps with parameters, bindings, actions, page roles, component styles, conditional highlights, containers, tabs, modals, uploads, approval queues and lists; app templates; public share mode that strips write components. |
+| **Data products** | Product assets with owner, SLA, terms and member assets; packaging and bundle export; cost attribution by project; usage and lineage in one view. |
+| **Lakehouse** | Trino data sources over Apache Iceberg with table health, snapshots, exact snapshot time travel, file optimisation, snapshot expiry and scheduled maintenance. |
+| **Compute engines** | Spark applications through the Spark Operator and Flink SQL through the SQL Gateway: submit, inspect, cancel and savepoint, with a lakehouse profile applied by default. |
+| **Change data capture** | Debezium connectors for PostgreSQL, MySQL and Oracle created, paused, resumed and monitored from the platform; changes land in Kafka for Flink or Spark; generated CDC pipelines support schema evolution and deletes. |
+| **Catalog and lineage** | Table and column search, tags, domains and glossary, column-level lineage, downstream impact analysis, OpenLineage events, external metadata import and a JSON catalog export. |
+| **Governance** | Column classification and masking, row policies, data standards and column mapping, contracts with freshness/quality checks, quality SLA alerts, approval-gated changes and audit-backed policy updates. |
+| **Operations** | Ops centre, queue summary, retries, dead-letter replay, dependency-aware scheduling, alert assignment and notes, cost attribution, retention and archive, Prometheus metrics and backup/restore. |
+| **Administration** | Platform console for users and roles, projects and quotas, sign-in policy, OIDC/LDAP, branding and announcements, feature flags, engine, CDC, Airbyte and lineage settings, backups and platform audit. |
+| **Open API and MCP** | Management API, signed public gateway, streamable HTTP MCP server, stdio MCP entry point and approval-token-protected write tools. |
+
+## Integration-tested paths
+
+The current release was exercised end to end through the console against a live
+data plane, including:
+
+- Trino/Iceberg datasource query, catalog detail, lakehouse health, snapshots,
+  time travel and a materialised model table.
+- Flink SQL statements through the SQL Gateway and Spark execution profiles.
+- DuckDB and openGauss connectors with datasource tests, metadata sync and
+  governed queries.
+- Airbyte-protocol connectors through the administrator command allowlist.
+- A Kafka source-to-sink pipeline with messages confirmed in the sink topic.
+- DuckDB dataset → metric → dashboard map rendering, contract generation with
+  scheduled check history, and a quality SLA breach raising an alert.
+- Role isolation, retention, datasource limits, dead-letter replay, GraphQL,
+  exports, embeds and mobile navigation.
 
 ## Architecture
 
@@ -186,7 +233,7 @@ development, see [frontend/README.md](frontend/README.md).
 | --- | --- |
 | [Architecture](docs/ARCHITECTURE.md) | Processes, execution semantics, scaling and failure model |
 | [Delivery](docs/DELIVERY.md) | Docker, Compose, Helm and systemd |
-| [Governance](docs/GOVERNANCE.md) | Catalog, lineage, masking, row policies, quality and audit |
+| [Governance](docs/GOVERNANCE.md) | Catalog, lineage, masking, row policies, standards, contracts, quality and audit |
 | [HA](docs/HA.md) | Leader election, worker scaling, backup and restore |
 | [Security](docs/SECURITY.md) | Trust boundaries, secrets, SSRF controls and reporting |
 | [Performance](docs/PERFORMANCE.md) | Metrics, pools, load tests and benchmark results |
