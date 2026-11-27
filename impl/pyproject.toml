@@ -43,7 +43,7 @@ dev = ["pytest>=9.2.0", "pyyaml>=6.0.3"]
 ldap = ["ldap3>=2.9.1"]
 files-s3 = ["boto3>=1.43.115"]
 metrics = ["prometheus-client>=0.26.0"]
-otel = ["opentelemetry-sdk>=1.45.1", "opentelemetry-exporter-otlp>=1.45.1",
+otel = ["opentelemetry-sdk>=1.45.1", "opentelemetry-exporter-otlp>=1.45.2",
   "opentelemetry-instrumentation-fastapi>=0.45b0",
   "opentelemetry-instrumentation-httpx>=0.66b2"]
 
